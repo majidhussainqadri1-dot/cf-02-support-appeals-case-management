@@ -157,6 +157,7 @@ final class RestController
                 $this->requesterReference(),
                 $channel,
                 $this->cipher->encrypt($body),
+                hash('sha256', $body),
                 $idempotencyKey,
                 new DateTimeImmutable('now', new \DateTimeZone('UTC'))
             );
