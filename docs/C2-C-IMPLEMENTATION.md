@@ -42,7 +42,7 @@ Round 1 corrected language fallback, malformed candidates, restricted-owner leak
 
 Fresh adversarial Round 2 corrected stale assignment reuse, cross-queue transfer, unapproved restricted collaboration, SLA evidence replay, overlapping calendars, impossible holidays, stale/future queue snapshots, stale breach observations and internal incident notice leakage.
 
-The code-focused adversarial run `30844984327` passed on head `4267d5bb407a651a65208d175265e3818e3334ae`. Documentation harmonization was then verified by run `30845180019` on head `7042623aaf26924162f63334bb5745d2af137515`. The final documentation correction was verified by run `30845250992` on head `cd3f7f6e47c3be95d4ad07cf3d74ac1f777ec49e`. The current final repository head is verified separately in the Draft PR and GitHub Actions; each run executes the complete PHP 8.1–8.4 matrix including both C2-C review suites.
+The complete verification chain is maintained in the Draft PR and GitHub Actions. Every verification run executes the full PHP 8.1–8.4 matrix, all C2-A and C2-B suites, the C2-C foundation suite and both C2-C review suites.
 
 ## Remaining runtime work
 
