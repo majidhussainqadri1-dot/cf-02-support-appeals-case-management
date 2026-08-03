@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Sabri\CF02\Attachment;
 
 use DateTimeImmutable;
+use DomainException;
 use InvalidArgumentException;
 use Sabri\CF02\Domain\SupportCaseId;
 
@@ -12,6 +13,7 @@ final class AttachmentRecord
 {
     private AttachmentState $state;
     private ?string $redactedReference = null;
+    private ?AttachmentScanResult $scanResult = null;
 
     public function __construct(
         private readonly string $attachmentId,
@@ -55,6 +57,10 @@ final class AttachmentRecord
 
     public function transition(AttachmentState $to, ?string $redactedReference = null): void
     {
+        if ($to === AttachmentState::Scanned || ($this->state === AttachmentState::Quarantined && $to === AttachmentState::Rejected)) {
+            throw new DomainException('Quarantine may be released or rejected only through recordScan().');
+        }
+
         (new AttachmentStateMachine())->assertTransition($this->state, $to);
 
         if ($to === AttachmentState::Redacted) {
@@ -67,12 +73,36 @@ final class AttachmentRecord
         $this->state = $to;
     }
 
+    public function recordScan(AttachmentScanResult $result): void
+    {
+        if ($this->state !== AttachmentState::Quarantined) {
+            throw new DomainException('Attachment must be quarantined before scan evidence is recorded.');
+        }
+        if (!hash_equals(strtolower($this->sha256), $result->sha256())) {
+            throw new DomainException('Scanner hash does not match the quarantined attachment.');
+        }
+        if ($result->verdict() === 'error') {
+            throw new DomainException('Scanner error leaves the attachment quarantined.');
+        }
+
+        $this->scanResult = $result;
+        if ($result->verdict() === 'infected' || strtolower($this->mimeType) !== $result->detectedMimeType()) {
+            (new AttachmentStateMachine())->assertTransition($this->state, AttachmentState::Rejected);
+            $this->state = AttachmentState::Rejected;
+            return;
+        }
+
+        (new AttachmentStateMachine())->assertTransition($this->state, AttachmentState::Scanned);
+        $this->state = AttachmentState::Scanned;
+    }
+
     public function state(): AttachmentState { return $this->state; }
     public function attachmentId(): string { return $this->attachmentId; }
     public function caseId(): SupportCaseId { return $this->caseId; }
     public function sha256(): string { return strtolower($this->sha256); }
     public function dataClass(): string { return $this->dataClass; }
     public function consentedAt(): DateTimeImmutable { return $this->consentedAt; }
+    public function scanResult(): ?AttachmentScanResult { return $this->scanResult; }
 
     public function identityFingerprint(): string
     {
@@ -80,7 +110,7 @@ final class AttachmentRecord
             $this->caseId->value(),
             $this->attachmentId,
             strtolower($this->sha256),
-            $this->mimeType,
+            strtolower($this->mimeType),
             (string) $this->sizeBytes,
             $this->purpose,
             $this->dataClass,
