@@ -1,32 +1,52 @@
 # CF-02 Review and Correction Register
 
-## Round 1 — Requirements, ownership and configuration review
+## C2-A Round 1 — Requirements, ownership and configuration review
 
-Status: corrected and retested on the development branch.
+Status: corrected and retested.
 
-Findings and corrections:
+1. Expanded mandatory owner contracts to Files 09, 17, 18 and 21.
+2. Replaced boolean activation claims with structured evidence.
+3. Added category, queue, skill and role validation.
+4. Added change-control and Founder-approval binding.
 
-1. Mandatory companion contracts covered only Files 00, 20, 24 and 25. Added versioned owner/capability manifests for Files 09, 17, 18 and 21 as required for native decision references.
-2. Operational activation gates accepted bare booleans. Replaced them with structured, timestamped evidence records and measured volume/staffing checks.
-3. Support categories and queue definitions accepted malformed or duplicate list values. Added identifier, type, uniqueness and skill-catalog validation.
-4. Queue validation did not prove that category-required skills were available. Added full category-to-queue skill coverage checks.
-5. Queue ownership roles were unvalidated strings. Bound queue owner and escalation roles to the canonical staffing-role enum.
-6. Change-control records lacked strict list, requirement-ID and approved timestamp validation. Added validation and negative tests.
-7. Founder activation identity and activation change-control ID were weakly constrained. Bound approval to the canonical `founder` identity and `CF02-ACT-###` format.
+## C2-A Round 2 — Fresh least-privilege review
 
-## Round 2 — Fresh adversarial least-privilege review
+Status: corrected and exact-head CI passed.
 
-Status: corrected and full CI pending/required on the exact final head.
+1. Reordered malformed-value validation before duplicate checks.
+2. Split Account/Verification and Privacy/Safety queues.
+3. Cross-checked measured trigger thresholds.
+4. Rejected blank staffing assignments and owner/capability spoofing.
 
-Findings and corrections:
+## C2-B Round 1 — Aggregate, replay and disclosure review
 
-1. Non-string category/queue values reached duplicate checking before type validation. Reordered validation to reject malformed values first.
-2. Account and verification categories shared one identity queue despite different native authorities. Split them into purpose-specific queues.
-3. Privacy-right and safety/abuse cases shared one sensitive queue, allowing avoidable cross-purpose visibility. Split them into separate liaison queues.
-4. Measured activation evidence could claim `triggered: true` even when the observed value was below threshold. Added numerical consistency checks.
-5. Staffing evidence allowed blank queue-owner assignments. Added key/value validation.
-6. Adversarial tests were expanded for Founder spoofing, invalid activation IDs, missing owner capability, boolean-only evidence, false volume triggers, blank staffing assignments, malformed configuration and purpose-separated queue mapping.
+Status: corrected and GitHub Actions run `30824537388` passed on PHP 8.1–8.4.
+
+1. Exact requester identity is preserved in idempotency keys.
+2. Payment-card detection uses Luhn validation to reduce false positives.
+3. Reusing a message idempotency key with a different payload now fails.
+4. Attachment identifiers cannot be rebound to different content.
+5. Requester projections exclude quarantined and requester-hidden attachment IDs.
+6. Direct `Resolved`/`Closed` transitions are blocked; governed resolution policy is mandatory.
+7. Receipts show sender trust explicitly without granting authority.
+
+## C2-B Round 2 — Fresh adversarial lifecycle and evidence review
+
+Status: corrected; exact final-head CI required and recorded separately.
+
+1. Replaced delimiter-joined idempotency input with canonical JSON encoding.
+2. Added an intake replay ledger: exact replay returns one case; changed payload under the same key fails.
+3. Added portable description-length handling and canonical intake fingerprints.
+4. Made emergency/acute diversion an explicit triage result.
+5. Prevented direct `Scanned` state changes; quarantine release now requires structured scanner name/version, matching SHA-256, MIME verification and verdict.
+6. Scanner errors preserve quarantine; infection or MIME mismatch produces rejection.
+7. Blocked direct `Reopened` transitions; governed reopen enforces the resolution window.
+8. Closed cases are immutable until governed reopen succeeds.
+9. User portal no longer emits raw support-agent references.
+10. Resolution content rejects duplicate actions and secrets.
+11. Merge reversal reason is retained for audit.
+12. Added adversarial tests for delimiter collisions, scan spoofing, replay mismatch, expired reopening, emergency diversion and portal minimization.
 
 ## Truthful completion state
 
-These reviews cover the Phase C2-A foundation only. They do not prove package, staging, live or operational completion. Any CI failure, new defect report, companion-contract change, security advisory or staging evidence reopens this register and requires another review/fix cycle.
+These reviews prove repository-level foundation behavior only. WordPress persistence, real providers, scanner/storage services, routes, staging, migration, backup/restore, accessibility, live deployment and operations remain unproved. Any new evidence reopens review.
