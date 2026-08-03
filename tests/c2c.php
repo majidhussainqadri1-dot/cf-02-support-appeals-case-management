@@ -80,12 +80,12 @@ $test('accountable owner transfer revokes old owner and preserves one owner', st
     $second = $router->decide($request, [new AgentProfile('agent-2', StaffingRole::SupportAgent, ['technical_support'], ['en-US'], ['technical'], 5, 0, true)], new DateTimeImmutable('2026-08-03T13:00:00+05:00'));
 
     $assignment = new CaseAssignment($caseId);
-    $assignment->assign($first, 1);
+    $assignment->assign($first, 1, new DateTimeImmutable('2026-08-03T12:01:00+05:00'));
     $assignment->addCollaborator('agent-3', ['view_case'], new DateTimeImmutable('2026-08-04T12:00:00+05:00'), 2, new DateTimeImmutable('2026-08-03T12:30:00+05:00'));
     assert($assignment->canAccess('agent-1', 'reply_case'));
     assert(!$assignment->canAccess('agent-1', 'restricted_projection'));
     assert($assignment->canAccess('agent-3', 'view_case', new DateTimeImmutable('2026-08-03T13:00:00+05:00')));
-    $assignment->transfer($second, 'Required workload rebalance', 3, new DateTimeImmutable('2026-08-03T13:00:00+05:00'));
+    $assignment->transfer($second, 'Required workload rebalance', 3, new DateTimeImmutable('2026-08-03T13:01:00+05:00'));
     assert($assignment->ownerReference() === 'agent-2');
     assert(!$assignment->canAccess('agent-1', 'reply_case'));
 });
@@ -95,7 +95,7 @@ $test('assignment aggregate rejects stale version', static function (): void {
     $request = new AssignmentRequest($caseId, 'technical', ['technical_support'], 'en-US', 'P3', false, false);
     $decision = (new AssignmentRouter())->decide($request, [new AgentProfile('agent-1', StaffingRole::SupportAgent, ['technical_support'], ['en-US'], ['technical'], 5, 0, true)]);
     $assignment = new CaseAssignment($caseId);
-    $assignment->assign($decision, 1);
+    $assignment->assign($decision, 1, $decision->decidedAt());
     $thrown = false;
     try {
         $assignment->addCollaborator('agent-2', ['view_case'], new DateTimeImmutable('+1 day'), 1);
@@ -123,7 +123,7 @@ $test('SLA registry and governed pause law validate', static function () use ($c
     }
     assert($rejected);
 
-    $clock->recordFirstResponse(new DateTimeImmutable('2026-08-03T09:30:00+05:00'), 1);
+    $clock->recordFirstResponse(new DateTimeImmutable('2026-08-03T09:30:00+05:00'), 'message:first-response-1', 1);
     $before = $clock->resolutionDeadline();
     $clock->pause(SlaPauseReason::AwaitingRequester, 'message:request-1', new DateTimeImmutable('2026-08-03T10:00:00+05:00'), 2);
     $paused = $clock->resume(new DateTimeImmutable('2026-08-03T11:00:00+05:00'), 3);
@@ -141,8 +141,9 @@ $test('breach prediction and escalation preserve P1 oversight', static function 
 });
 
 $test('queue health becomes critical for breached or unowned P1 work', static function (): void {
-    $snapshot = new QueueHealthSnapshot('technical', new DateTimeImmutable(), 10, 2, 1, 3, 1, 1500, 2, 10, 9);
-    $decision = (new QueueHealthEvaluator())->evaluate($snapshot);
+    $captured = new DateTimeImmutable('2026-08-03T18:00:00+05:00');
+    $snapshot = new QueueHealthSnapshot('technical', $captured, 10, 2, 1, 3, 1, 1500, 2, 10, 9);
+    $decision = (new QueueHealthEvaluator())->evaluate($snapshot, new DateTimeImmutable('2026-08-03T18:01:00+05:00'));
     assert($decision->status() === 'critical');
 });
 
