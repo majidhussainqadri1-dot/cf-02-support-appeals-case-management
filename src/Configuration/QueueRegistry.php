@@ -12,7 +12,8 @@ final class QueueRegistry
     public static function defaults(): array
     {
         $queues = [
-            new QueueDefinition('identity', 'Identity Support', ['account_access', 'verification'], ['account_support', 'verification_support', 'privacy_safe_handling'], 'team_lead', 'coverage.identity.v1', 'specialist_agent', true),
+            new QueueDefinition('account', 'Account Support', ['account_access'], ['account_support', 'privacy_safe_handling'], 'team_lead', 'coverage.account.v1', 'specialist_agent', true),
+            new QueueDefinition('verification', 'Verification Support', ['verification'], ['verification_support', 'privacy_safe_handling'], 'team_lead', 'coverage.verification.v1', 'specialist_agent', true),
             new QueueDefinition('publishing', 'Publishing Support', ['publishing'], ['publishing_support'], 'team_lead', 'coverage.publishing.v1', 'specialist_agent'),
             new QueueDefinition('learning', 'Learning and Entitlements', ['learning_billing'], ['learning_support', 'entitlement_support'], 'team_lead', 'coverage.learning.v1', 'specialist_agent'),
             new QueueDefinition('clinic', 'Clinic and Appointment Support', ['clinic_appointment'], ['clinic_support', 'privacy_safe_handling'], 'team_lead', 'coverage.clinic.v1', 'specialist_agent', true),
@@ -20,7 +21,8 @@ final class QueueRegistry
             new QueueDefinition('media', 'Media and PDF Support', ['media_pdf'], ['media_support', 'rights_safety'], 'team_lead', 'coverage.media.v1', 'specialist_agent'),
             new QueueDefinition('marketplace', 'Marketplace Support', ['marketplace'], ['marketplace_support', 'privacy_safe_handling'], 'team_lead', 'coverage.marketplace.v1', 'specialist_agent', true),
             new QueueDefinition('technical', 'Technical and Accessibility Support', ['technical', 'accessibility'], ['technical_support', 'accessibility_support'], 'team_lead', 'coverage.technical.v1', 'specialist_agent'),
-            new QueueDefinition('sensitive_liaison', 'Privacy and Safety Liaison', ['privacy_data_rights', 'safety_abuse'], ['privacy_liaison', 'safety_liaison', 'restricted_evidence'], 'sensitive_liaison', 'coverage.sensitive.v1', 'team_lead', true),
+            new QueueDefinition('privacy_liaison', 'Privacy Liaison', ['privacy_data_rights'], ['privacy_liaison', 'restricted_evidence'], 'sensitive_liaison', 'coverage.privacy.v1', 'team_lead', true),
+            new QueueDefinition('safety_liaison', 'Safety and Abuse Liaison', ['safety_abuse'], ['safety_liaison', 'restricted_evidence'], 'sensitive_liaison', 'coverage.safety.v1', 'team_lead', true),
         ];
 
         $indexed = [];
