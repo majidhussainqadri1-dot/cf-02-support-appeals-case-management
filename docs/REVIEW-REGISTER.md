@@ -1,81 +1,115 @@
 # CF-02 Review and Correction Register
 
-## C2-A Round 1 — Requirements, ownership and configuration review
+## Completed earlier phases
+
+C2-A, C2-B and C2-C each completed two independent review/fix rounds. Their retained regression suites cover activation evidence, companion ownership, taxonomy/configuration, intake replay, case/thread/attachment lifecycle, resolution/reopen, assignment, SLA, escalation, queue health and major-incident privacy.
+
+## C2-D Round 1 — Authorization, command and evidence integrity
 
 Status: corrected and retested.
 
-1. Expanded mandatory owner contracts to Files 09, 17, 18 and 21.
-2. Replaced boolean activation claims with structured evidence.
-3. Added category, queue, skill and role validation.
-4. Added change-control and Founder-approval binding.
+1. Replaced role-only assumptions with `AccessContext` and purpose-bound object/field/action authorization.
+2. Required assignment/queue relationship, versioned capability, field class, sensitive approval, recent authentication, expiry and suspension checks.
+3. Added canonical mutation fingerprints, replay windows and idempotency collision rejection.
+4. Bound native-owner commands to exact payload fingerprints and owner/action/object identity.
+5. Added retry, dead letter, compensation and native implementation reconciliation.
+6. Added authorized minimized case search, bounded cursors, safe filters, legal holds, secure exports and tamper-evident audit chaining.
 
-## C2-A Round 2 — Fresh least-privilege review
+## C2-D Round 2 — Fresh adversarial authority and disclosure review
 
-Status: corrected and exact-head CI passed.
+Status: corrected and retested.
 
-1. Reordered malformed-value validation before duplicate checks.
-2. Split Account/Verification and Privacy/Safety queues.
-3. Cross-checked measured trigger thresholds.
-4. Rejected blank staffing assignments and owner/capability spoofing.
+1. Blocked expired/suspended contexts and incompatible purposes.
+2. Rejected sensitive access without both specialist approval and recent authentication.
+3. Prevented one command idempotency key from changing owner, action, object or payload.
+4. Exposed native owner/version/outcome drift instead of false reconciliation.
+5. Rejected cursor tampering, hidden-result count leakage and sensitive audit-context keys.
+6. Added authenticated encryption for persisted private messages and bounded export secret detection.
 
-## C2-B Round 1 — Aggregate, replay and disclosure review
+## C2-E Round 1 — Appeal fairness and independence
 
-Status: corrected and GitHub Actions run `30824537388` passed on PHP 8.1–8.4.
+Status: corrected and retested.
 
-1. Exact requester identity is preserved in idempotency keys.
-2. Payment-card detection uses Luhn validation to reduce false positives.
-3. Reusing a message idempotency key with a different payload now fails.
-4. Attachment identifiers cannot be rebound to different content.
-5. Requester projections exclude quarantined and requester-hidden attachment IDs.
-6. Direct `Resolved`/`Closed` transitions are blocked; governed resolution policy is mandatory.
-7. Receipts show sender trust explicitly without granting authority.
+1. Added standing, deadline, grounds, evidence and documented exception eligibility.
+2. Added competence, availability, prior-involvement, conflict and sensitive-clearance reviewer assignment.
+3. Preserved the original decision as an immutable dossier hash with append-only submissions.
+4. Added reasoned outcomes, findings, evidence considered, effective actions and further rights.
+5. Required native decision and implementation references before closure.
 
-## C2-B Round 2 — Fresh adversarial lifecycle and evidence review
+## C2-E Round 2 — Fresh adversarial appeal review
 
-Status: corrected and exact-head CI passed.
+Status: corrected and retested.
 
-1. Replaced delimiter-joined idempotency input with canonical JSON encoding.
-2. Added an intake replay ledger: exact replay returns one case; changed payload under the same key fails.
-3. Added portable description-length handling and canonical intake fingerprints.
-4. Made emergency/acute diversion an explicit triage result.
-5. Prevented direct `Scanned` state changes; quarantine release now requires structured scanner name/version, matching SHA-256, MIME verification and verdict.
-6. Scanner errors preserve quarantine; infection or MIME mismatch produces rejection.
-7. Blocked direct `Reopened` transitions; governed reopen enforces the resolution window.
-8. Closed cases are immutable until governed reopen succeeds.
-9. User portal no longer emits raw support-agent references.
-10. Resolution content rejects duplicate actions and secrets.
-11. Merge reversal reason is retained for audit.
-12. Added adversarial tests for delimiter collisions, scan spoofing, replay mismatch, expired reopening, emergency diversion and portal minimization.
+1. Blocked self-review and prior-decision involvement.
+2. Rejected late exceptions without an accessibility, representation or new-evidence basis.
+3. Required a further path for ineligible appeals.
+4. Rejected modifying/overturning outcomes without effective actions.
+5. Kept appeals open when implementation references drifted.
+6. Preserved non-retaliation and representative/accessibility paths.
 
-## C2-C Round 1 — Assignment, SLA integrity and incident chronology review
+## C2-F Round 1 — Quality, configuration, automation and degraded delivery
 
-Status: corrected and GitHub Actions run `30844311641` passed on PHP 8.1–8.4.
+Status: corrected and retested.
 
-1. Language changed from a soft routing preference to an exact eligibility constraint; unsupported language remains explicitly unassigned.
-2. Malformed assignment candidate entries are rejected rather than silently ignored.
-3. Ordinary accountable owners cannot access restricted projections.
-4. Existing collaboration grants cannot be silently widened or extended; revocation is required before material change.
-5. SLA pause is prohibited before first response and after an existing breach.
-6. SLA resolution requires a recorded first response.
-7. Queue-health capacity, empty-queue and subset metrics are cross-validated.
-8. Major-incident audit mutations use explicit chronological timestamps rather than hidden wall-clock time.
+1. Added complete accuracy/empathy/compliance/security/accessibility quality rubric and correction tracking.
+2. Made rubric validation order-independent and rejected missing or unsupported dimensions.
+3. Added approved/versioned/expiring knowledge suggestions with suggestion-only boundaries.
+4. Added optional feedback, opt-out, secret rejection and low-volume identity suppression.
+5. Added versioned staged configuration, validation, dual approval, activation and rollback.
+6. Added durable outbox, exponential retry, dead letter, consented alternate channels and hold-aware retention.
 
-## C2-C Round 2 — Fresh adversarial authority, time and evidence review
+## C2-F Round 2 — Fresh adversarial automation and abuse review
 
-Status: corrected; GitHub Actions run `30844984327` passed on exact head `4267d5bb407a651a65208d175265e3818e3334ae` for PHP 8.1–8.4.
+Status: corrected and retested.
 
-1. Assignment decisions now expire after five minutes so stale capacity snapshots cannot be committed indefinitely.
-2. Assignment commit time is explicit and expired decisions fail closed.
-3. Transfers cannot use a decision issued for another queue.
-4. Restricted collaborator scope requires explicit purpose-bound approval.
-5. First response, updates and resolution require typed, unique evidence references; one item cannot manipulate multiple SLA events.
-6. Breach prediction rejects observations older than the current clock and treats governed pauses as watch rather than false normality.
-7. Coverage calendars reject overlapping working windows and impossible holiday dates.
-8. Queue-health evaluation rejects stale and materially future-dated snapshots.
-9. Public incident summaries and resolutions reject prohibited secrets.
-10. Public incident projection exposes only notice availability, never the internal notice reference.
-11. Adversarial tests cover expired assignment, cross-queue transfer, restricted collaboration, SLA evidence replay, calendar corruption, stale metrics and public incident leakage.
+1. Prohibited autonomous final appeal, identity, refund, clinical, safety and native-owner actions.
+2. Required human confirmation for governed closure and human review for every suggestion.
+3. Added progressive guest/authenticated rate limits, challenge thresholds and bounded penalties without hiding emergency direction.
+4. Prevented outbox idempotency keys from binding changed content.
+5. Added governed task lifecycle with dependency, outcome and optimistic-concurrency controls.
+6. Prevented feedback and templates from carrying OTPs, credentials or secret variables.
+
+## C2-G Round 1 — Migration mapping and parity
+
+Status: corrected and retested.
+
+1. Added immutable source-to-target mapping, source/target hashes and isolated failure records.
+2. Added strict dual-read field parity and explicit divergence evidence.
+3. Required complete record counts, zero case/SLA/appeal divergence and rehearsed rollback before cutover.
+
+## C2-G Round 2 — Fresh adversarial migration review
+
+Status: corrected and retested.
+
+1. Prevented source mappings from being rebound to a different target.
+2. Treated scalar type drift as real divergence.
+3. Blocked cutover for incomplete counts, unexplained appeal/SLA drift or absent rollback proof.
+4. Preserved source truth and reversible shadow/dual-read boundaries.
+
+## C2-H Round 1 — WordPress runtime, persistence and recovery
+
+Status: corrected and retested.
+
+1. Added idempotent schema installation for cases, messages, attachments, assignments, SLA, appeals, dossiers, commands, outbox, tasks, quality, feedback, holds, configuration, migration, retention and audit.
+2. Added transactional intake replay persistence and requester-scoped case APIs.
+3. Corrected encrypted-message replay so random encryption nonces cannot create false idempotency collisions.
+4. Added bounded scheduler registration/cleanup, no-store/noindex private headers and accessible public/admin shells.
+5. Added load budgets, authenticated restore evidence, training readiness and fail-closed release gates.
+
+## C2-H Round 2 — Fresh adversarial runtime and release review
+
+Status: corrected and retested.
+
+1. Rejected injected database prefixes and incomplete restore scopes.
+2. Required sodium authenticated encryption and rejected tampered ciphertext.
+3. Cleared every scheduled-hook instance on deactivation.
+4. Added complete schema coverage tests and prohibited release evidence from defaulting to true.
+5. Kept staging, package parity, backup/restore, browser accessibility, real-provider and Founder approval as explicit external gates.
+
+## Automated evidence
+
+Run `30848651372` passed the complete C2-A through C2-H matrix on PHP 8.1, 8.2, 8.3 and 8.4. After fresh Round 2 runtime additions, run `30849210812` passed the same full matrix on all four PHP versions.
 
 ## Truthful completion state
 
-These reviews prove repository-level pure-domain and contract foundations only. WordPress persistence, transaction boundaries, public/agent routes, scheduler workers, notification delivery, real staffing/calendar providers, scanner/storage services, dashboards, staging, migration, backup/restore, accessibility, live deployment and operations remain unproved. Any new defect, dependency drift, staging evidence or security/privacy finding reopens review.
+The repository contains the complete governed coding candidate and its two review/fix suites per phase. Automated repository QA is green. Real companion adapters, scanner/storage, email/notification providers, WordPress staging, browser/device/accessibility execution, production migration, load/soak, backup/restore, rollback rehearsal, packaging, observation window and Founder exact-version acceptance remain external evidence gates. Any new finding reopens review.
