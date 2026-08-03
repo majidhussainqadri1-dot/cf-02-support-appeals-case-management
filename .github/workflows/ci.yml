@@ -32,5 +32,8 @@ jobs:
       - name: PHP syntax
         run: find . -path ./vendor -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
 
-      - name: Domain and activation-gate tests
+      - name: C2-A activation and governance tests
         run: php -d zend.assertions=1 tests/run.php
+
+      - name: C2-B intake, case, attachment and resolution tests
+        run: php -d zend.assertions=1 tests/c2b.php
