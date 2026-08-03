@@ -8,12 +8,12 @@ use DateTimeImmutable;
 
 final class ActivationGate
 {
-    /** @var list<string> */
+    /** @var array<string, string> */
     private const REQUIRED_DEPENDENCIES = [
-        'file_00_membership_contract',
-        'file_20_route_shell_contract',
-        'file_24_assurance_manifest',
-        'file_25_component_contract',
+        'file_00_membership_contract' => 'File 00',
+        'file_20_route_shell_contract' => 'File 20',
+        'file_24_assurance_manifest' => 'File 24',
+        'file_25_component_contract' => 'File 25',
     ];
 
     /** @var list<string> */
@@ -64,9 +64,21 @@ final class ActivationGate
             $reasons[] = 'Founder approval timestamp is not valid ISO 8601.';
         }
 
-        foreach (self::REQUIRED_DEPENDENCIES as $dependency) {
-            if (($dependencies[$dependency] ?? false) !== true) {
+        foreach (self::REQUIRED_DEPENDENCIES as $dependency => $expectedOwner) {
+            $contract = $dependencies[$dependency] ?? null;
+
+            if (!is_array($contract) || ($contract['ready'] ?? false) !== true) {
                 $reasons[] = sprintf('Required dependency contract is not ready: %s.', $dependency);
+                continue;
+            }
+
+            if (($contract['owner'] ?? null) !== $expectedOwner) {
+                $reasons[] = sprintf('Dependency contract owner mismatch: %s.', $dependency);
+            }
+
+            $contractVersion = $contract['contract_version'] ?? null;
+            if (!is_string($contractVersion) || !$this->isVersionIdentifier($contractVersion)) {
+                $reasons[] = sprintf('Dependency contract version is missing or invalid: %s.', $dependency);
             }
         }
 
@@ -95,5 +107,10 @@ final class ActivationGate
         $errors = DateTimeImmutable::getLastErrors();
 
         return $date !== false && ($errors === false || ($errors['warning_count'] === 0 && $errors['error_count'] === 0));
+    }
+
+    private function isVersionIdentifier(string $version): bool
+    {
+        return preg_match('/^\d+\.\d+(?:\.\d+)?(?:[-+][0-9A-Za-z.-]+)?$/', $version) === 1;
     }
 }
