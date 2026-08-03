@@ -34,4 +34,23 @@
 | Requirement IDs | CF02-FR-001, 002, 003, 004, 006, 007, 009, 010, 011, 012, 024, 025, 032 |
 | Approval status | Implementation authorized; staging/live/runtime activation not approved |
 
-Neither record constitutes permission to activate CF-02. Runtime approval still requires measured extraction need, staffing, real owner contracts, privacy/security review, migration, rollback, staging and Founder acceptance.
+## CF02-CCR-0003 — C2-C assignment, SLA and incident foundation
+
+| Field | Value |
+|---|---|
+| Requested by | Founder instruction to continue to the next phase |
+| Recorded at | 2026-08-03T23:51:00+05:00 |
+| Affected files | Assignment, collaboration, SLA policies/calendars/clocks, breach prediction, escalation, queue health and major-incident linkage |
+| Old rule | C2-C capabilities were specified; only static queues and staffing roles existed |
+| New rule | Add dormant pure-domain foundations for one accountable owner, eligibility routing, short-lived assignment decisions, scoped collaboration, versioned SLA targets, evidenced pause/resume, breach prediction, human-governed escalation, fresh queue metrics and independent-case incident linkage |
+| Rationale | Establish enforceable ownership and time-management law before persistence, workers or user-facing operations are introduced |
+| Data impact | No WordPress tables, cron jobs, routes, notifications, production staffing data or incident records; in-memory contracts and tests only |
+| Security/privacy impact | Exact language/skill/role eligibility; restricted access requires explicit approval; stale assignments/metrics fail closed; SLA evidence is typed and unique; public incident data excludes secrets and internal notice references |
+| Sharīʿah impact | No new substantive ruling; accountability, fulfilment of commitments, non-deception, privacy and prevention of harm remain governing |
+| Migration plan | Persistence and timer migration deferred; later schema must preserve policy version, deadlines, pause evidence, assignment history and incident links with reconciliation |
+| Rollback plan | Revert C2-C commits on the development branch; `main`, staging and live remain unchanged |
+| Test plan | Full C2-A/C2-B regression suite, C2-C foundation tests, independent first review, fresh adversarial second review, PHP 8.1–8.4 exact-head CI |
+| Requirement IDs | CF02-FR-008, 010, 013, 014, 015, 016, 017, 024, 025, 032 |
+| Approval status | Implementation authorized; persistence, staging, live and runtime activation not approved |
+
+No record in this register constitutes permission to activate CF-02. Runtime approval still requires measured extraction need, named staffing, real owner contracts, privacy/security review, schema/migration/rollback evidence, staging acceptance and explicit Founder approval.
