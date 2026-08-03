@@ -17,11 +17,23 @@ final class AssignmentDecision
         private readonly string $queueKey,
         private readonly int $score,
         private readonly int $eligibleCandidates,
+        private readonly bool $restrictedAccessApproved,
         private readonly array $reasons,
         private readonly DateTimeImmutable $decidedAt
     ) {
         if ($score < 0 || $eligibleCandidates < 0) {
             throw new InvalidArgumentException('Assignment score and candidate count must be non-negative.');
+        }
+        if (preg_match('/^[a-z][a-z0-9_]*$/', $queueKey) !== 1 || $reasons === []) {
+            throw new InvalidArgumentException('Assignment queue and reasons are required.');
+        }
+        foreach ($reasons as $reason) {
+            if (!is_string($reason) || trim($reason) === '') {
+                throw new InvalidArgumentException('Invalid assignment reason.');
+            }
+        }
+        if ($agentReference === null && $restrictedAccessApproved) {
+            throw new InvalidArgumentException('Unassigned decision cannot approve restricted access.');
         }
     }
 
@@ -32,13 +44,14 @@ final class AssignmentDecision
         string $queueKey,
         int $score,
         int $eligibleCandidates,
+        bool $restrictedAccessApproved,
         array $reasons,
         DateTimeImmutable $decidedAt
     ): self {
-        if (trim($agentReference) === '') {
-            throw new InvalidArgumentException('Assigned agent reference is required.');
+        if (trim($agentReference) === '' || $eligibleCandidates < 1) {
+            throw new InvalidArgumentException('Assigned agent and positive candidate count are required.');
         }
-        return new self($caseId, $agentReference, $queueKey, $score, $eligibleCandidates, $reasons, $decidedAt);
+        return new self($caseId, $agentReference, $queueKey, $score, $eligibleCandidates, $restrictedAccessApproved, $reasons, $decidedAt);
     }
 
     /** @param list<string> $reasons */
@@ -48,7 +61,7 @@ final class AssignmentDecision
         array $reasons,
         DateTimeImmutable $decidedAt
     ): self {
-        return new self($caseId, null, $queueKey, 0, 0, $reasons, $decidedAt);
+        return new self($caseId, null, $queueKey, 0, 0, false, $reasons, $decidedAt);
     }
 
     public function isAssigned(): bool { return $this->agentReference !== null; }
@@ -57,6 +70,7 @@ final class AssignmentDecision
     public function queueKey(): string { return $this->queueKey; }
     public function score(): int { return $this->score; }
     public function eligibleCandidates(): int { return $this->eligibleCandidates; }
+    public function restrictedAccessApproved(): bool { return $this->restrictedAccessApproved; }
     /** @return list<string> */ public function reasons(): array { return $this->reasons; }
     public function decidedAt(): DateTimeImmutable { return $this->decidedAt; }
 }
