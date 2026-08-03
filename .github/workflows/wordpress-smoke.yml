@@ -1,0 +1,89 @@
+name: CF-02 WordPress Lifecycle Smoke
+
+on:
+  push:
+    branches: [main, 'agent/**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wordpress:
+    name: Fresh install, activation, reactivation and safe uninstall
+    runs-on: ubuntu-latest
+
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: wordpress
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          extensions: mysqli, sodium, zip
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install WP-CLI
+        run: |
+          curl -fsSL -o /tmp/wp-cli.phar https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+          php /tmp/wp-cli.phar --info
+
+      - name: Build exact package
+        run: |
+          python3 build/package.py --source-sha "$GITHUB_SHA"
+          python3 build/verify_package.py --source-sha "$GITHUB_SHA"
+
+      - name: Provision clean WordPress
+        run: |
+          rm -rf /tmp/cf02-wp
+          mkdir -p /tmp/cf02-wp
+          php /tmp/wp-cli.phar core download --path=/tmp/cf02-wp --force
+          php /tmp/wp-cli.phar config create --path=/tmp/cf02-wp --dbname=wordpress --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306 --skip-check
+          php /tmp/wp-cli.phar core install --path=/tmp/cf02-wp --url=http://cf02.test --title='CF-02 Smoke' --admin_user=admin --admin_password='temporary-smoke-password' --admin_email=admin@example.test --skip-email
+          unzip -q "dist/cf-02-support-appeals-case-management-1.0.0-rc.2.zip" -d /tmp/cf02-wp/wp-content/plugins
+
+      - name: Activate in fail-closed state
+        run: |
+          php /tmp/wp-cli.phar plugin activate cf-02-support-appeals-case-management --path=/tmp/cf02-wp
+          test "$(php /tmp/wp-cli.phar option get cf02_installed_version --path=/tmp/cf02-wp)" = "1.0.0-rc.2"
+          php /tmp/wp-cli.phar eval '$state=get_option("cf02_activation_state", []); if (($state["status"] ?? null) !== "pending") { fwrite(STDERR, "CF-02 did not remain pending/fail-closed.\n"); exit(1); }' --path=/tmp/cf02-wp
+
+      - name: Prove deactivate and reactivate idempotency
+        run: |
+          php /tmp/wp-cli.phar plugin deactivate cf-02-support-appeals-case-management --path=/tmp/cf02-wp
+          php /tmp/wp-cli.phar plugin activate cf-02-support-appeals-case-management --path=/tmp/cf02-wp
+          test "$(php /tmp/wp-cli.phar option get cf02_installed_version --path=/tmp/cf02-wp)" = "1.0.0-rc.2"
+          php /tmp/wp-cli.phar eval '$state=get_option("cf02_activation_state", []); if (($state["status"] ?? null) !== "pending") { exit(1); }' --path=/tmp/cf02-wp
+
+      - name: Prove default uninstall preserves canonical data
+        run: |
+          php /tmp/wp-cli.phar option add cf02_uninstall_preservation_sentinel preserved --path=/tmp/cf02-wp
+          php /tmp/wp-cli.phar plugin uninstall cf-02-support-appeals-case-management --deactivate --path=/tmp/cf02-wp
+          test "$(php /tmp/wp-cli.phar option get cf02_uninstall_preservation_sentinel --path=/tmp/cf02-wp)" = "preserved"
+          test "$(php /tmp/wp-cli.phar option get cf02_installed_version --path=/tmp/cf02-wp)" = "1.0.0-rc.2"
+
+      - name: Record smoke evidence
+        run: |
+          php /tmp/wp-cli.phar core version --path=/tmp/cf02-wp
+          php -v
+          sha256sum "dist/cf-02-support-appeals-case-management-1.0.0-rc.2.zip"
