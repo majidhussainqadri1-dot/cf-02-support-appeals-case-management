@@ -63,7 +63,7 @@ $test('restricted projection requires a cleared sensitive assignment', static fu
         new AgentProfile('ordinary', StaffingRole::SupportAgent, ['technical_support'], ['en-US'], ['technical'], 5, 0, true),
     ]);
     $ordinaryAssignment = new CaseAssignment($ordinaryCase);
-    $ordinaryAssignment->assign($ordinaryDecision, 1);
+    $ordinaryAssignment->assign($ordinaryDecision, 1, $ordinaryDecision->decidedAt());
     assert(!$ordinaryAssignment->canAccess('ordinary', 'restricted_projection'));
 
     $sensitiveCase = SupportCaseId::generate();
@@ -72,16 +72,16 @@ $test('restricted projection requires a cleared sensitive assignment', static fu
         new AgentProfile('liaison', StaffingRole::SensitiveLiaison, ['privacy_liaison'], ['en-US'], ['privacy_liaison'], 5, 0, true, true),
     ]);
     $sensitiveAssignment = new CaseAssignment($sensitiveCase);
-    $sensitiveAssignment->assign($sensitiveDecision, 1);
+    $sensitiveAssignment->assign($sensitiveDecision, 1, $sensitiveDecision->decidedAt());
     assert($sensitiveAssignment->canAccess('liaison', 'restricted_projection'));
 });
 
 $test('collaborator grant cannot be silently widened or extended', static function (): void {
     $caseId = SupportCaseId::generate();
     $request = new AssignmentRequest($caseId, 'technical', ['technical_support'], 'en-US', 'P3', false, false);
-    $decision = (new AssignmentRouter())->decide($request, [new AgentProfile('owner', StaffingRole::SupportAgent, ['technical_support'], ['en-US'], ['technical'], 5, 0, true)]);
+    $decision = (new AssignmentRouter())->decide($request, [new AgentProfile('owner', StaffingRole::SupportAgent, ['technical_support'], ['en-US'], ['technical'], 5, 0, true)], new DateTimeImmutable('2026-08-04T09:55:00+05:00'));
     $assignment = new CaseAssignment($caseId);
-    $assignment->assign($decision, 1);
+    $assignment->assign($decision, 1, new DateTimeImmutable('2026-08-04T09:56:00+05:00'));
     $expiry = new DateTimeImmutable('2026-08-05T10:00:00+05:00');
     assert($assignment->addCollaborator('helper', ['view_case'], $expiry, 2, new DateTimeImmutable('2026-08-04T10:00:00+05:00')));
     assert(!$assignment->addCollaborator('helper', ['view_case'], $expiry, 3, new DateTimeImmutable('2026-08-04T10:01:00+05:00')));
@@ -108,13 +108,13 @@ $test('SLA pause cannot hide first-response or existing breach and resolution re
 
     $resolveBeforeResponse = false;
     try {
-        $clock->resolve(new DateTimeImmutable('2026-08-03T09:20:00+05:00'), 1);
+        $clock->resolve(new DateTimeImmutable('2026-08-03T09:20:00+05:00'), 'resolution:early', 1);
     } catch (DomainException) {
         $resolveBeforeResponse = true;
     }
     assert($resolveBeforeResponse);
 
-    $clock->recordFirstResponse(new DateTimeImmutable('2026-08-03T09:30:00+05:00'), 1);
+    $clock->recordFirstResponse(new DateTimeImmutable('2026-08-03T09:30:00+05:00'), 'message:first', 1);
     $breachedPause = false;
     try {
         $clock->pause(SlaPauseReason::AwaitingNativeOwner, 'command:2', new DateTimeImmutable('2026-08-04T15:00:00+05:00'), 2);
