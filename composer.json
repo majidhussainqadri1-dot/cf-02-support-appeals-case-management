@@ -4,7 +4,8 @@
   "type": "wordpress-plugin",
   "license": "proprietary",
   "require": {
-    "php": ">=8.1"
+    "php": ">=8.1",
+    "ext-sodium": "*"
   },
   "autoload": {
     "psr-4": {
@@ -13,7 +14,30 @@
   },
   "scripts": {
     "lint": "find . -path ./vendor -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l",
-    "test": "php -d zend.assertions=1 tests/run.php && php -d zend.assertions=1 tests/c2b.php && php -d zend.assertions=1 tests/c2b-review1.php && php -d zend.assertions=1 tests/c2b-review2.php",
+    "test": [
+      "php -d zend.assertions=1 tests/run.php",
+      "php -d zend.assertions=1 tests/c2b.php",
+      "php -d zend.assertions=1 tests/c2b-review1.php",
+      "php -d zend.assertions=1 tests/c2b-review2.php",
+      "php -d zend.assertions=1 tests/c2c.php",
+      "php -d zend.assertions=1 tests/c2c-review1.php",
+      "php -d zend.assertions=1 tests/c2c-review2.php",
+      "php -d zend.assertions=1 tests/c2d.php",
+      "php -d zend.assertions=1 tests/c2d-review1.php",
+      "php -d zend.assertions=1 tests/c2d-review2.php",
+      "php -d zend.assertions=1 tests/c2e.php",
+      "php -d zend.assertions=1 tests/c2e-review1.php",
+      "php -d zend.assertions=1 tests/c2e-review2.php",
+      "php -d zend.assertions=1 tests/c2f.php",
+      "php -d zend.assertions=1 tests/c2f-review1.php",
+      "php -d zend.assertions=1 tests/c2f-review2.php",
+      "php -d zend.assertions=1 tests/c2g.php",
+      "php -d zend.assertions=1 tests/c2g-review1.php",
+      "php -d zend.assertions=1 tests/c2g-review2.php",
+      "php -d zend.assertions=1 tests/c2h.php",
+      "php -d zend.assertions=1 tests/c2h-review1.php",
+      "php -d zend.assertions=1 tests/c2h-review2.php"
+    ],
     "check": ["@lint", "@test"]
   },
   "config": {
