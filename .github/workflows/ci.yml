@@ -49,3 +49,6 @@ jobs:
 
       - name: C2-C first-review regression tests
         run: php -d zend.assertions=1 tests/c2c-review1.php
+
+      - name: C2-C second-review adversarial tests
+        run: php -d zend.assertions=1 tests/c2c-review2.php
