@@ -4,10 +4,30 @@ declare(strict_types=1);
 
 namespace Sabri\CF02\Queue;
 
+use DateTimeImmutable;
+use InvalidArgumentException;
+
 final class QueueHealthEvaluator
 {
-    public function evaluate(QueueHealthSnapshot $snapshot): QueueHealthDecision
-    {
+    public function evaluate(
+        QueueHealthSnapshot $snapshot,
+        ?DateTimeImmutable $now = null,
+        int $maxAgeSeconds = 300
+    ): QueueHealthDecision {
+        $now ??= new DateTimeImmutable('now');
+        if ($maxAgeSeconds < 30 || $maxAgeSeconds > 3600) {
+            throw new InvalidArgumentException('Queue-health freshness limit must be 30 through 3600 seconds.');
+        }
+
+        $age = $now->getTimestamp() - $snapshot->capturedAt()->getTimestamp();
+        if ($age > $maxAgeSeconds || $age < -60) {
+            return new QueueHealthDecision(
+                'critical',
+                ['Queue-health snapshot is stale or materially future-dated.'],
+                ['Refresh metrics before making assignment, capacity or escalation decisions.']
+            );
+        }
+
         $status = 'healthy';
         $reasons = [];
         $actions = [];
@@ -46,7 +66,7 @@ final class QueueHealthEvaluator
         }
 
         if ($reasons === []) {
-            $reasons[] = 'Queue metrics are within the current governed thresholds.';
+            $reasons[] = 'Queue metrics are fresh and within the current governed thresholds.';
             $actions[] = 'Continue monitored handling under the active policies.';
         }
 
