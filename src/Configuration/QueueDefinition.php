@@ -54,15 +54,15 @@ final class QueueDefinition
             throw new InvalidArgumentException(sprintf('Queue %s values are required.', $label));
         }
 
-        if (count(array_unique($values)) !== count($values)) {
-            throw new InvalidArgumentException(sprintf('Duplicate queue %s values are not allowed.', $label));
-        }
-
         foreach ($values as $value) {
             if (!is_string($value)) {
                 throw new InvalidArgumentException(sprintf('Every queue %s must be a string.', $label));
             }
             self::assertIdentifier($value, $label);
+        }
+
+        if (count(array_unique($values)) !== count($values)) {
+            throw new InvalidArgumentException(sprintf('Duplicate queue %s values are not allowed.', $label));
         }
     }
 }
