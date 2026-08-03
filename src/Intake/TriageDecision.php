@@ -13,6 +13,7 @@ final class TriageDecision
         private readonly string $severity,
         private readonly bool $specialistRequired,
         private readonly bool $humanReviewRequired,
+        private readonly bool $emergencyDiversionRequired,
         private readonly array $reasons
     ) {
     }
@@ -22,5 +23,6 @@ final class TriageDecision
     public function severity(): string { return $this->severity; }
     public function specialistRequired(): bool { return $this->specialistRequired; }
     public function humanReviewRequired(): bool { return $this->humanReviewRequired; }
+    public function emergencyDiversionRequired(): bool { return $this->emergencyDiversionRequired; }
     /** @return list<string> */ public function reasons(): array { return $this->reasons; }
 }
