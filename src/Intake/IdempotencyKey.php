@@ -24,12 +24,14 @@ final class IdempotencyKey
             throw new InvalidArgumentException('Requester and source message identifiers are required for idempotency.');
         }
 
-        return new self(hash('sha256', implode('|', [
-            'cf02-intake-v1',
-            $channel->value,
-            $requesterReference,
-            $sourceMessageId,
-        ])));
+        $canonical = json_encode([
+            'version' => 'cf02-intake-v1',
+            'channel' => $channel->value,
+            'requester_reference' => $requesterReference,
+            'source_message_id' => $sourceMessageId,
+        ], JSON_THROW_ON_ERROR);
+
+        return new self(hash('sha256', $canonical));
     }
 
     public static function fromString(string $value): self
