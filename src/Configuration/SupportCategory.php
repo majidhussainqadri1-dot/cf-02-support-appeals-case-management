@@ -19,22 +19,24 @@ final class SupportCategory
         private readonly array $intakeFields,
         private readonly bool $specialistOnly = false
     ) {
-        if (preg_match('/^[a-z][a-z0-9_]*$/', $key) !== 1) {
-            throw new InvalidArgumentException('Category key must be a stable lowercase identifier.');
-        }
+        self::assertIdentifier($key, 'category');
+        self::assertIdentifier($queueKey, 'queue');
 
-        foreach ([$label, $queueKey, $nativeOwner] as $value) {
-            if (trim($value) === '') {
-                throw new InvalidArgumentException('Category label, queue and native owner are required.');
-            }
+        if (trim($label) === '' || trim($nativeOwner) === '') {
+            throw new InvalidArgumentException('Category label and native owner are required.');
         }
 
         if (!in_array($dataClass, ['C1', 'C2', 'C3', 'C4'], true)) {
             throw new InvalidArgumentException('Support category data class must be C1 through C4.');
         }
 
-        if ($requiredSkills === [] || $intakeFields === []) {
-            throw new InvalidArgumentException('Support category skills and minimum intake fields are required.');
+        self::assertIdentifierList($requiredSkills, 'required skill');
+        self::assertIdentifierList($intakeFields, 'intake field');
+
+        foreach ($requiredSkills as $skill) {
+            if (!SkillCatalog::exists($skill)) {
+                throw new InvalidArgumentException(sprintf('Unknown support skill: %s.', $skill));
+            }
         }
     }
 
@@ -46,4 +48,30 @@ final class SupportCategory
     public function nativeOwner(): string { return $this->nativeOwner; }
     /** @return list<string> */ public function intakeFields(): array { return $this->intakeFields; }
     public function specialistOnly(): bool { return $this->specialistOnly; }
+
+    private static function assertIdentifier(string $value, string $label): void
+    {
+        if (preg_match('/^[a-z][a-z0-9_]*$/', $value) !== 1) {
+            throw new InvalidArgumentException(sprintf('Invalid %s identifier.', $label));
+        }
+    }
+
+    /** @param list<string> $values */
+    private static function assertIdentifierList(array $values, string $label): void
+    {
+        if ($values === []) {
+            throw new InvalidArgumentException(sprintf('At least one %s is required.', $label));
+        }
+
+        if (count(array_unique($values)) !== count($values)) {
+            throw new InvalidArgumentException(sprintf('Duplicate %s identifiers are not allowed.', $label));
+        }
+
+        foreach ($values as $value) {
+            if (!is_string($value)) {
+                throw new InvalidArgumentException(sprintf('Every %s must be a string.', $label));
+            }
+            self::assertIdentifier($value, $label);
+        }
+    }
 }
