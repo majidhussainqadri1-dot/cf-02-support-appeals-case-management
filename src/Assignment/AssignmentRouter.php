@@ -79,8 +79,10 @@ final class AssignmentRouter
                 $request->sensitive()
                     ? 'Restricted access is approved for the cleared sensitive liaison assigned to this case.'
                     : 'No restricted projection access is granted by this decision.',
+                'Decision expires quickly and must be committed against current capacity state.',
             ],
-            $now
+            $now,
+            $now->modify('+5 minutes')
         );
     }
 }
