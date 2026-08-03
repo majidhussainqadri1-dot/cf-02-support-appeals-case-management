@@ -1,8 +1,10 @@
-# CF-02 Complete Coding Candidate — 1.0.0-rc.1
+# CF-02 Complete Coding and Packaged Candidate — 1.0.0-rc.2
 
 ## Governing result
 
-The repository now contains the complete code-level candidate for the approved CF-02 master plan across C2-A through C2-H. Each phase owns a foundation suite plus two independent review/fix suites. The full matrix runs on PHP 8.1, 8.2, 8.3 and 8.4.
+The repository contains the complete code-level candidate for the approved CF-02 master plan across C2-A through C2-H. Each phase owns a foundation suite plus two independent review/fix suites. The full matrix runs on PHP 8.1, 8.2, 8.3 and 8.4.
+
+The repository also contains a deterministic WordPress packaging and release-evidence foundation. This advances the truthful state from coded candidate to **packaged candidate**, not to Hostinger staging acceptance or live deployment.
 
 ## Implemented domains
 
@@ -14,41 +16,59 @@ The repository now contains the complete code-level candidate for the approved C
 6. Quality review, knowledge suggestions, optional feedback, configuration stage/approval/rollback, automation guardrails, progressive rate limits, task lifecycle, degraded delivery and retention/deletion planning.
 7. Immutable migration mapping, strict dual-read reconciliation, zero-divergence cutover and rollback evidence.
 8. WordPress schema v1.1.0, idempotent installer, transactional intake replay, encrypted messages, requester REST APIs, scheduler hooks, accessible support/appeal/admin shells, private cache/index headers, load budgets, recovery evidence, training readiness and release gates.
+9. Deterministic package allowlist, package manifest, per-file SHA-256, SPDX SBOM, provenance statement, source/package verifier, repository safety scan and artifact workflow.
+10. Clean WordPress lifecycle smoke for package install, fail-closed activation, deactivate/reactivate and non-destructive uninstall preservation.
 
 ## Review doctrine executed
 
-For C2-D, C2-E, C2-F, C2-G and C2-H:
+C2-A through C2-H retain two independent review/fix rounds per phase. The release-engineering layer then completed two fresh review/fix rounds covering:
 
-- coding was completed;
-- Review Round 1 discovered and corrected integrity, completeness, portability and persistence defects;
-- the corrected work was retested;
-- a fresh adversarial Review Round 2 examined different authority, replay, disclosure, race, fairness, abuse, migration and release-overclaim paths;
-- every new defect was corrected and covered by regression tests.
+- exact PR head versus synthetic merge SHA;
+- artifact/source identity;
+- archive ordering and reproducibility;
+- package version/schema/readme parity;
+- non-destructive uninstall law;
+- scanner false positives;
+- fail-closed `pending` versus stable `dormant` lifecycle semantics;
+- clean WordPress package activation/reactivation/uninstall behavior.
 
-The earlier C2-A, C2-B and C2-C phases retain the same two-round review evidence.
+Every discovered defect was corrected, retested and retained as regression evidence.
 
-## Runtime identity
+## Candidate identity
 
-- Plugin candidate: `1.0.0-rc.1`
+- Plugin candidate: `1.0.0-rc.2`
 - Schema: `1.1.0`
 - Plan: `1.0`
+- Package slug: `cf-02-support-appeals-case-management`
 - Branch: `agent/cf-02-foundation-c2-a`
 - Pull request: Draft PR #1
 
+## Automated package evidence
+
+For each exact candidate head, the release workflow produces:
+
+- `cf-02-support-appeals-case-management-1.0.0-rc.2.zip`;
+- package-contained manifest with source SHA and per-file hashes;
+- SPDX 2.3 SBOM;
+- provenance statement;
+- `SHA256SUMS`;
+- a GitHub Actions artifact bound to the exact branch head.
+
+The provenance statement is not a cryptographic signature or independent certification. Formal artifact signing remains a separately approved private operational process.
+
 ## Truthful acceptance boundary
 
-`1.0.0-rc.1` means **complete coded release candidate**, not live operational acceptance. The module remains fail-closed. The following require real external evidence before merge/activation/release acceptance:
+`1.0.0-rc.2` means **complete coded and deterministically packaged release candidate**. It does not mean staging accepted, live or operational. The module remains fail-closed. These gates still require real external evidence:
 
-- exact companion owner adapters and contract tests;
+- exact companion-owner adapters and contract tests;
 - malware scanner, private object storage, email/notification and other providers;
 - named staffing, calendars, training and on-call coverage;
-- WordPress fresh install, concurrent activation, upgrade, repair, deactivate/reactivate and non-destructive uninstall;
-- real database migration dry run, dual read, cutover and rollback;
+- Hostinger fresh install, supported upgrade, concurrent activation, repair and production-like migration;
 - browser, keyboard, screen reader, zoom, reflow, RTL/LTR, reduced-motion and device testing;
-- penetration, IDOR/BOLA/CSRF/XSS/SQLi/SSRF/replay/race/cache-leak tests in a deployed environment;
+- deployed penetration, IDOR/BOLA/CSRF/XSS/SQLi/SSRF/replay/race/cache-leak testing;
 - load, soak, queue saturation, provider outage and recovery objectives;
 - backup/restore, deletion-ledger reapplication and downstream reconciliation;
-- package/source parity, SBOM, provenance, secret scan, checksum/signature and release notes;
-- staging observation window, zero unresolved critical/high defects and Founder approval for the exact commit and package.
+- rollback rehearsal protecting cutover-time and post-cutover records;
+- observation window, zero unresolved critical/high defects and Founder approval for the exact commit and package.
 
-Until these pass, `main`, staging and live remain unchanged and the Draft PR must not be represented as operational deployment.
+Until these pass, `main`, Hostinger staging and live remain unchanged and the Draft PR must not be represented as operational deployment.
