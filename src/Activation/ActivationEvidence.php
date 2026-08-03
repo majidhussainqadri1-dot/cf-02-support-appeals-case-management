@@ -11,7 +11,7 @@ interface ActivationEvidence
     /** @return array<string, mixed> */
     public function founderApproval(): array;
 
-    /** @return array<string, bool> */
+    /** @return array<string, array<string, mixed>> */
     public function dependencyReadiness(): array;
 
     /** @return array<string, mixed> */
