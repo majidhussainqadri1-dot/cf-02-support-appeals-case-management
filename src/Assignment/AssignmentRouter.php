@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Sabri\CF02\Assignment;
 
 use DateTimeImmutable;
+use InvalidArgumentException;
 use Sabri\CF02\Staffing\StaffingRole;
 
 final class AssignmentRouter
@@ -17,12 +18,12 @@ final class AssignmentRouter
 
         foreach ($agents as $agent) {
             if (!$agent instanceof AgentProfile) {
-                continue;
+                throw new InvalidArgumentException('Assignment candidate list contains an invalid agent profile.');
             }
             if (!$agent->available() || !$agent->supportsQueue($request->queueKey())) {
                 continue;
             }
-            if (!$agent->hasSkills($request->requiredSkills())) {
+            if (!$agent->hasSkills($request->requiredSkills()) || !$agent->supportsLanguage($request->preferredLanguage())) {
                 continue;
             }
             if ($request->sensitive() && (!$agent->sensitiveClearance() || $agent->role() !== StaffingRole::SensitiveLiaison)) {
@@ -35,10 +36,7 @@ final class AssignmentRouter
                 continue;
             }
 
-            $score = 1000 - (int) round($agent->loadRatio() * 500);
-            if ($agent->supportsLanguage($request->preferredLanguage())) {
-                $score += 200;
-            }
+            $score = 1200 - (int) round($agent->loadRatio() * 500);
             if ($request->priority() === 'P1') {
                 $score += 100;
             }
@@ -53,7 +51,7 @@ final class AssignmentRouter
             return AssignmentDecision::unassigned(
                 $request->caseId(),
                 $request->queueKey(),
-                ['No on-duty agent satisfies queue, skill, capacity, language-sensitive and role constraints.'],
+                ['No on-duty agent satisfies queue, skill, exact language, capacity, sensitivity and role constraints.'],
                 $now
             );
         }
@@ -75,11 +73,12 @@ final class AssignmentRouter
             $request->queueKey(),
             $eligible[0]['score'],
             count($eligible),
+            $request->sensitive() && $selected->sensitiveClearance(),
             [
-                'Selected from agents satisfying queue, skill, role and capacity constraints.',
-                $selected->supportsLanguage($request->preferredLanguage())
-                    ? 'Preferred language is supported.'
-                    : 'No exact preferred-language match; assignment remains human-reviewable.',
+                'Selected from agents satisfying queue, skill, exact language, role and capacity constraints.',
+                $request->sensitive()
+                    ? 'Restricted access is approved for the cleared sensitive liaison assigned to this case.'
+                    : 'No restricted projection access is granted by this decision.',
             ],
             $now
         );
