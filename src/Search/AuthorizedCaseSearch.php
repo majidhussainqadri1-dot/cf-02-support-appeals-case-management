@@ -28,9 +28,9 @@ final class AuthorizedCaseSearch
         if ($limit < 1 || $limit > 100) {
             throw new InvalidArgumentException('Search page size must be between 1 and 100.');
         }
-        $query = trim(mb_strtolower($query));
-        if ($query === '' || mb_strlen($query) > 100) {
-            throw new InvalidArgumentException('Search query must be between 1 and 100 characters.');
+        $query = trim(strtolower($query));
+        if ($query === '' || strlen($query) > 100) {
+            throw new InvalidArgumentException('Search query must be between 1 and 100 bytes.');
         }
         if ($queueKey !== null && preg_match('/^[a-z][a-z0-9_]*$/', $queueKey) !== 1) {
             throw new InvalidArgumentException('Invalid queue search filter.');
@@ -40,7 +40,9 @@ final class AuthorizedCaseSearch
         }
         $offset = 0;
         if ($cursor !== null) {
-            $decoded = base64_decode(strtr($cursor, '-_', '+/'), true);
+            $padded = strtr($cursor, '-_', '+/');
+            $padded .= str_repeat('=', (4 - strlen($padded) % 4) % 4);
+            $decoded = base64_decode($padded, true);
             if ($decoded === false || preg_match('/^offset:(\d+)$/', $decoded, $matches) !== 1) {
                 throw new InvalidArgumentException('Invalid bounded search cursor.');
             }
@@ -63,7 +65,7 @@ final class AuthorizedCaseSearch
             if ($category !== null && $document->category() !== $category) {
                 continue;
             }
-            $haystack = mb_strtolower(implode(' ', [
+            $haystack = strtolower(implode(' ', [
                 $document->caseId()->value(),
                 $document->safeSubject(),
                 $document->category(),
