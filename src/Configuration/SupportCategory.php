@@ -63,15 +63,15 @@ final class SupportCategory
             throw new InvalidArgumentException(sprintf('At least one %s is required.', $label));
         }
 
-        if (count(array_unique($values)) !== count($values)) {
-            throw new InvalidArgumentException(sprintf('Duplicate %s identifiers are not allowed.', $label));
-        }
-
         foreach ($values as $value) {
             if (!is_string($value)) {
                 throw new InvalidArgumentException(sprintf('Every %s must be a string.', $label));
             }
             self::assertIdentifier($value, $label);
+        }
+
+        if (count(array_unique($values)) !== count($values)) {
+            throw new InvalidArgumentException(sprintf('Duplicate %s identifiers are not allowed.', $label));
         }
     }
 }
