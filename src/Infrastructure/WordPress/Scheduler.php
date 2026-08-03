@@ -44,10 +44,7 @@ final class Scheduler
     public static function unschedule(): void
     {
         foreach ([self::HOOK_OUTBOX, self::HOOK_RECONCILIATION, self::HOOK_RETENTION] as $hook) {
-            $timestamp = wp_next_scheduled($hook);
-            if ($timestamp !== false) {
-                wp_unschedule_event($timestamp, $hook);
-            }
+            wp_clear_scheduled_hook($hook);
         }
     }
 }
