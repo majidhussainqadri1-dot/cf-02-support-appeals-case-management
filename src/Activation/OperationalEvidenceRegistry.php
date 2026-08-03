@@ -54,12 +54,19 @@ final class OperationalEvidenceRegistry
                 }
             }
 
-            if (!isset($volume['threshold']) || !is_numeric($volume['threshold'])) {
-                $reasons[] = 'Volume-trigger threshold is missing or non-numeric.';
+            $threshold = $volume['threshold'] ?? null;
+            $observed = $volume['observed_value'] ?? null;
+
+            if (!is_numeric($threshold) || (float) $threshold <= 0) {
+                $reasons[] = 'Volume-trigger threshold is missing, non-numeric or non-positive.';
             }
 
-            if (!isset($volume['observed_value']) || !is_numeric($volume['observed_value'])) {
-                $reasons[] = 'Volume-trigger observed value is missing or non-numeric.';
+            if (!is_numeric($observed) || (float) $observed < 0) {
+                $reasons[] = 'Volume-trigger observed value is missing, non-numeric or negative.';
+            }
+
+            if (is_numeric($threshold) && is_numeric($observed) && (float) $observed < (float) $threshold) {
+                $reasons[] = 'Observed volume does not meet the declared extraction threshold.';
             }
 
             if (($volume['triggered'] ?? false) !== true) {
@@ -73,8 +80,16 @@ final class OperationalEvidenceRegistry
                 $reasons[] = 'Staffing coverage hours are not defined.';
             }
 
-            if (!isset($staffing['queue_owners']) || !is_array($staffing['queue_owners']) || $staffing['queue_owners'] === []) {
+            $queueOwners = $staffing['queue_owners'] ?? null;
+            if (!is_array($queueOwners) || $queueOwners === []) {
                 $reasons[] = 'Staffing queue owners are not assigned.';
+            } else {
+                foreach ($queueOwners as $queue => $owner) {
+                    if (!is_string($queue) || trim($queue) === '' || !is_string($owner) || trim($owner) === '') {
+                        $reasons[] = 'Staffing queue-owner evidence contains an invalid assignment.';
+                        break;
+                    }
+                }
             }
 
             foreach ([
