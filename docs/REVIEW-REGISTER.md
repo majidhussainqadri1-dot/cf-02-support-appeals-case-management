@@ -106,10 +106,31 @@ Status: corrected and retested.
 4. Added complete schema coverage tests and prohibited release evidence from defaulting to true.
 5. Kept staging, package parity, backup/restore, browser accessibility, real-provider and Founder approval as explicit external gates.
 
+## Production Readiness Round 1 — Packaging, uninstall and evidence integrity
+
+Status: corrected and retested.
+
+1. Added an allowlisted deterministic WordPress packager, package verifier, per-file hashes, SPDX SBOM, provenance statement and SHA-256 evidence.
+2. Added public-repository secret/private-key scanning and forbidden-package-path controls.
+3. Added non-destructive uninstall safeguards and lifecycle regression tests.
+4. Corrected a scanner false positive caused by destructive-operation keywords in comments, while preserving the substantive non-destructive law.
+5. Added staging, deployed security/privacy, backup/restore/rollback and production-readiness runbooks.
+6. Promoted the packaged candidate identity to `1.0.0-rc.2` without changing schema `1.1.0` or plan `1.0`.
+
+## Production Readiness Round 2 — Fresh artifact, CI and lifecycle adversarial review
+
+Status: corrected and retested.
+
+1. Found that ordinary pull-request workflows could bind artifacts to GitHub's synthetic merge SHA rather than the actual branch head; both packaging and WordPress lifecycle workflows now resolve, checkout and verify the exact PR head SHA.
+2. Found that the generated package manifest was appended after otherwise sorted entries; the packager now sorts all payloads, including generated evidence, in one deterministic pass.
+3. Found that the lifecycle test expected the transient activation-hook state `pending` after WordPress had already loaded the plugin; the test now correctly requires the stable fail-closed `dormant` state with explicit denial reasons.
+4. Fresh WordPress 7.0.2/PHP 8.3/MariaDB 10.11 smoke testing then passed package install, fail-closed activation, deactivate/reactivate idempotency and non-destructive uninstall preservation.
+5. The complete PHP 8.1–8.4 matrix, release regressions, repository safety scan, deterministic double-build comparison, package verification and packaged PHP syntax passed after correction.
+
 ## Automated evidence
 
-Run `30848651372` passed the complete C2-A through C2-H matrix on PHP 8.1, 8.2, 8.3 and 8.4. After fresh Round 2 runtime additions, run `30849210812` passed the same full matrix on all four PHP versions.
+Historical complete-matrix runs include `30848651372` and `30849210812`. The packaging and lifecycle review used exact-head workflows and repeatedly reopened review on each failure rather than treating a green earlier run as final evidence. Final exact-head run identities are recorded in the Draft PR evidence comment because any later source commit invalidates an earlier package checksum.
 
 ## Truthful completion state
 
-The repository contains the complete governed coding candidate and its two review/fix suites per phase. Automated repository QA is green. Real companion adapters, scanner/storage, email/notification providers, WordPress staging, browser/device/accessibility execution, production migration, load/soak, backup/restore, rollback rehearsal, packaging, observation window and Founder exact-version acceptance remain external evidence gates. Any new finding reopens review.
+The repository contains the complete governed coding candidate and its two review/fix suites per phase. It now also contains a deterministic packaged release-candidate process and clean WordPress lifecycle smoke coverage. Real companion adapters, scanner/storage, email/notification providers, Hostinger staging, browser/device/accessibility execution, production migration, load/soak, backup/restore, rollback rehearsal, observation window and Founder exact-version acceptance remain external evidence gates. Any new finding, dependency drift or staging defect reopens review.
