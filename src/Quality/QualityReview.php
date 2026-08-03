@@ -36,12 +36,15 @@ final class QualityReview
             throw new InvalidArgumentException('Invalid quality sample basis.');
         }
         $required = ['accuracy', 'empathy', 'compliance', 'security', 'accessibility'];
-        if (array_keys($scores) !== $required) {
-            throw new InvalidArgumentException('Quality rubric fields are incomplete or out of order.');
+        $actual = array_keys($scores);
+        sort($required);
+        sort($actual);
+        if ($actual !== $required) {
+            throw new InvalidArgumentException('Quality rubric fields are incomplete or contain unsupported fields.');
         }
         foreach ($scores as $score) {
-            if ($score < 0 || $score > 100) {
-                throw new InvalidArgumentException('Quality scores must be between 0 and 100.');
+            if (!is_int($score) || $score < 0 || $score > 100) {
+                throw new InvalidArgumentException('Quality scores must be integer values between 0 and 100.');
             }
         }
         foreach ($findings as $finding) {
@@ -49,8 +52,9 @@ final class QualityReview
                 throw new InvalidArgumentException('Quality findings must be non-empty.');
             }
         }
+        ksort($scores);
         $this->scores = $scores;
-        $this->findings = $findings;
+        $this->findings = array_values($findings);
     }
 
     /** @param array<string, int> $scores @param list<string> $findings */
