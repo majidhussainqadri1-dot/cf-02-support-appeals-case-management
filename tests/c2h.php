@@ -5,6 +5,7 @@ ini_set('assert.exception','1');assert_options(ASSERT_ACTIVE,1);assert_options(A
 require_once dirname(__DIR__).'/src/Autoload.php';\Sabri\CF02\Autoload::register(dirname(__DIR__).'/src');
 
 use Sabri\CF02\Infrastructure\WordPress\Schema;
+use Sabri\CF02\Infrastructure\WordPress\SchemaExtension;
 use Sabri\CF02\Operations\TrainingRegister;
 use Sabri\CF02\Release\ReleaseGate;
 use Sabri\CF02\Resilience\LoadBudget;
@@ -13,9 +14,16 @@ use Sabri\CF02\Security\DataCipher;
 
 $failures=[];$test=static function(string $n,callable $c)use(&$failures):void{try{$c();fwrite(STDOUT,"PASS {$n}\n");}catch(Throwable $e){$failures[]=$n.': '.$e->getMessage();fwrite(STDERR,"FAIL {$n}: {$e->getMessage()}\n");}};
 
-$test('canonical schema covers case appeal command outbox hold migration and audit truth',static function():void{
-    $statements=Schema::statements('wp_','DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
-    foreach(['cases','messages','attachments','assignments','sla_timers','appeals','commands','outbox','holds','configuration','migration','audit'] as $table){assert(isset($statements[$table]));assert(str_contains($statements[$table],'CREATE TABLE wp_cf02_'));}
+$test('canonical schema covers all support case appeal evidence quality migration and audit truth',static function():void{
+    $statements=array_merge(
+        Schema::statements('wp_','DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'),
+        SchemaExtension::statements('wp_','DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci')
+    );
+    foreach(['cases','messages','attachments','assignments','sla_timers','appeals','commands','outbox','holds','configuration','migration','audit','intake_replay','tasks','appeal_dossiers','quality_reviews','feedback','retention_ledger'] as $table){
+        assert(isset($statements[$table]));
+        assert(str_contains($statements[$table],'CREATE TABLE wp_cf02_'));
+    }
+    assert(SchemaExtension::VERSION==='1.1.0');
 });
 
 $test('data cipher provides authenticated encryption at rest',static function():void{
