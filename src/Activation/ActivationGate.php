@@ -5,28 +5,10 @@ declare(strict_types=1);
 namespace Sabri\CF02\Activation;
 
 use DateTimeImmutable;
+use Sabri\CF02\Contracts\RequiredCompanionContracts;
 
 final class ActivationGate
 {
-    /** @var array<string, string> */
-    private const REQUIRED_DEPENDENCIES = [
-        'file_00_membership_contract' => 'File 00',
-        'file_20_route_shell_contract' => 'File 20',
-        'file_24_assurance_manifest' => 'File 24',
-        'file_25_component_contract' => 'File 25',
-    ];
-
-    /** @var list<string> */
-    private const REQUIRED_OPERATIONAL_EVIDENCE = [
-        'volume_trigger',
-        'staffing',
-        'privacy_review',
-        'security_review',
-        'migration_plan',
-        'rollback_plan',
-        'zero_critical_high_defects',
-    ];
-
     public function __construct(private readonly ActivationEvidence $evidence)
     {
     }
@@ -64,29 +46,11 @@ final class ActivationGate
             $reasons[] = 'Founder approval timestamp is not valid ISO 8601.';
         }
 
-        foreach (self::REQUIRED_DEPENDENCIES as $dependency => $expectedOwner) {
-            $contract = $dependencies[$dependency] ?? null;
-
-            if (!is_array($contract) || ($contract['ready'] ?? false) !== true) {
-                $reasons[] = sprintf('Required dependency contract is not ready: %s.', $dependency);
-                continue;
-            }
-
-            if (($contract['owner'] ?? null) !== $expectedOwner) {
-                $reasons[] = sprintf('Dependency contract owner mismatch: %s.', $dependency);
-            }
-
-            $contractVersion = $contract['contract_version'] ?? null;
-            if (!is_string($contractVersion) || !$this->isVersionIdentifier($contractVersion)) {
-                $reasons[] = sprintf('Dependency contract version is missing or invalid: %s.', $dependency);
-            }
-        }
-
-        foreach (self::REQUIRED_OPERATIONAL_EVIDENCE as $requiredEvidence) {
-            if (($operations[$requiredEvidence] ?? false) !== true) {
-                $reasons[] = sprintf('Required operational evidence is missing: %s.', $requiredEvidence);
-            }
-        }
+        $reasons = array_merge(
+            $reasons,
+            RequiredCompanionContracts::validate($dependencies),
+            OperationalEvidenceRegistry::validate($operations)
+        );
 
         $allEvidence = [
             'founder_approval' => $founderApproval,
@@ -107,10 +71,5 @@ final class ActivationGate
         $errors = DateTimeImmutable::getLastErrors();
 
         return $date !== false && ($errors === false || ($errors['warning_count'] === 0 && $errors['error_count'] === 0));
-    }
-
-    private function isVersionIdentifier(string $version): bool
-    {
-        return preg_match('/^\d+\.\d+(?:\.\d+)?(?:[-+][0-9A-Za-z.-]+)?$/', $version) === 1;
     }
 }
