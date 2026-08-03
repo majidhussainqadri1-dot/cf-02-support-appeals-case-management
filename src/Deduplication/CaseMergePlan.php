@@ -11,6 +11,7 @@ use Sabri\CF02\Domain\SupportCaseId;
 final class CaseMergePlan
 {
     private string $status = 'proposed';
+    private ?string $reversalReason = null;
 
     public function __construct(
         private readonly SupportCaseId $primaryCaseId,
@@ -52,10 +53,12 @@ final class CaseMergePlan
             throw new DomainException('Only an applied merge may be reversed.');
         }
 
-        if (trim($reason) === '') {
+        $reason = trim($reason);
+        if ($reason === '') {
             throw new InvalidArgumentException('Split reason is required.');
         }
 
+        $this->reversalReason = $reason;
         $this->status = 'reversed';
     }
 
@@ -63,4 +66,5 @@ final class CaseMergePlan
     public function redirectCaseId(): SupportCaseId { return $this->primaryCaseId; }
     public function sourceCaseId(): SupportCaseId { return $this->secondaryCaseId; }
     public function reason(): string { return $this->reason; }
+    public function reversalReason(): ?string { return $this->reversalReason; }
 }
