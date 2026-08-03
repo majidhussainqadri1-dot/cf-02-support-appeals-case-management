@@ -19,14 +19,40 @@ final class WordPressActivationEvidence implements ActivationEvidence
 
     public function dependencyReadiness(): array
     {
+        $membershipVersion = defined('SMC_CONTRACT_VERSION')
+            ? (string) constant('SMC_CONTRACT_VERSION')
+            : null;
+
         $defaults = [
-            'file_00_membership_contract' => function_exists('smc_membership_assertions'),
-            'file_20_route_shell_contract' => has_action('cf02_register_route_contract') !== false,
-            'file_24_assurance_manifest' => has_filter('cf02_security_assurance_manifest') !== false,
-            'file_25_component_contract' => has_filter('cf02_visual_component_contract') !== false,
+            'file_00_membership_contract' => [
+                'ready' => function_exists('smc_membership_assertions') && $membershipVersion !== null,
+                'owner' => 'File 00',
+                'contract_version' => $membershipVersion,
+            ],
+            'file_20_route_shell_contract' => [
+                'ready' => false,
+                'owner' => 'File 20',
+                'contract_version' => null,
+            ],
+            'file_24_assurance_manifest' => [
+                'ready' => false,
+                'owner' => 'File 24',
+                'contract_version' => null,
+            ],
+            'file_25_component_contract' => [
+                'ready' => false,
+                'owner' => 'File 25',
+                'contract_version' => null,
+            ],
         ];
 
-        $filtered = apply_filters('cf02_dependency_readiness', $defaults);
+        /**
+         * Companion modules may provide versioned readiness evidence.
+         * Mere hook availability must not be treated as a healthy contract.
+         *
+         * @param array<string, array<string, mixed>> $defaults
+         */
+        $filtered = apply_filters('cf02_dependency_contract_evidence', $defaults);
         return is_array($filtered) ? $filtered : $defaults;
     }
 
