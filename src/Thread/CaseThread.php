@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Sabri\CF02\Thread;
 
+use DomainException;
+
 final class CaseThread
 {
     /** @var array<string, CaseMessage> */
@@ -12,7 +14,13 @@ final class CaseThread
     public function append(CaseMessage $message): bool
     {
         $key = $message->idempotencyKey();
-        if (isset($this->messagesByIdempotency[$key])) {
+        $existing = $this->messagesByIdempotency[$key] ?? null;
+
+        if ($existing instanceof CaseMessage) {
+            if (!hash_equals($existing->fingerprint(), $message->fingerprint())) {
+                throw new DomainException('Idempotency key was reused with a different message payload.');
+            }
+
             return false;
         }
 
