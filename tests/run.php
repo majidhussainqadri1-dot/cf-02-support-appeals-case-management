@@ -28,10 +28,26 @@ $test = static function (string $name, callable $callback) use (&$failures): voi
 };
 
 $completeDependencies = static fn (): array => [
-    'file_00_membership_contract' => true,
-    'file_20_route_shell_contract' => true,
-    'file_24_assurance_manifest' => true,
-    'file_25_component_contract' => true,
+    'file_00_membership_contract' => [
+        'ready' => true,
+        'owner' => 'File 00',
+        'contract_version' => '1.1.2',
+    ],
+    'file_20_route_shell_contract' => [
+        'ready' => true,
+        'owner' => 'File 20',
+        'contract_version' => '1.0.0',
+    ],
+    'file_24_assurance_manifest' => [
+        'ready' => true,
+        'owner' => 'File 24',
+        'contract_version' => '1.0.0',
+    ],
+    'file_25_component_contract' => [
+        'ready' => true,
+        'owner' => 'File 25',
+        'contract_version' => '1.0.0',
+    ],
 ];
 
 $completeOperations = static fn (): array => [
@@ -87,20 +103,17 @@ $test('activation gate rejects malformed approval timestamp', static function ()
     assert(in_array('Founder approval timestamp is not valid ISO 8601.', $decision->reasons(), true));
 });
 
-$test('activation gate cannot lose a mandatory dependency through filtering', static function () use ($completeOperations, $completeApproval): void {
-    $evidence = new class($completeApproval(), $completeOperations()) implements ActivationEvidence {
-        public function __construct(private array $approval, private array $operations)
+$test('activation gate cannot lose a mandatory dependency through filtering', static function () use ($completeDependencies, $completeOperations, $completeApproval): void {
+    $dependencies = $completeDependencies();
+    unset($dependencies['file_25_component_contract']);
+
+    $evidence = new class($completeApproval(), $dependencies, $completeOperations()) implements ActivationEvidence {
+        public function __construct(private array $approval, private array $dependencies, private array $operations)
         {
         }
         public function runtimeSwitchEnabled(): bool { return true; }
         public function founderApproval(): array { return $this->approval; }
-        public function dependencyReadiness(): array {
-            return [
-                'file_00_membership_contract' => true,
-                'file_20_route_shell_contract' => true,
-                'file_24_assurance_manifest' => true,
-            ];
-        }
+        public function dependencyReadiness(): array { return $this->dependencies; }
         public function operationalEvidence(): array { return $this->operations; }
     };
 
@@ -113,7 +126,49 @@ $test('activation gate cannot lose a mandatory dependency through filtering', st
     ));
 });
 
-$test('activation gate permits complete evidence', static function () use ($completeDependencies, $completeOperations, $completeApproval): void {
+$test('activation gate rejects owner spoofing', static function () use ($completeDependencies, $completeOperations, $completeApproval): void {
+    $dependencies = $completeDependencies();
+    $dependencies['file_24_assurance_manifest']['owner'] = 'Unknown Plugin';
+
+    $evidence = new class($completeApproval(), $dependencies, $completeOperations()) implements ActivationEvidence {
+        public function __construct(private array $approval, private array $dependencies, private array $operations)
+        {
+        }
+        public function runtimeSwitchEnabled(): bool { return true; }
+        public function founderApproval(): array { return $this->approval; }
+        public function dependencyReadiness(): array { return $this->dependencies; }
+        public function operationalEvidence(): array { return $this->operations; }
+    };
+
+    $decision = (new ActivationGate($evidence))->evaluate();
+    assert($decision->isAllowed() === false);
+    assert(in_array('Dependency contract owner mismatch: file_24_assurance_manifest.', $decision->reasons(), true));
+});
+
+$test('activation gate rejects invalid contract version', static function () use ($completeDependencies, $completeOperations, $completeApproval): void {
+    $dependencies = $completeDependencies();
+    $dependencies['file_20_route_shell_contract']['contract_version'] = 'latest';
+
+    $evidence = new class($completeApproval(), $dependencies, $completeOperations()) implements ActivationEvidence {
+        public function __construct(private array $approval, private array $dependencies, private array $operations)
+        {
+        }
+        public function runtimeSwitchEnabled(): bool { return true; }
+        public function founderApproval(): array { return $this->approval; }
+        public function dependencyReadiness(): array { return $this->dependencies; }
+        public function operationalEvidence(): array { return $this->operations; }
+    };
+
+    $decision = (new ActivationGate($evidence))->evaluate();
+    assert($decision->isAllowed() === false);
+    assert(in_array(
+        'Dependency contract version is missing or invalid: file_20_route_shell_contract.',
+        $decision->reasons(),
+        true
+    ));
+});
+
+$test('activation gate permits complete versioned evidence', static function () use ($completeDependencies, $completeOperations, $completeApproval): void {
     $evidence = new class($completeApproval(), $completeDependencies(), $completeOperations()) implements ActivationEvidence {
         public function __construct(
             private array $approval,
