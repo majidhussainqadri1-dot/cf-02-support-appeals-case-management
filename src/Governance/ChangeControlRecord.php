@@ -44,12 +44,16 @@ final class ChangeControlRecord
             $reasons[] = 'Change-control timestamp is not valid ISO 8601.';
         }
 
-        if (!isset($record['affected_files']) || !is_array($record['affected_files']) || $record['affected_files'] === []) {
-            $reasons[] = 'Change-control affected files are missing.';
-        }
+        self::validateStringList($record, 'affected_files', 'Change-control affected files are missing.', $reasons);
+        self::validateStringList($record, 'requirement_ids', 'Change-control requirement IDs are missing.', $reasons);
 
-        if (!isset($record['requirement_ids']) || !is_array($record['requirement_ids']) || $record['requirement_ids'] === []) {
-            $reasons[] = 'Change-control requirement IDs are missing.';
+        if (isset($record['requirement_ids']) && is_array($record['requirement_ids'])) {
+            foreach ($record['requirement_ids'] as $requirementId) {
+                if (!is_string($requirementId) || preg_match('/^CF02-FR-\d{3}$/', $requirementId) !== 1) {
+                    $reasons[] = 'Change-control contains an invalid requirement ID.';
+                    break;
+                }
+            }
         }
 
         if (($record['approval_status'] ?? null) === 'approved') {
@@ -58,9 +62,37 @@ final class ChangeControlRecord
                     $reasons[] = sprintf('Approved change-control field is missing: %s.', $field);
                 }
             }
+
+            if (isset($record['approved_at']) && is_string($record['approved_at']) && !self::isIso8601($record['approved_at'])) {
+                $reasons[] = 'Approved change-control timestamp is not valid ISO 8601.';
+            }
         }
 
         return array_values(array_unique($reasons));
+    }
+
+    /**
+     * @param array<string, mixed> $record
+     * @param list<string> $reasons
+     */
+    private static function validateStringList(array $record, string $field, string $message, array &$reasons): void
+    {
+        $value = $record[$field] ?? null;
+        if (!is_array($value) || $value === []) {
+            $reasons[] = $message;
+            return;
+        }
+
+        if (count(array_unique($value, SORT_REGULAR)) !== count($value)) {
+            $reasons[] = sprintf('Change-control field contains duplicate values: %s.', $field);
+        }
+
+        foreach ($value as $item) {
+            if (!is_string($item) || trim($item) === '') {
+                $reasons[] = sprintf('Change-control field contains an invalid value: %s.', $field);
+                break;
+            }
+        }
     }
 
     private static function isIso8601(string $value): bool
