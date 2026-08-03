@@ -32,10 +32,22 @@ final class ActivationGate
             $reasons[] = 'Founder approval does not target governing plan version 1.0.';
         }
 
-        foreach (['change_control_id', 'approved_by', 'approved_at'] as $field) {
+        foreach (['change_control_id', 'approved_by', 'approved_at', 'approval_authority'] as $field) {
             if (!isset($founderApproval[$field]) || !is_string($founderApproval[$field]) || trim($founderApproval[$field]) === '') {
                 $reasons[] = sprintf('Founder approval field is missing: %s.', $field);
             }
+        }
+
+        if (($founderApproval['approval_authority'] ?? null) !== 'Founder') {
+            $reasons[] = 'Activation approval authority is not the Founder.';
+        }
+
+        if (
+            isset($founderApproval['change_control_id'])
+            && is_string($founderApproval['change_control_id'])
+            && preg_match('/^CF02-ACT-\d{3,4}$/', $founderApproval['change_control_id']) !== 1
+        ) {
+            $reasons[] = 'Founder activation change-control ID is invalid.';
         }
 
         if (
