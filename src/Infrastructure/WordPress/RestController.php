@@ -12,8 +12,11 @@ use Throwable;
 
 final class RestController
 {
+    private IntakeRepository $intake;
+
     public function __construct(private readonly CaseRepository $repository, private readonly DataCipher $cipher)
     {
+        $this->intake = new IntakeRepository($repository);
     }
 
     public function registerRoutes(): void
@@ -49,6 +52,7 @@ final class RestController
                     'queue' => ['type' => 'string', 'required' => true],
                     'locale' => ['type' => 'string', 'required' => true],
                     'subject' => ['type' => 'string', 'required' => true],
+                    'idempotency_key' => ['type' => 'string', 'required' => true],
                 ],
             ],
         ]);
@@ -88,30 +92,36 @@ final class RestController
     public function createCase(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
         try {
-            $category = sanitize_key((string) $request['category']);
-            $priority = strtoupper(sanitize_text_field((string) $request['priority']));
-            $severity = sanitize_key((string) $request['severity']);
-            $queue = sanitize_key((string) $request['queue']);
-            $locale = sanitize_text_field((string) $request['locale']);
-            $subject = sanitize_text_field((string) $request['subject']);
-            if ($category === '' || $queue === '' || $subject === '' || !in_array($priority, ['P1', 'P2', 'P3', 'P4'], true)) {
+            $payload = [
+                'category' => sanitize_key((string) $request['category']),
+                'priority' => strtoupper(sanitize_text_field((string) $request['priority'])),
+                'severity' => sanitize_key((string) $request['severity']),
+                'queue' => sanitize_key((string) $request['queue']),
+                'locale' => sanitize_text_field((string) $request['locale']),
+                'subject' => sanitize_text_field((string) $request['subject']),
+            ];
+            $idempotencyKey = sanitize_text_field((string) $request['idempotency_key']);
+            if ($payload['category'] === '' || $payload['severity'] === '' || $payload['queue'] === '' || $payload['subject'] === ''
+                || !in_array($payload['priority'], ['P1', 'P2', 'P3', 'P4'], true)
+                || preg_match('/^[a-z]{2}(?:-[A-Z]{2})?$/', $payload['locale']) !== 1
+                || preg_match('/^[A-Za-z0-9_-]{16,128}$/', $idempotencyKey) !== 1) {
                 return new \WP_Error('cf02_invalid_case', __('The case request is invalid.', 'cf-02-support-appeals-case-management'), ['status' => 422]);
             }
-            if (SensitiveContentDetector::containsProhibitedSecret($subject)) {
+            if (SensitiveContentDetector::containsProhibitedSecret($payload['subject'])) {
                 return new \WP_Error('cf02_sensitive_content', __('Remove passwords, OTPs, card data or private keys.', 'cf-02-support-appeals-case-management'), ['status' => 422]);
             }
-            $case = $this->repository->createCase(
+            $result = $this->intake->createOrReplay(
                 $this->requesterReference(),
-                $category,
-                $priority,
-                $severity,
-                $queue,
-                $locale,
-                $subject,
+                $idempotencyKey,
+                $payload,
                 new DateTimeImmutable('now', new \DateTimeZone('UTC'))
             );
-            return new \WP_REST_Response($case, 201, ['Cache-Control' => 'private, no-store']);
-        } catch (Throwable $exception) {
+            return new \WP_REST_Response(
+                ['case' => $result['case'], 'replayed' => $result['replayed']],
+                $result['replayed'] ? 200 : 201,
+                ['Cache-Control' => 'private, no-store']
+            );
+        } catch (Throwable) {
             return new \WP_Error('cf02_case_failed', __('The case could not be created. Retry with the same idempotency key or contact support.', 'cf-02-support-appeals-case-management'), ['status' => 500, 'trace_id' => 'tr_' . bin2hex(random_bytes(16))]);
         }
     }
