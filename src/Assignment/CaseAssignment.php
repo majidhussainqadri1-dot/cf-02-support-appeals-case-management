@@ -14,6 +14,7 @@ final class CaseAssignment
 {
     private int $version = 1;
     private ?string $ownerReference = null;
+    private bool $ownerRestrictedAccess = false;
     /** @var array<string, array{scopes:list<string>, expires_at:DateTimeImmutable}> */
     private array $collaborators = [];
     /** @var list<array<string, string>> */
@@ -32,9 +33,11 @@ final class CaseAssignment
         }
 
         $this->ownerReference = $decision->agentReference();
+        $this->ownerRestrictedAccess = $decision->restrictedAccessApproved();
         $this->history[] = [
             'type' => 'assigned',
             'agent' => (string) $this->ownerReference,
+            'restricted' => $this->ownerRestrictedAccess ? 'yes' : 'no',
             'at' => $decision->decidedAt()->format(DATE_ATOM),
         ];
         ++$this->version;
@@ -63,12 +66,14 @@ final class CaseAssignment
         $previous = $this->ownerReference;
         unset($this->collaborators[$previous]);
         $this->ownerReference = $decision->agentReference();
+        $this->ownerRestrictedAccess = $decision->restrictedAccessApproved();
         unset($this->collaborators[(string) $this->ownerReference]);
 
         $this->history[] = [
             'type' => 'transferred',
             'from' => $previous,
             'to' => (string) $this->ownerReference,
+            'restricted' => $this->ownerRestrictedAccess ? 'yes' : 'no',
             'reason' => trim($reason),
             'at' => $transferredAt->format(DATE_ATOM),
         ];
@@ -82,7 +87,7 @@ final class CaseAssignment
         DateTimeImmutable $expiresAt,
         int $expectedVersion,
         ?DateTimeImmutable $now = null
-    ): void {
+    ): bool {
         $this->assertVersion($expectedVersion);
         $now ??= new DateTimeImmutable('now');
         $agentReference = trim($agentReference);
@@ -98,6 +103,16 @@ final class CaseAssignment
             throw new InvalidArgumentException('Collaborator access must have a future expiry.');
         }
 
+        $existing = $this->collaborators[$agentReference] ?? null;
+        if ($existing !== null) {
+            $sameScopes = $existing['scopes'] === $scopes;
+            $sameExpiry = $existing['expires_at'] == $expiresAt;
+            if ($sameScopes && $sameExpiry) {
+                return false;
+            }
+            throw new DomainException('Existing collaborator grant must be revoked before scope or expiry changes.');
+        }
+
         $this->collaborators[$agentReference] = ['scopes' => $scopes, 'expires_at' => $expiresAt];
         $this->history[] = [
             'type' => 'collaborator_added',
@@ -107,6 +122,7 @@ final class CaseAssignment
             'at' => $now->format(DATE_ATOM),
         ];
         ++$this->version;
+        return true;
     }
 
     public function revokeCollaborator(string $agentReference, string $reason, int $expectedVersion, ?DateTimeImmutable $now = null): bool
@@ -134,8 +150,9 @@ final class CaseAssignment
     public function canAccess(string $agentReference, string $scope, ?DateTimeImmutable $now = null): bool
     {
         $now ??= new DateTimeImmutable('now');
+        self::assertScopes([$scope]);
         if ($this->ownerReference !== null && hash_equals($this->ownerReference, $agentReference)) {
-            return true;
+            return $scope !== 'restricted_projection' || $this->ownerRestrictedAccess;
         }
         $grant = $this->collaborators[$agentReference] ?? null;
         if ($grant === null || $grant['expires_at'] <= $now) {
@@ -147,6 +164,7 @@ final class CaseAssignment
     public function caseId(): SupportCaseId { return $this->caseId; }
     public function version(): int { return $this->version; }
     public function ownerReference(): ?string { return $this->ownerReference; }
+    public function ownerRestrictedAccess(): bool { return $this->ownerRestrictedAccess; }
     /** @return list<array<string, string>> */ public function history(): array { return $this->history; }
 
     private function assertDecision(AssignmentDecision $decision): void
