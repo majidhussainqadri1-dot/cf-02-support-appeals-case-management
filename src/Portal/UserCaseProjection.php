@@ -25,7 +25,7 @@ final class UserCaseProjection
         $messages = array_map(
             static fn (CaseMessage $message): array => [
                 'message_id' => $message->messageId(),
-                'author_reference' => $message->authorReference(),
+                'author_label' => hash_equals($case->requesterReference(), $message->authorReference()) ? 'Requester' : 'Support Team',
                 'body' => $message->body(),
                 'channel' => $message->channel(),
                 'created_at' => $message->createdAt()->format(DATE_ATOM),
