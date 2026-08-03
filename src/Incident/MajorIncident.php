@@ -1,0 +1,171 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Sabri\CF02\Incident;
+
+use DateTimeImmutable;
+use DomainException;
+use InvalidArgumentException;
+use Sabri\CF02\Domain\ConcurrencyConflict;
+use Sabri\CF02\Domain\SupportCaseId;
+
+final class MajorIncident
+{
+    private int $version = 1;
+    private IncidentStatus $status = IncidentStatus::Open;
+    private ?string $resolutionSummary = null;
+    private ?string $resolutionNoticeReference = null;
+    /** @var array<string, array{queue_key:string, linked_at:DateTimeImmutable, actor:string}> */
+    private array $caseLinks = [];
+    /** @var list<array<string, string>> */
+    private array $history = [];
+
+    public function __construct(
+        private readonly string $incidentId,
+        private readonly string $serviceKey,
+        private readonly string $publicSummary,
+        private DateTimeImmutable $nextUpdateAt
+    ) {
+        if (preg_match('/^CF02-INC-\d{4}$/', $incidentId) !== 1) {
+            throw new InvalidArgumentException('Invalid major-incident ID.');
+        }
+        if (preg_match('/^[a-z][a-z0-9_.-]*$/', $serviceKey) !== 1 || trim($publicSummary) === '') {
+            throw new InvalidArgumentException('Major-incident service and public summary are required.');
+        }
+    }
+
+    public function linkCase(
+        SupportCaseId $caseId,
+        string $serviceKey,
+        string $queueKey,
+        string $actorReference,
+        DateTimeImmutable $at,
+        int $expectedVersion
+    ): bool {
+        $this->assertVersion($expectedVersion);
+        if ($this->status === IncidentStatus::Resolved) {
+            throw new DomainException('Resolved incident cannot accept new case links.');
+        }
+        if (!hash_equals($this->serviceKey, $serviceKey)) {
+            throw new DomainException('Case service signature does not match the incident.');
+        }
+        if (preg_match('/^[a-z][a-z0-9_]*$/', $queueKey) !== 1 || trim($actorReference) === '') {
+            throw new InvalidArgumentException('Incident case link requires queue and actor.');
+        }
+
+        $key = $caseId->value();
+        $existing = $this->caseLinks[$key] ?? null;
+        if ($existing !== null) {
+            if ($existing['queue_key'] !== $queueKey) {
+                throw new DomainException('Existing incident link cannot be rebound to another queue.');
+            }
+            return false;
+        }
+
+        $this->caseLinks[$key] = ['queue_key' => $queueKey, 'linked_at' => $at, 'actor' => $actorReference];
+        $this->history[] = [
+            'type' => 'case_linked',
+            'case_id' => $key,
+            'queue_key' => $queueKey,
+            'actor' => $actorReference,
+            'at' => $at->format(DATE_ATOM),
+        ];
+        ++$this->version;
+        return true;
+    }
+
+    public function unlinkCase(
+        SupportCaseId $caseId,
+        string $reason,
+        string $actorReference,
+        DateTimeImmutable $at,
+        int $expectedVersion
+    ): bool {
+        $this->assertVersion($expectedVersion);
+        if (trim($reason) === '' || trim($actorReference) === '') {
+            throw new InvalidArgumentException('Incident unlink reason and actor are required.');
+        }
+        $key = $caseId->value();
+        if (!isset($this->caseLinks[$key])) {
+            return false;
+        }
+
+        unset($this->caseLinks[$key]);
+        $this->history[] = [
+            'type' => 'case_unlinked',
+            'case_id' => $key,
+            'reason' => trim($reason),
+            'actor' => $actorReference,
+            'at' => $at->format(DATE_ATOM),
+        ];
+        ++$this->version;
+        return true;
+    }
+
+    public function markMonitoring(DateTimeImmutable $nextUpdateAt, string $actorReference, int $expectedVersion): void
+    {
+        $this->assertVersion($expectedVersion);
+        if ($this->status !== IncidentStatus::Open || trim($actorReference) === '') {
+            throw new DomainException('Only an open incident may enter monitoring.');
+        }
+        $this->status = IncidentStatus::Monitoring;
+        $this->nextUpdateAt = $nextUpdateAt;
+        $this->history[] = ['type' => 'monitoring', 'actor' => $actorReference, 'at' => (new DateTimeImmutable('now'))->format(DATE_ATOM)];
+        ++$this->version;
+    }
+
+    public function resolve(
+        string $publicResolutionSummary,
+        string $noticeReference,
+        string $actorReference,
+        DateTimeImmutable $at,
+        int $expectedVersion
+    ): void {
+        $this->assertVersion($expectedVersion);
+        if ($this->status === IncidentStatus::Resolved) {
+            throw new DomainException('Incident is already resolved.');
+        }
+        foreach ([$publicResolutionSummary, $noticeReference, $actorReference] as $value) {
+            if (trim($value) === '') {
+                throw new InvalidArgumentException('Incident resolution summary, notice and actor are required.');
+            }
+        }
+        $this->status = IncidentStatus::Resolved;
+        $this->resolutionSummary = trim($publicResolutionSummary);
+        $this->resolutionNoticeReference = trim($noticeReference);
+        $this->history[] = ['type' => 'resolved', 'actor' => $actorReference, 'notice' => $noticeReference, 'at' => $at->format(DATE_ATOM)];
+        ++$this->version;
+    }
+
+    /** @return array<string, mixed>|null */
+    public function projectionForCase(SupportCaseId $caseId): ?array
+    {
+        if (!isset($this->caseLinks[$caseId->value()])) {
+            return null;
+        }
+        return [
+            'incident_id' => $this->incidentId,
+            'status' => $this->status->value,
+            'public_summary' => $this->publicSummary,
+            'next_update_at' => $this->nextUpdateAt->format(DATE_ATOM),
+            'resolution_summary' => $this->resolutionSummary,
+            'resolution_notice_reference' => $this->resolutionNoticeReference,
+            'case_action_required' => 'Continue individual case handling; incident linkage does not merge, close or authorize the case.',
+        ];
+    }
+
+    public function incidentId(): string { return $this->incidentId; }
+    public function serviceKey(): string { return $this->serviceKey; }
+    public function status(): IncidentStatus { return $this->status; }
+    public function version(): int { return $this->version; }
+    public function linkedCaseCount(): int { return count($this->caseLinks); }
+    /** @return list<array<string, string>> */ public function history(): array { return $this->history; }
+
+    private function assertVersion(int $expectedVersion): void
+    {
+        if ($expectedVersion !== $this->version) {
+            throw new ConcurrencyConflict(sprintf('Stale incident version: expected %d, current %d.', $expectedVersion, $this->version));
+        }
+    }
+}
