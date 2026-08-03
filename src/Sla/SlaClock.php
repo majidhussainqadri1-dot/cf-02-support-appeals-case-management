@@ -16,12 +16,17 @@ final class SlaClock
     private DateTimeImmutable $nextUpdateDeadline;
     private DateTimeImmutable $resolutionDeadline;
     private ?DateTimeImmutable $firstResponseAt = null;
+    private ?string $firstResponseEvidence = null;
     private ?DateTimeImmutable $lastUpdateAt = null;
+    private ?string $lastUpdateEvidence = null;
     private ?DateTimeImmutable $resolvedAt = null;
+    private ?string $resolutionEvidence = null;
     private ?SlaPauseReason $pauseReason = null;
     private ?DateTimeImmutable $pauseStartedAt = null;
     private ?string $pauseEvidenceReference = null;
     private DateTimeImmutable $lastMutationAt;
+    /** @var array<string, true> */
+    private array $usedEvidence = [];
     /** @var list<array<string, string|int>> */
     private array $pauseHistory = [];
 
@@ -39,41 +44,47 @@ final class SlaClock
         $this->lastMutationAt = $startedAt;
     }
 
-    public function recordFirstResponse(DateTimeImmutable $at, int $expectedVersion): bool
+    public function recordFirstResponse(DateTimeImmutable $at, string $evidenceReference, int $expectedVersion): bool
     {
         $this->assertVersion($expectedVersion);
         $this->assertMutableAt($at);
         $this->assertNotPaused();
+        self::assertPrefixedEvidence($evidenceReference, 'message:');
         if ($this->resolvedAt !== null) {
             throw new DomainException('Resolved SLA clock cannot receive a first response.');
         }
         if ($this->firstResponseAt !== null) {
-            if ($this->firstResponseAt == $at) {
+            if ($this->firstResponseAt == $at && hash_equals((string) $this->firstResponseEvidence, trim($evidenceReference))) {
                 return false;
             }
-            throw new DomainException('First-response timestamp is immutable once recorded.');
+            throw new DomainException('First-response evidence is immutable once recorded.');
         }
+        $this->reserveEvidence($evidenceReference);
 
         $this->firstResponseAt = $at;
+        $this->firstResponseEvidence = trim($evidenceReference);
         $this->nextUpdateDeadline = $this->calendar->addWorkingMinutes($at, $this->policy->updateMinutes());
         $this->lastMutationAt = $at;
         ++$this->version;
         return true;
     }
 
-    public function recordUpdate(DateTimeImmutable $at, int $expectedVersion): bool
+    public function recordUpdate(DateTimeImmutable $at, string $evidenceReference, int $expectedVersion): bool
     {
         $this->assertVersion($expectedVersion);
         $this->assertMutableAt($at);
         $this->assertNotPaused();
+        self::assertPrefixedEvidence($evidenceReference, 'message:');
         if ($this->firstResponseAt === null || $this->resolvedAt !== null) {
             throw new DomainException('Update requires an active clock with a recorded first response.');
         }
-        if ($this->lastUpdateAt !== null && $this->lastUpdateAt == $at) {
+        if ($this->lastUpdateAt !== null && $this->lastUpdateAt == $at && hash_equals((string) $this->lastUpdateEvidence, trim($evidenceReference))) {
             return false;
         }
+        $this->reserveEvidence($evidenceReference);
 
         $this->lastUpdateAt = $at;
+        $this->lastUpdateEvidence = trim($evidenceReference);
         $this->nextUpdateDeadline = $this->calendar->addWorkingMinutes($at, $this->policy->updateMinutes());
         $this->lastMutationAt = $at;
         ++$this->version;
@@ -101,6 +112,7 @@ final class SlaClock
             throw new DomainException('SLA policy does not allow this pause reason.');
         }
         self::assertEvidenceReference($reason, $evidenceReference);
+        $this->reserveEvidence($evidenceReference);
 
         $this->pauseReason = $reason;
         $this->pauseStartedAt = $at;
@@ -137,18 +149,21 @@ final class SlaClock
         return $pausedWorkingMinutes;
     }
 
-    public function resolve(DateTimeImmutable $at, int $expectedVersion): void
+    public function resolve(DateTimeImmutable $at, string $evidenceReference, int $expectedVersion): void
     {
         $this->assertVersion($expectedVersion);
         $this->assertMutableAt($at);
         $this->assertNotPaused();
+        self::assertPrefixedEvidence($evidenceReference, 'resolution:');
         if ($this->resolvedAt !== null) {
             throw new DomainException('SLA clock is already resolved.');
         }
         if ($this->firstResponseAt === null) {
             throw new DomainException('SLA resolution requires a recorded first response.');
         }
+        $this->reserveEvidence($evidenceReference);
         $this->resolvedAt = $at;
+        $this->resolutionEvidence = trim($evidenceReference);
         $this->lastMutationAt = $at;
         ++$this->version;
     }
@@ -198,6 +213,9 @@ final class SlaClock
             'resolution_deadline' => $this->resolutionDeadline->format(DATE_ATOM),
             'remaining_resolution_working_minutes' => $this->remainingResolutionWorkingMinutes($at),
             'pause_reason' => $this->pauseReason?->value,
+            'first_response_evidence' => $this->firstResponseEvidence,
+            'last_update_evidence' => $this->lastUpdateEvidence,
+            'resolution_evidence' => $this->resolutionEvidence,
         ];
     }
 
@@ -208,6 +226,7 @@ final class SlaClock
     public function resolutionDeadline(): DateTimeImmutable { return $this->resolutionDeadline; }
     public function firstResponseAt(): ?DateTimeImmutable { return $this->firstResponseAt; }
     public function resolvedAt(): ?DateTimeImmutable { return $this->resolvedAt; }
+    public function lastMutationAt(): DateTimeImmutable { return $this->lastMutationAt; }
     public function isPaused(): bool { return $this->pauseReason !== null; }
     /** @return list<array<string, string|int>> */ public function pauseHistory(): array { return $this->pauseHistory; }
 
@@ -232,6 +251,23 @@ final class SlaClock
         }
     }
 
+    private function reserveEvidence(string $reference): void
+    {
+        $reference = trim($reference);
+        if (isset($this->usedEvidence[$reference])) {
+            throw new DomainException('SLA evidence reference has already been consumed by another clock mutation.');
+        }
+        $this->usedEvidence[$reference] = true;
+    }
+
+    private static function assertPrefixedEvidence(string $reference, string $prefix): void
+    {
+        $reference = trim($reference);
+        if (!str_starts_with($reference, $prefix) || strlen($reference) <= strlen($prefix)) {
+            throw new InvalidArgumentException('SLA evidence reference has an invalid type or identifier.');
+        }
+    }
+
     private static function assertEvidenceReference(SlaPauseReason $reason, string $reference): void
     {
         $prefix = match ($reason) {
@@ -239,8 +275,6 @@ final class SlaClock
             SlaPauseReason::AwaitingNativeOwner => 'command:',
             SlaPauseReason::ApprovedIncidentDependency => 'incident:',
         };
-        if (!str_starts_with(trim($reference), $prefix) || strlen(trim($reference)) <= strlen($prefix)) {
-            throw new InvalidArgumentException('Pause evidence reference does not match the governed reason.');
-        }
+        self::assertPrefixedEvidence($reference, $prefix);
     }
 }
