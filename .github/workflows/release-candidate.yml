@@ -9,6 +9,9 @@ on:
 permissions:
   contents: read
 
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
 jobs:
   package:
     name: Deterministic package and evidence
@@ -17,6 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ env.SOURCE_SHA }}
           fetch-depth: 1
 
       - uses: shivammathur/setup-php@v2
@@ -30,6 +34,9 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Validate exact source identity
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
       - name: Validate source metadata
         run: composer validate --strict --no-check-publish
 
@@ -41,16 +48,16 @@ jobs:
 
       - name: Build first deterministic candidate
         run: |
-          python3 build/package.py --source-sha "$GITHUB_SHA"
+          python3 build/package.py --source-sha "$SOURCE_SHA"
           cp "dist/cf-02-support-appeals-case-management-1.0.0-rc.2.zip" /tmp/cf02-first.zip
-          python3 build/verify_package.py --source-sha "$GITHUB_SHA"
+          python3 build/verify_package.py --source-sha "$SOURCE_SHA"
           (cd dist && sha256sum -c SHA256SUMS)
 
       - name: Rebuild and prove reproducibility
         run: |
-          python3 build/package.py --source-sha "$GITHUB_SHA"
+          python3 build/package.py --source-sha "$SOURCE_SHA"
           cmp /tmp/cf02-first.zip "dist/cf-02-support-appeals-case-management-1.0.0-rc.2.zip"
-          python3 build/verify_package.py --source-sha "$GITHUB_SHA"
+          python3 build/verify_package.py --source-sha "$SOURCE_SHA"
           (cd dist && sha256sum -c SHA256SUMS)
 
       - name: Validate packaged PHP syntax
@@ -63,7 +70,7 @@ jobs:
       - name: Upload exact candidate evidence
         uses: actions/upload-artifact@v4
         with:
-          name: cf02-1.0.0-rc.2-${{ github.sha }}
+          name: cf02-1.0.0-rc.2-${{ env.SOURCE_SHA }}
           path: dist/*
           if-no-files-found: error
           retention-days: 30
