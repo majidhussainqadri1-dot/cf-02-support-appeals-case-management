@@ -6,6 +6,7 @@ namespace Sabri\CF02\Resolution;
 
 use DateTimeImmutable;
 use InvalidArgumentException;
+use Sabri\CF02\Security\SensitiveContentDetector;
 
 final class ResolutionDecision
 {
@@ -28,6 +29,14 @@ final class ResolutionDecision
             if (!is_string($action) || trim($action) === '') {
                 throw new InvalidArgumentException('Invalid resolution action.');
             }
+        }
+
+        if (count($actions) !== count(array_unique($actions))) {
+            throw new InvalidArgumentException('Duplicate resolution actions are not allowed.');
+        }
+
+        if (SensitiveContentDetector::containsProhibitedSecret($userInstructions . "\n" . implode("\n", $actions))) {
+            throw new InvalidArgumentException('Resolution content contains a prohibited secret.');
         }
 
         if ($code === ResolutionCode::NativeOwnerActionCompleted && ($nativeOutcomeReference === null || trim($nativeOutcomeReference) === '')) {
