@@ -32,7 +32,7 @@ Status: corrected and GitHub Actions run `30824537388` passed on PHP 8.1–8.4.
 
 ## C2-B Round 2 — Fresh adversarial lifecycle and evidence review
 
-Status: corrected; exact final-head CI required and recorded separately.
+Status: corrected and exact-head CI passed.
 
 1. Replaced delimiter-joined idempotency input with canonical JSON encoding.
 2. Added an intake replay ledger: exact replay returns one case; changed payload under the same key fails.
@@ -47,6 +47,35 @@ Status: corrected; exact final-head CI required and recorded separately.
 11. Merge reversal reason is retained for audit.
 12. Added adversarial tests for delimiter collisions, scan spoofing, replay mismatch, expired reopening, emergency diversion and portal minimization.
 
+## C2-C Round 1 — Assignment, SLA integrity and incident chronology review
+
+Status: corrected and GitHub Actions run `30844311641` passed on PHP 8.1–8.4.
+
+1. Language changed from a soft routing preference to an exact eligibility constraint; unsupported language remains explicitly unassigned.
+2. Malformed assignment candidate entries are rejected rather than silently ignored.
+3. Ordinary accountable owners cannot access restricted projections.
+4. Existing collaboration grants cannot be silently widened or extended; revocation is required before material change.
+5. SLA pause is prohibited before first response and after an existing breach.
+6. SLA resolution requires a recorded first response.
+7. Queue-health capacity, empty-queue and subset metrics are cross-validated.
+8. Major-incident audit mutations use explicit chronological timestamps rather than hidden wall-clock time.
+
+## C2-C Round 2 — Fresh adversarial authority, time and evidence review
+
+Status: corrected; GitHub Actions run `30844984327` passed on exact head `4267d5bb407a651a65208d175265e3818e3334ae` for PHP 8.1–8.4.
+
+1. Assignment decisions now expire after five minutes so stale capacity snapshots cannot be committed indefinitely.
+2. Assignment commit time is explicit and expired decisions fail closed.
+3. Transfers cannot use a decision issued for another queue.
+4. Restricted collaborator scope requires explicit purpose-bound approval.
+5. First response, updates and resolution require typed, unique evidence references; one item cannot manipulate multiple SLA events.
+6. Breach prediction rejects observations older than the current clock and treats governed pauses as watch rather than false normality.
+7. Coverage calendars reject overlapping working windows and impossible holiday dates.
+8. Queue-health evaluation rejects stale and materially future-dated snapshots.
+9. Public incident summaries and resolutions reject prohibited secrets.
+10. Public incident projection exposes only notice availability, never the internal notice reference.
+11. Adversarial tests cover expired assignment, cross-queue transfer, restricted collaboration, SLA evidence replay, calendar corruption, stale metrics and public incident leakage.
+
 ## Truthful completion state
 
-These reviews prove repository-level foundation behavior only. WordPress persistence, real providers, scanner/storage services, routes, staging, migration, backup/restore, accessibility, live deployment and operations remain unproved. Any new evidence reopens review.
+These reviews prove repository-level pure-domain and contract foundations only. WordPress persistence, transaction boundaries, public/agent routes, scheduler workers, notification delivery, real staffing/calendar providers, scanner/storage services, dashboards, staging, migration, backup/restore, accessibility, live deployment and operations remain unproved. Any new defect, dependency drift, staging evidence or security/privacy finding reopens review.
