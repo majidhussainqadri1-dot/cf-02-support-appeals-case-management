@@ -6,6 +6,7 @@ namespace Sabri\CF02;
 
 use Sabri\CF02\Activation\ActivationGate;
 use Sabri\CF02\Activation\WordPressActivationEvidence;
+use Sabri\CF02\Infrastructure\WordPress\Runtime;
 
 final class Plugin
 {
@@ -19,7 +20,7 @@ final class Plugin
             'status' => 'pending',
             'plan_version' => CF02_PLAN_VERSION,
             'runtime_version' => CF02_VERSION,
-            'reason' => 'Founder-approved activation evidence and dependency contracts are required.',
+            'reason' => 'Founder-approved activation evidence, staffing, dependency contracts, staging and rollback proof are required.',
             'updated_at' => gmdate('c'),
         ], false);
     }
@@ -39,12 +40,29 @@ final class Plugin
             return;
         }
 
+        Runtime::boot();
+        update_option(self::OPTION_INSTALLED_VERSION, CF02_VERSION, false);
+        update_option(self::OPTION_ACTIVATION_STATE, [
+            'status' => 'ready',
+            'plan_version' => CF02_PLAN_VERSION,
+            'runtime_version' => CF02_VERSION,
+            'evidence' => $decision->evidence(),
+            'updated_at' => gmdate('c'),
+        ], false);
         do_action('cf02_runtime_ready', $decision->evidence());
     }
 
     /** @param list<string> $reasons */
     private static function registerDormantState(array $reasons): void
     {
+        update_option(self::OPTION_ACTIVATION_STATE, [
+            'status' => 'dormant',
+            'plan_version' => CF02_PLAN_VERSION,
+            'runtime_version' => CF02_VERSION,
+            'reasons' => $reasons,
+            'updated_at' => gmdate('c'),
+        ], false);
+
         add_action('admin_notices', static function () use ($reasons): void {
             if (!current_user_can('manage_options')) {
                 return;
