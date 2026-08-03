@@ -4,14 +4,24 @@ declare(strict_types=1);
 
 namespace Sabri\CF02\Portal;
 
+use DateTimeImmutable;
+use Sabri\CF02\Attachment\AttachmentRecord;
+use Sabri\CF02\Domain\CaseState;
 use Sabri\CF02\Domain\CaseWorkspace;
 use Sabri\CF02\Thread\CaseMessage;
 
 final class UserCaseProjection
 {
     /** @return array<string, mixed> */
-    public static function fromWorkspace(CaseWorkspace $case): array
+    public static function fromWorkspace(CaseWorkspace $case, ?DateTimeImmutable $now = null): array
     {
+        $now ??= new DateTimeImmutable('now');
+        $visibleAttachments = array_filter(
+            $case->attachments(),
+            static fn (AttachmentRecord $attachment): bool => $attachment->visibleToRequester($case->caseId())
+        );
+        $visibleAttachmentIds = array_keys($visibleAttachments);
+
         $messages = array_map(
             static fn (CaseMessage $message): array => [
                 'message_id' => $message->messageId(),
@@ -20,10 +30,15 @@ final class UserCaseProjection
                 'channel' => $message->channel(),
                 'created_at' => $message->createdAt()->format(DATE_ATOM),
                 'translation_state' => $message->translationState(),
-                'attachment_ids' => $message->attachmentIds(),
+                'attachment_ids' => array_values(array_intersect($message->attachmentIds(), $visibleAttachmentIds)),
             ],
             $case->thread()->requesterVisible()
         );
+
+        $resolution = $case->resolution();
+        $canReopen = $case->state() === CaseState::Closed
+            && $resolution !== null
+            && $resolution->reopenUntil() > $now;
 
         return [
             'case_id' => $case->caseId()->value(),
@@ -32,8 +47,8 @@ final class UserCaseProjection
             'version' => $case->version(),
             'sla_summary' => $case->slaSummary(),
             'messages' => $messages,
-            'attachment_ids' => array_keys($case->attachments()),
-            'can_reopen' => $case->state() === \Sabri\CF02\Domain\CaseState::Closed,
+            'attachment_ids' => $visibleAttachmentIds,
+            'can_reopen' => $canReopen,
         ];
     }
 }
