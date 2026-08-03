@@ -50,6 +50,10 @@ final class CaseMessage
             }
         }
 
+        if (count($attachmentIds) !== count(array_unique($attachmentIds))) {
+            throw new InvalidArgumentException('Duplicate attachment identifiers are not allowed.');
+        }
+
         if (SensitiveContentDetector::containsProhibitedSecret($body)) {
             throw new InvalidArgumentException('Prohibited secret detected in case message.');
         }
@@ -64,4 +68,17 @@ final class CaseMessage
     public function createdAt(): DateTimeImmutable { return $this->createdAt; }
     /** @return list<string> */ public function attachmentIds(): array { return $this->attachmentIds; }
     public function translationState(): string { return $this->translationState; }
+
+    public function fingerprint(): string
+    {
+        return hash('sha256', json_encode([
+            'message_id' => $this->messageId,
+            'author' => $this->authorReference,
+            'visibility' => $this->visibility->value,
+            'body' => $this->body,
+            'channel' => $this->channel,
+            'attachments' => $this->attachmentIds,
+            'translation_state' => $this->translationState,
+        ], JSON_THROW_ON_ERROR));
+    }
 }
