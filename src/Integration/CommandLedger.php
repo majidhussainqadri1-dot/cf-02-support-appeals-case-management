@@ -21,11 +21,17 @@ final class CommandLedger
 
     public function register(NativeOwnerCommand $command, DateTimeImmutable $now): NativeOwnerCommand
     {
+        if (!$command->envelope()->matchesPayload($command->payload())) {
+            throw new DomainException('Native command payload is not bound to its mutation envelope.');
+        }
         $key = $command->envelope()->idempotencyKey();
         $existingId = $this->idempotencyToCommand[$key] ?? null;
         if ($existingId !== null) {
             $existing = $this->commands[$existingId];
-            if (!hash_equals($existing->envelope()->payloadFingerprint(), $command->envelope()->payloadFingerprint())) {
+            if (!hash_equals($existing->envelope()->payloadFingerprint(), $command->envelope()->payloadFingerprint())
+                || !hash_equals($existing->nativeOwner(), $command->nativeOwner())
+                || !hash_equals($existing->action(), $command->action())
+                || !hash_equals($existing->objectReference(), $command->objectReference())) {
                 throw new DomainException('Native command idempotency collision detected.');
             }
             return $existing;
