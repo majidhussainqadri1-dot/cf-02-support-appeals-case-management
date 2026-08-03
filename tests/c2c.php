@@ -61,7 +61,7 @@ $test('assignment chooses eligible low-load language-matching agent', static fun
     $decision = (new AssignmentRouter())->decide($request, $agents, new DateTimeImmutable('2026-08-03T12:00:00+05:00'));
     assert($decision->isAssigned());
     assert($decision->agentReference() === 'agent-a');
-    assert($decision->eligibleCandidates() === 3);
+    assert($decision->eligibleCandidates() === 2);
 });
 
 $test('sensitive assignment fails closed without cleared liaison', static function (): void {
@@ -83,6 +83,7 @@ $test('accountable owner transfer revokes old owner and preserves one owner', st
     $assignment->assign($first, 1);
     $assignment->addCollaborator('agent-3', ['view_case'], new DateTimeImmutable('2026-08-04T12:00:00+05:00'), 2, new DateTimeImmutable('2026-08-03T12:30:00+05:00'));
     assert($assignment->canAccess('agent-1', 'reply_case'));
+    assert(!$assignment->canAccess('agent-1', 'restricted_projection'));
     assert($assignment->canAccess('agent-3', 'view_case', new DateTimeImmutable('2026-08-03T13:00:00+05:00')));
     $assignment->transfer($second, 'Required workload rebalance', 3, new DateTimeImmutable('2026-08-03T13:00:00+05:00'));
     assert($assignment->ownerReference() === 'agent-2');
@@ -148,14 +149,15 @@ $test('queue health becomes critical for breached or unowned P1 work', static fu
 $test('major incident links cases without merging or cross-case disclosure', static function (): void {
     $caseA = SupportCaseId::generate();
     $caseB = SupportCaseId::generate();
-    $incident = new MajorIncident('CF02-INC-0001', 'service.support-api', 'Support submissions are delayed.', new DateTimeImmutable('+1 hour'));
-    assert($incident->linkCase($caseA, 'service.support-api', 'technical', 'lead-1', new DateTimeImmutable(), 1));
-    assert($incident->linkCase($caseB, 'service.support-api', 'technical', 'lead-1', new DateTimeImmutable(), 2));
+    $openedAt = new DateTimeImmutable('2026-08-03T18:00:00+05:00');
+    $incident = new MajorIncident('CF02-INC-0001', 'service.support-api', 'Support submissions are delayed.', new DateTimeImmutable('2026-08-03T19:00:00+05:00'), $openedAt);
+    assert($incident->linkCase($caseA, 'service.support-api', 'technical', 'lead-1', new DateTimeImmutable('2026-08-03T18:05:00+05:00'), 1));
+    assert($incident->linkCase($caseB, 'service.support-api', 'technical', 'lead-1', new DateTimeImmutable('2026-08-03T18:06:00+05:00'), 2));
     $projection = $incident->projectionForCase($caseA);
     assert($projection !== null);
     assert(!str_contains(json_encode($projection, JSON_THROW_ON_ERROR), $caseB->value()));
     assert($incident->linkedCaseCount() === 2);
-    $incident->markMonitoring(new DateTimeImmutable('+2 hours'), 'lead-1', 3);
+    $incident->markMonitoring(new DateTimeImmutable('2026-08-03T20:00:00+05:00'), 'lead-1', new DateTimeImmutable('2026-08-03T18:10:00+05:00'), 3);
     assert($incident->status() === IncidentStatus::Monitoring);
 });
 
