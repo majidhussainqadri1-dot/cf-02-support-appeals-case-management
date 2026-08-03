@@ -40,6 +40,7 @@ final class CaseWorkspace
     public function appendMessage(CaseMessage $message, int $expectedVersion): bool
     {
         $this->assertVersion($expectedVersion);
+        $this->assertNotClosed();
         $added = $this->thread->append($message);
         if ($added) {
             ++$this->version;
@@ -50,6 +51,7 @@ final class CaseWorkspace
     public function addAttachment(AttachmentRecord $attachment, int $expectedVersion): bool
     {
         $this->assertVersion($expectedVersion);
+        $this->assertNotClosed();
         if (!$attachment->caseId()->equals($this->caseId)) {
             throw new InvalidArgumentException('Attachment belongs to another case.');
         }
@@ -70,6 +72,7 @@ final class CaseWorkspace
     public function addBlocker(string $id, string $description, int $expectedVersion): bool
     {
         $this->assertVersion($expectedVersion);
+        $this->assertNotClosed();
         if (trim($id) === '' || trim($description) === '') {
             throw new InvalidArgumentException('Blocker identity and description are required.');
         }
@@ -89,6 +92,7 @@ final class CaseWorkspace
     public function clearBlocker(string $id, int $expectedVersion): bool
     {
         $this->assertVersion($expectedVersion);
+        $this->assertNotClosed();
         if (!isset($this->blockers[$id])) {
             return false;
         }
@@ -100,8 +104,8 @@ final class CaseWorkspace
     public function transition(CaseState $to, int $expectedVersion): void
     {
         $this->assertVersion($expectedVersion);
-        if (in_array($to, [CaseState::Resolved, CaseState::Closed], true)) {
-            throw new DomainException('Resolved and Closed states require the governed resolve() or close() command.');
+        if (in_array($to, [CaseState::Resolved, CaseState::Closed, CaseState::Reopened], true)) {
+            throw new DomainException('Resolved, Closed and Reopened states require governed lifecycle commands.');
         }
         (new CaseStateMachine())->assertTransition($this->state, $to);
         $this->state = $to;
@@ -150,6 +154,24 @@ final class CaseWorkspace
         ++$this->version;
     }
 
+    public function reopen(int $expectedVersion, ?DateTimeImmutable $now = null): void
+    {
+        $this->assertVersion($expectedVersion);
+        $now ??= new DateTimeImmutable('now');
+
+        if ($this->state !== CaseState::Closed || !$this->resolution instanceof ResolutionDecision) {
+            throw new DomainException('Only a governed closed case may be reopened.');
+        }
+
+        if ($this->resolution->reopenUntil() <= $now) {
+            throw new DomainException('The governed reopen window has expired.');
+        }
+
+        (new CaseStateMachine())->assertTransition($this->state, CaseState::Reopened);
+        $this->state = CaseState::Reopened;
+        ++$this->version;
+    }
+
     public function caseId(): SupportCaseId { return $this->caseId; }
     public function requesterReference(): string { return $this->requesterReference; }
     public function categoryKey(): string { return $this->categoryKey; }
@@ -168,6 +190,13 @@ final class CaseWorkspace
     {
         if ($expectedVersion !== $this->version) {
             throw new ConcurrencyConflict(sprintf('Stale case version: expected %d, current %d.', $expectedVersion, $this->version));
+        }
+    }
+
+    private function assertNotClosed(): void
+    {
+        if ($this->state === CaseState::Closed) {
+            throw new DomainException('Closed cases are immutable until a governed reopen succeeds.');
         }
     }
 }
