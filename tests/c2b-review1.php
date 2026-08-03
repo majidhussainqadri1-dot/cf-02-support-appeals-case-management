@@ -126,7 +126,8 @@ $test('governed resolution and closure require verified outcome and notice', sta
     assert($case->state() === CaseState::Resolved);
     $case->close(false, 4);
     assert($case->state() === CaseState::Closed);
-    assert(UserCaseProjection::fromWorkspace($case, new DateTimeImmutable())->offsetGet('can_reopen') ?? true);
+    $projection = UserCaseProjection::fromWorkspace($case, new DateTimeImmutable());
+    assert($projection['can_reopen'] === true);
 });
 
 $test('receipt shows unverified sender trust without granting authority', static function (): void {
