@@ -33,8 +33,11 @@ final class QueueHealthSnapshot
         if ($unassignedCases > $openCases || $p1UnassignedCases > $unassignedCases || $atRiskCases > $openCases || $breachedCases > $openCases) {
             throw new InvalidArgumentException('Queue-health subset counts are inconsistent.');
         }
-        if ($assignedLoad > $totalCapacity || ($totalCapacity === 0 && $assignedLoad !== 0)) {
+        if ($assignedLoad > $totalCapacity || $availableAgents > $totalCapacity || ($totalCapacity === 0 && ($assignedLoad !== 0 || $availableAgents !== 0))) {
             throw new InvalidArgumentException('Queue capacity metrics are inconsistent.');
+        }
+        if ($openCases === 0 && ($unassignedCases !== 0 || $p1UnassignedCases !== 0 || $atRiskCases !== 0 || $breachedCases !== 0 || $oldestOpenWorkingMinutes !== 0)) {
+            throw new InvalidArgumentException('Empty queue cannot report case-derived health metrics.');
         }
     }
 
