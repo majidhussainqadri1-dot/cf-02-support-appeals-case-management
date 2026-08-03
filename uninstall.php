@@ -33,4 +33,4 @@ foreach ([
 }
 
 // Preserve all canonical and evidentiary data by default.
-// No DROP TABLE, delete_option, delete_user_meta or foreign-owner mutation is allowed here.
+// The uninstall path performs scheduler and ephemeral-lock cleanup only.
