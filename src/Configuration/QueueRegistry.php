@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Sabri\CF02\Configuration;
 
+use Sabri\CF02\Staffing\StaffingRole;
+
 final class QueueRegistry
 {
     /** @return array<string, QueueDefinition> */
@@ -36,10 +38,19 @@ final class QueueRegistry
         $taxonomy = SupportTaxonomy::defaults();
         $queues = self::defaults();
         $assignedCategories = [];
+        $validRoles = array_map(static fn (StaffingRole $role): string => $role->value, StaffingRole::cases());
 
         foreach ($queues as $key => $queue) {
             if ($key !== $queue->key()) {
                 $reasons[] = sprintf('Queue index mismatch: %s.', $key);
+            }
+
+            if (!in_array($queue->ownerRole(), $validRoles, true)) {
+                $reasons[] = sprintf('Queue %s has an unknown owner role.', $key);
+            }
+
+            if (!in_array($queue->escalationRole(), $validRoles, true)) {
+                $reasons[] = sprintf('Queue %s has an unknown escalation role.', $key);
             }
 
             foreach ($queue->categoryKeys() as $categoryKey) {
@@ -48,12 +59,24 @@ final class QueueRegistry
                     continue;
                 }
 
-                if ($taxonomy[$categoryKey]->queueKey() !== $key) {
+                $category = $taxonomy[$categoryKey];
+
+                if ($category->queueKey() !== $key) {
                     $reasons[] = sprintf('Category %s is assigned to the wrong queue.', $categoryKey);
                 }
 
                 if (isset($assignedCategories[$categoryKey])) {
                     $reasons[] = sprintf('Category is assigned to more than one queue: %s.', $categoryKey);
+                }
+
+                foreach ($category->requiredSkills() as $skill) {
+                    if (!in_array($skill, $queue->requiredSkills(), true)) {
+                        $reasons[] = sprintf('Queue %s does not provide category skill %s.', $key, $skill);
+                    }
+                }
+
+                if ($category->specialistOnly() && !$queue->sensitive()) {
+                    $reasons[] = sprintf('Specialist-only category is assigned to a non-sensitive queue: %s.', $categoryKey);
                 }
 
                 $assignedCategories[$categoryKey] = true;
