@@ -93,39 +93,45 @@ final class CaseRepository
         string $requesterReference,
         string $channel,
         string $ciphertext,
+        string $contentHash,
         string $idempotencyKey,
         DateTimeImmutable $at
     ): string {
         if ($this->getCase($caseId, $requesterReference) === null) {
             throw new RuntimeException('Case not found or not authorized.');
         }
-        $messageId = 'CF02-MSG-' . strtoupper(bin2hex(random_bytes(10)));
-        $bodyHash = hash('sha256', $ciphertext);
+        if (preg_match('/^[a-f0-9]{64}$/', $contentHash) !== 1) {
+            throw new RuntimeException('Message content hash is invalid.');
+        }
+        $messageId = 'CF02-MSG-' . strtoupper(substr(hash('sha256', $requesterReference . "\0" . $caseId->value() . "\0" . $idempotencyKey), 0, 20));
         $existingSql = $this->wpdb->prepare(
-            "SELECT message_uuid, body_hash FROM {$this->messagesTable} WHERE message_uuid = %s LIMIT 1",
-            $idempotencyKey
+            "SELECT message_uuid, case_uuid, author_ref, channel, body_hash FROM {$this->messagesTable} WHERE message_uuid = %s LIMIT 1",
+            $messageId
         );
         $existing = $this->wpdb->get_row($existingSql, ARRAY_A);
         if (is_array($existing)) {
-            if (!hash_equals((string) $existing['body_hash'], $bodyHash)) {
+            if (!hash_equals((string) $existing['case_uuid'], $caseId->value())
+                || !hash_equals((string) $existing['author_ref'], $requesterReference)
+                || !hash_equals((string) $existing['channel'], $channel)
+                || !hash_equals((string) $existing['body_hash'], $contentHash)) {
                 throw new RuntimeException('Message idempotency collision.');
             }
             return (string) $existing['message_uuid'];
         }
         $inserted = $this->wpdb->insert($this->messagesTable, [
-            'message_uuid' => $idempotencyKey,
+            'message_uuid' => $messageId,
             'case_uuid' => $caseId->value(),
             'author_ref' => $requesterReference,
             'visibility' => 'requester',
             'channel' => $channel,
             'body_ciphertext' => $ciphertext,
-            'body_hash' => $bodyHash,
+            'body_hash' => $contentHash,
             'record_version' => 1,
             'created_at' => $at->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s.u'),
         ], ['%s','%s','%s','%s','%s','%s','%s','%d','%s']);
         if ($inserted !== 1) {
             throw new RuntimeException('Message persistence failed.');
         }
-        return $idempotencyKey ?: $messageId;
+        return $messageId;
     }
 }
