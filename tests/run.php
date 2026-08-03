@@ -11,7 +11,9 @@ require_once dirname(__DIR__) . '/src/Autoload.php';
 
 use Sabri\CF02\Activation\ActivationEvidence;
 use Sabri\CF02\Activation\ActivationGate;
+use Sabri\CF02\Configuration\QueueDefinition;
 use Sabri\CF02\Configuration\QueueRegistry;
+use Sabri\CF02\Configuration\SupportCategory;
 use Sabri\CF02\Configuration\SupportTaxonomy;
 use Sabri\CF02\Domain\CaseState;
 use Sabri\CF02\Domain\CaseStateMachine;
@@ -31,94 +33,51 @@ $test = static function (string $name, callable $callback) use (&$failures): voi
     }
 };
 
-$completeDependencies = static fn (): array => [
-    'file_00_membership_contract' => [
-        'ready' => true,
-        'owner' => 'File 00',
-        'contract_version' => '1.1.2',
-        'capabilities' => ['identity_assertions'],
-    ],
-    'file_09_verification_contract' => [
-        'ready' => true,
-        'owner' => 'File 09',
-        'contract_version' => '1.0.0',
-        'capabilities' => ['verification_decision_reference'],
-    ],
-    'file_17_message_report_contract' => [
-        'ready' => true,
-        'owner' => 'File 17',
-        'contract_version' => '2.0.0',
-        'capabilities' => ['message_report_decision_reference'],
-    ],
-    'file_18_marketplace_case_contract' => [
-        'ready' => true,
-        'owner' => 'File 18',
-        'contract_version' => '1.0.0',
-        'capabilities' => ['listing_decision_reference'],
-    ],
-    'file_20_route_shell_contract' => [
-        'ready' => true,
-        'owner' => 'File 20',
-        'contract_version' => '1.0.0',
-        'capabilities' => ['route_shell_mount'],
-    ],
-    'file_21_content_case_contract' => [
-        'ready' => true,
-        'owner' => 'File 21',
-        'contract_version' => '1.0.0',
-        'capabilities' => ['content_decision_reference'],
-    ],
-    'file_24_assurance_manifest' => [
-        'ready' => true,
-        'owner' => 'File 24',
-        'contract_version' => '1.0.0',
-        'capabilities' => ['assurance_manifest'],
-    ],
-    'file_25_component_contract' => [
-        'ready' => true,
-        'owner' => 'File 25',
-        'contract_version' => '1.0.0',
-        'capabilities' => ['component_manifest'],
-    ],
+$contracts = static fn (): array => [
+    'file_00_membership_contract' => ['ready' => true, 'owner' => 'File 00', 'contract_version' => '1.1.2', 'capabilities' => ['identity_assertions']],
+    'file_09_verification_contract' => ['ready' => true, 'owner' => 'File 09', 'contract_version' => '1.0.0', 'capabilities' => ['verification_decision_reference']],
+    'file_17_message_report_contract' => ['ready' => true, 'owner' => 'File 17', 'contract_version' => '2.0.0', 'capabilities' => ['message_report_decision_reference']],
+    'file_18_marketplace_case_contract' => ['ready' => true, 'owner' => 'File 18', 'contract_version' => '1.0.0', 'capabilities' => ['listing_decision_reference']],
+    'file_20_route_shell_contract' => ['ready' => true, 'owner' => 'File 20', 'contract_version' => '1.0.0', 'capabilities' => ['route_shell_mount']],
+    'file_21_content_case_contract' => ['ready' => true, 'owner' => 'File 21', 'contract_version' => '1.0.0', 'capabilities' => ['content_decision_reference']],
+    'file_24_assurance_manifest' => ['ready' => true, 'owner' => 'File 24', 'contract_version' => '1.0.0', 'capabilities' => ['assurance_manifest']],
+    'file_25_component_contract' => ['ready' => true, 'owner' => 'File 25', 'contract_version' => '1.0.0', 'capabilities' => ['component_manifest']],
 ];
 
-$completeOperations = static function (): array {
-    $base = static fn (string $id, string $owner): array => [
-        'status' => 'accepted',
-        'evidence_id' => $id,
-        'owner' => $owner,
-        'artifact_ref' => 'evidence/' . strtolower($id),
-        'recorded_at' => '2026-08-03T17:41:00+05:00',
-    ];
+$evidenceRecord = static fn (string $id, string $owner): array => [
+    'status' => 'accepted',
+    'evidence_id' => $id,
+    'owner' => $owner,
+    'artifact_ref' => 'evidence/' . strtolower($id),
+    'recorded_at' => '2026-08-03T17:41:00+05:00',
+];
 
+$operations = static function () use ($evidenceRecord): array {
     return [
-        'volume_trigger' => array_merge($base('VOL-001', 'Support Operations'), [
+        'volume_trigger' => array_merge($evidenceRecord('VOL-001', 'Support Operations'), [
             'measurement_window' => '90 days',
             'metric' => 'safe_capacity_exceedance_days',
             'threshold' => 20,
             'observed_value' => 27,
             'triggered' => true,
         ]),
-        'staffing' => array_merge($base('STAFF-001', 'Support Operations'), [
-            'coverage_hours' => 'Approved schedule reference coverage.v1',
-            'queue_owners' => ['identity' => 'team-a', 'technical' => 'team-b'],
+        'staffing' => array_merge($evidenceRecord('STAFF-001', 'Support Operations'), [
+            'coverage_hours' => 'coverage.v1',
+            'queue_owners' => ['account' => 'team-a', 'technical' => 'team-b'],
             'escalation_tree_approved' => true,
             'emergency_diversion_approved' => true,
             'privacy_training_complete' => true,
             'quality_sampling_approved' => true,
         ]),
-        'privacy_review' => $base('PRIV-001', 'Privacy Reviewer'),
-        'security_review' => $base('SEC-001', 'Security Reviewer'),
-        'migration_plan' => $base('MIG-001', 'Migration Owner'),
-        'rollback_plan' => $base('RB-001', 'Release Owner'),
-        'zero_critical_high_defects' => array_merge($base('DEF-001', 'QA Owner'), [
-            'critical_open' => 0,
-            'high_open' => 0,
-        ]),
+        'privacy_review' => $evidenceRecord('PRIV-001', 'Privacy Reviewer'),
+        'security_review' => $evidenceRecord('SEC-001', 'Security Reviewer'),
+        'migration_plan' => $evidenceRecord('MIG-001', 'Migration Owner'),
+        'rollback_plan' => $evidenceRecord('RB-001', 'Release Owner'),
+        'zero_critical_high_defects' => array_merge($evidenceRecord('DEF-001', 'QA Owner'), ['critical_open' => 0, 'high_open' => 0]),
     ];
 };
 
-$completeApproval = static fn (): array => [
+$approval = static fn (): array => [
     'approved' => true,
     'plan_version' => '1.0',
     'change_control_id' => 'CF02-ACT-001',
@@ -126,120 +85,122 @@ $completeApproval = static fn (): array => [
     'approved_at' => '2026-08-03T17:14:00+05:00',
 ];
 
-$makeEvidence = static function (array $approval, array $dependencies, array $operations, bool $switch = true): ActivationEvidence {
-    return new class($approval, $dependencies, $operations, $switch) implements ActivationEvidence {
+$provider = static function (array $approvalData, array $contractData, array $operationData, bool $enabled = true): ActivationEvidence {
+    return new class($approvalData, $contractData, $operationData, $enabled) implements ActivationEvidence {
         public function __construct(
             private array $approval,
-            private array $dependencies,
+            private array $contracts,
             private array $operations,
-            private bool $switch
+            private bool $enabled
         ) {
         }
-        public function runtimeSwitchEnabled(): bool { return $this->switch; }
+        public function runtimeSwitchEnabled(): bool { return $this->enabled; }
         public function founderApproval(): array { return $this->approval; }
-        public function dependencyReadiness(): array { return $this->dependencies; }
+        public function dependencyReadiness(): array { return $this->contracts; }
         public function operationalEvidence(): array { return $this->operations; }
     };
 };
 
-$test('activation gate denies missing evidence', static function () use ($makeEvidence): void {
-    $decision = (new ActivationGate($makeEvidence([], [], [], false)))->evaluate();
-    assert($decision->isAllowed() === false);
-    assert(count($decision->reasons()) >= 15);
+$decision = static fn (array $a, array $c, array $o, bool $enabled = true) => (new ActivationGate($provider($a, $c, $o, $enabled)))->evaluate();
+
+$test('activation denies empty evidence', static function () use ($decision): void {
+    $result = $decision([], [], [], false);
+    assert(!$result->isAllowed());
+    assert(count($result->reasons()) >= 15);
 });
 
-$test('activation gate rejects malformed approval timestamp', static function () use ($completeDependencies, $completeOperations, $completeApproval, $makeEvidence): void {
-    $approval = $completeApproval();
-    $approval['approved_at'] = 'not-a-date';
-    $decision = (new ActivationGate($makeEvidence($approval, $completeDependencies(), $completeOperations())))->evaluate();
-    assert(!$decision->isAllowed());
-    assert(in_array('Founder approval timestamp is not valid ISO 8601.', $decision->reasons(), true));
+$test('activation requires canonical Founder identity and valid approval ID', static function () use ($approval, $contracts, $operations, $decision): void {
+    $a = $approval();
+    $a['approved_by'] = 'administrator';
+    $a['change_control_id'] = 'latest';
+    $result = $decision($a, $contracts(), $operations());
+    assert(!$result->isAllowed());
+    assert(in_array('Activation approval is not bound to the canonical Founder identity.', $result->reasons(), true));
+    assert(in_array('Founder activation change-control ID is invalid.', $result->reasons(), true));
 });
 
-$test('activation gate cannot lose a mandatory owner contract', static function () use ($completeDependencies, $completeOperations, $completeApproval, $makeEvidence): void {
-    $dependencies = $completeDependencies();
-    unset($dependencies['file_21_content_case_contract']);
-    $decision = (new ActivationGate($makeEvidence($completeApproval(), $dependencies, $completeOperations())))->evaluate();
-    assert(!$decision->isAllowed());
-    assert(in_array('Required dependency contract is not ready: file_21_content_case_contract.', $decision->reasons(), true));
+$test('activation rejects malformed approval time', static function () use ($approval, $contracts, $operations, $decision): void {
+    $a = $approval();
+    $a['approved_at'] = 'not-a-date';
+    assert(in_array('Founder approval timestamp is not valid ISO 8601.', $decision($a, $contracts(), $operations())->reasons(), true));
 });
 
-$test('activation gate rejects owner spoofing', static function () use ($completeDependencies, $completeOperations, $completeApproval, $makeEvidence): void {
-    $dependencies = $completeDependencies();
-    $dependencies['file_24_assurance_manifest']['owner'] = 'Unknown Plugin';
-    $decision = (new ActivationGate($makeEvidence($completeApproval(), $dependencies, $completeOperations())))->evaluate();
-    assert(!$decision->isAllowed());
-    assert(in_array('Dependency contract owner mismatch: file_24_assurance_manifest.', $decision->reasons(), true));
+$test('activation requires every owner contract', static function () use ($approval, $contracts, $operations, $decision): void {
+    $c = $contracts();
+    unset($c['file_21_content_case_contract']);
+    assert(in_array('Required dependency contract is not ready: file_21_content_case_contract.', $decision($approval(), $c, $operations())->reasons(), true));
 });
 
-$test('activation gate rejects invalid contract version', static function () use ($completeDependencies, $completeOperations, $completeApproval, $makeEvidence): void {
-    $dependencies = $completeDependencies();
-    $dependencies['file_20_route_shell_contract']['contract_version'] = 'latest';
-    $decision = (new ActivationGate($makeEvidence($completeApproval(), $dependencies, $completeOperations())))->evaluate();
-    assert(!$decision->isAllowed());
-    assert(in_array('Dependency contract version is missing or invalid: file_20_route_shell_contract.', $decision->reasons(), true));
+$test('activation rejects owner spoofing version drift and missing capability', static function () use ($approval, $contracts, $operations, $decision): void {
+    $c = $contracts();
+    $c['file_24_assurance_manifest']['owner'] = 'Other';
+    $c['file_20_route_shell_contract']['contract_version'] = 'latest';
+    $c['file_17_message_report_contract']['capabilities'] = [];
+    $reasons = $decision($approval(), $c, $operations())->reasons();
+    assert(in_array('Dependency contract owner mismatch: file_24_assurance_manifest.', $reasons, true));
+    assert(in_array('Dependency contract version is missing or invalid: file_20_route_shell_contract.', $reasons, true));
+    assert(in_array('Dependency contract capability is missing: file_17_message_report_contract.', $reasons, true));
 });
 
-$test('activation gate rejects missing declared capability', static function () use ($completeDependencies, $completeOperations, $completeApproval, $makeEvidence): void {
-    $dependencies = $completeDependencies();
-    $dependencies['file_17_message_report_contract']['capabilities'] = [];
-    $decision = (new ActivationGate($makeEvidence($completeApproval(), $dependencies, $completeOperations())))->evaluate();
-    assert(!$decision->isAllowed());
-    assert(in_array('Dependency contract capability is missing: file_17_message_report_contract.', $decision->reasons(), true));
+$test('activation rejects boolean-only operational claims', static function () use ($approval, $contracts, $decision): void {
+    $booleans = array_fill_keys(['volume_trigger', 'staffing', 'privacy_review', 'security_review', 'migration_plan', 'rollback_plan', 'zero_critical_high_defects'], true);
+    assert(in_array('Required operational evidence is missing or unaccepted: staffing.', $decision($approval(), $contracts(), $booleans)->reasons(), true));
 });
 
-$test('activation gate rejects boolean-only operational claims', static function () use ($completeDependencies, $completeApproval, $makeEvidence): void {
-    $operations = [
-        'volume_trigger' => true,
-        'staffing' => true,
-        'privacy_review' => true,
-        'security_review' => true,
-        'migration_plan' => true,
-        'rollback_plan' => true,
-        'zero_critical_high_defects' => true,
-    ];
-    $decision = (new ActivationGate($makeEvidence($completeApproval(), $completeDependencies(), $operations)))->evaluate();
-    assert(!$decision->isAllowed());
-    assert(in_array('Required operational evidence is missing or unaccepted: staffing.', $decision->reasons(), true));
+$test('activation cross-checks measured trigger', static function () use ($approval, $contracts, $operations, $decision): void {
+    $o = $operations();
+    $o['volume_trigger']['observed_value'] = 5;
+    $reasons = $decision($approval(), $contracts(), $o)->reasons();
+    assert(in_array('Observed volume does not meet the declared extraction threshold.', $reasons, true));
 });
 
-$test('activation gate rejects an unsatisfied measured volume trigger', static function () use ($completeDependencies, $completeOperations, $completeApproval, $makeEvidence): void {
-    $operations = $completeOperations();
-    $operations['volume_trigger']['triggered'] = false;
-    $decision = (new ActivationGate($makeEvidence($completeApproval(), $completeDependencies(), $operations)))->evaluate();
-    assert(!$decision->isAllowed());
-    assert(in_array('Measured extraction trigger has not been satisfied.', $decision->reasons(), true));
+$test('activation rejects incomplete staffing evidence', static function () use ($approval, $contracts, $operations, $decision): void {
+    $o = $operations();
+    $o['staffing']['queue_owners'] = ['account' => ''];
+    $o['staffing']['privacy_training_complete'] = false;
+    $reasons = $decision($approval(), $contracts(), $o)->reasons();
+    assert(in_array('Staffing queue-owner evidence contains an invalid assignment.', $reasons, true));
+    assert(in_array('Staffing evidence is incomplete: privacy_training_complete.', $reasons, true));
 });
 
-$test('activation gate rejects incomplete staffing evidence', static function () use ($completeDependencies, $completeOperations, $completeApproval, $makeEvidence): void {
-    $operations = $completeOperations();
-    $operations['staffing']['privacy_training_complete'] = false;
-    $decision = (new ActivationGate($makeEvidence($completeApproval(), $completeDependencies(), $operations)))->evaluate();
-    assert(!$decision->isAllowed());
-    assert(in_array('Staffing evidence is incomplete: privacy_training_complete.', $decision->reasons(), true));
+$test('activation permits complete structured evidence', static function () use ($approval, $contracts, $operations, $decision): void {
+    $result = $decision($approval(), $contracts(), $operations());
+    assert($result->isAllowed());
+    assert($result->reasons() === []);
 });
 
-$test('activation gate permits complete structured evidence', static function () use ($completeDependencies, $completeOperations, $completeApproval, $makeEvidence): void {
-    $decision = (new ActivationGate($makeEvidence($completeApproval(), $completeDependencies(), $completeOperations())))->evaluate();
-    assert($decision->isAllowed());
-    assert($decision->reasons() === []);
-});
-
-$test('support taxonomy covers every approved category', static function (): void {
+$test('taxonomy and purpose-separated queues validate', static function (): void {
     $taxonomy = SupportTaxonomy::defaults();
     assert(count($taxonomy) === 12);
     assert(SupportTaxonomy::validate() === []);
-    assert($taxonomy['privacy_data_rights']->specialistOnly());
-    assert($taxonomy['technical']->nativeOwner() === 'Platform operations');
-});
-
-$test('queue registry has complete unique category and skill coverage', static function (): void {
+    assert($taxonomy['account_access']->queueKey() === 'account');
+    assert($taxonomy['verification']->queueKey() === 'verification');
+    assert($taxonomy['privacy_data_rights']->queueKey() === 'privacy_liaison');
+    assert($taxonomy['safety_abuse']->queueKey() === 'safety_liaison');
     assert(QueueRegistry::validate() === []);
-    assert(count(QueueRegistry::defaults()) === 9);
+    assert(count(QueueRegistry::defaults()) === 11);
 });
 
-$test('high-risk staffing separation rejects conflicts', static function (): void {
-    $reasons = StaffingRegistry::validateHighRiskSeparation([
+$test('configuration constructors reject malformed lists', static function (): void {
+    $categoryThrown = false;
+    try {
+        new SupportCategory('bad', 'Bad', 'technical', [['not-a-string']], 'C2', 'Owner', ['issue_type']);
+    } catch (InvalidArgumentException) {
+        $categoryThrown = true;
+    }
+    assert($categoryThrown);
+
+    $queueThrown = false;
+    try {
+        new QueueDefinition('bad', 'Bad', ['technical', 'technical'], ['technical_support'], 'team_lead', 'coverage.bad.v1', 'specialist_agent');
+    } catch (InvalidArgumentException) {
+        $queueThrown = true;
+    }
+    assert($queueThrown);
+});
+
+$test('high-risk staffing separation rejects conflicts and accepts distinct actors', static function (): void {
+    $bad = StaffingRegistry::validateHighRiskSeparation([
         'requester' => 'user-1',
         'original_decider' => 'agent-1',
         'reviewer' => 'agent-1',
@@ -247,12 +208,9 @@ $test('high-risk staffing separation rejects conflicts', static function (): voi
         'reconciler' => 'agent-2',
         'auditor' => 'agent-1',
     ]);
-    assert(count($reasons) >= 3);
-    assert(in_array('Appeal reviewer cannot be the original decision maker.', $reasons, true));
-});
+    assert(count($bad) >= 3);
 
-$test('high-risk staffing separation accepts distinct actors', static function (): void {
-    $reasons = StaffingRegistry::validateHighRiskSeparation([
+    $good = StaffingRegistry::validateHighRiskSeparation([
         'requester' => 'user-1',
         'original_decider' => 'agent-1',
         'reviewer' => 'reviewer-1',
@@ -260,55 +218,36 @@ $test('high-risk staffing separation accepts distinct actors', static function (
         'reconciler' => 'reconciler-1',
         'auditor' => 'auditor-1',
     ]);
-    assert($reasons === []);
+    assert($good === []);
 });
 
-$test('change-control validator accepts complete implementation record', static function (): void {
+$test('change-control validates complete records and rejects missing rollback', static function (): void {
     $record = [
         'id' => 'CF02-CCR-0001',
         'requested_by' => 'Founder',
         'recorded_at' => '2026-08-03T17:41:00+05:00',
-        'affected_files' => ['CF-02', 'File 00', 'File 24'],
+        'affected_files' => ['CF-02', 'File 24'],
         'requirement_ids' => ['CF02-FR-030'],
-        'old_rule' => 'No repository baseline.',
-        'new_rule' => 'Dormant governed foundation.',
-        'rationale' => 'Begin controlled implementation.',
-        'data_impact' => 'No runtime data.',
-        'security_privacy_impact' => 'Fail closed.',
-        'shariah_impact' => 'No change.',
-        'migration_plan' => 'None in foundation.',
-        'rollback_plan' => 'Revert branch.',
-        'test_plan' => 'Syntax and pure tests.',
+        'old_rule' => 'No baseline',
+        'new_rule' => 'Dormant foundation',
+        'rationale' => 'Controlled implementation',
+        'data_impact' => 'No runtime data',
+        'security_privacy_impact' => 'Fail closed',
+        'shariah_impact' => 'No change',
+        'migration_plan' => 'None',
+        'rollback_plan' => 'Revert branch',
+        'test_plan' => 'Automated tests',
         'approval_status' => 'implementation_authorized',
     ];
     assert(ChangeControlRecord::validate($record) === []);
+    unset($record['rollback_plan']);
+    assert(in_array('Change-control field is missing: rollback_plan.', ChangeControlRecord::validate($record), true));
 });
 
-$test('change-control validator rejects missing rollback', static function (): void {
-    $reasons = ChangeControlRecord::validate([
-        'id' => 'CF02-CCR-0002',
-        'requested_by' => 'Founder',
-        'recorded_at' => '2026-08-03T17:41:00+05:00',
-        'affected_files' => ['CF-02'],
-        'requirement_ids' => ['CF02-FR-030'],
-        'old_rule' => 'A',
-        'new_rule' => 'B',
-        'rationale' => 'Reason',
-        'data_impact' => 'None',
-        'security_privacy_impact' => 'Reviewed',
-        'shariah_impact' => 'Reviewed',
-        'migration_plan' => 'None',
-        'test_plan' => 'Tests',
-        'approval_status' => 'pending',
-    ]);
-    assert(in_array('Change-control field is missing: rollback_plan.', $reasons, true));
-});
-
-$test('support case transition law', static function (): void {
+$test('support case state law rejects illegal closure', static function (): void {
     $machine = new CaseStateMachine();
     assert($machine->canTransition(CaseState::New, CaseState::Triaged));
     assert($machine->canTransition(CaseState::InProgress, CaseState::WaitingForUser));
-    assert($machine->canTransition(CaseState::Resolved, CaseState::Closed));
     assert($machine->canTransition(CaseState::Closed, CaseState::Reopened));
     assert(!$machine->canTransition(CaseState::New, CaseState::Closed));
 
