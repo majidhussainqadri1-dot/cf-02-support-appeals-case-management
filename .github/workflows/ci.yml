@@ -43,3 +43,6 @@ jobs:
 
       - name: C2-B second-review adversarial tests
         run: php -d zend.assertions=1 tests/c2b-review2.php
+
+      - name: C2-C assignment SLA escalation and incident tests
+        run: php -d zend.assertions=1 tests/c2c.php
