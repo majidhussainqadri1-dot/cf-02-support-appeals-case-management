@@ -98,3 +98,9 @@ jobs:
 
       - name: C2-H second-review adversarial tests
         run: php -d zend.assertions=1 tests/c2h-review2.php
+
+      - name: Release engineering regressions
+        run: php -d zend.assertions=1 tests/release.php
+
+      - name: Public repository safety scan
+        run: python3 build/security_scan.py
