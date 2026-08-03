@@ -39,7 +39,8 @@ final class IntakeRequest
             throw new InvalidArgumentException('Unknown support category.');
         }
 
-        $length = mb_strlen(trim($description));
+        $trimmedDescription = trim($description);
+        $length = function_exists('mb_strlen') ? mb_strlen($trimmedDescription) : strlen($trimmedDescription);
         if ($length < 10 || $length > 10000) {
             throw new InvalidArgumentException('Description must contain 10 to 10000 characters.');
         }
@@ -86,6 +87,31 @@ final class IntakeRequest
     public function diagnosticsConsent(): bool { return $this->diagnosticsConsent; }
     /** @return list<string> */ public function attachmentReferences(): array { return $this->attachmentReferences; }
     public function idempotencyKey(): IdempotencyKey { return IdempotencyKey::forIntake($this->channel, $this->requesterReference, $this->sourceMessageId); }
+
+    public function fingerprint(): string
+    {
+        $fields = $this->fields;
+        ksort($fields);
+        $accessibility = $this->accessibilityNeeds;
+        sort($accessibility);
+        $attachments = $this->attachmentReferences;
+        sort($attachments);
+
+        return hash('sha256', json_encode([
+            'requester' => $this->requesterReference,
+            'channel' => $this->channel->value,
+            'source_message_id' => $this->sourceMessageId,
+            'category' => $this->categoryKey,
+            'description' => $this->description,
+            'fields' => $fields,
+            'impact' => $this->impact,
+            'urgency' => $this->urgency,
+            'language' => $this->language,
+            'accessibility' => $accessibility,
+            'diagnostics_consent' => $this->diagnosticsConsent,
+            'attachments' => $attachments,
+        ], JSON_THROW_ON_ERROR));
+    }
 
     /** @param array<mixed> $values */
     private static function assertStringList(array $values, string $label): void
