@@ -70,6 +70,27 @@ final class AttachmentRecord
     public function state(): AttachmentState { return $this->state; }
     public function attachmentId(): string { return $this->attachmentId; }
     public function caseId(): SupportCaseId { return $this->caseId; }
+    public function sha256(): string { return strtolower($this->sha256); }
+    public function dataClass(): string { return $this->dataClass; }
+    public function consentedAt(): DateTimeImmutable { return $this->consentedAt; }
+
+    public function identityFingerprint(): string
+    {
+        return hash('sha256', implode('|', [
+            $this->caseId->value(),
+            $this->attachmentId,
+            strtolower($this->sha256),
+            $this->mimeType,
+            (string) $this->sizeBytes,
+            $this->purpose,
+            $this->dataClass,
+        ]));
+    }
+
+    public function visibleToRequester(SupportCaseId $requestedCaseId): bool
+    {
+        return $this->downloadReference($requestedCaseId, 'requester') !== null;
+    }
 
     public function downloadReference(SupportCaseId $requestedCaseId, string $actorRole): ?string
     {
