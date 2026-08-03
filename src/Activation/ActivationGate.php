@@ -4,8 +4,29 @@ declare(strict_types=1);
 
 namespace Sabri\CF02\Activation;
 
+use DateTimeImmutable;
+
 final class ActivationGate
 {
+    /** @var list<string> */
+    private const REQUIRED_DEPENDENCIES = [
+        'file_00_membership_contract',
+        'file_20_route_shell_contract',
+        'file_24_assurance_manifest',
+        'file_25_component_contract',
+    ];
+
+    /** @var list<string> */
+    private const REQUIRED_OPERATIONAL_EVIDENCE = [
+        'volume_trigger',
+        'staffing',
+        'privacy_review',
+        'security_review',
+        'migration_plan',
+        'rollback_plan',
+        'zero_critical_high_defects',
+    ];
+
     public function __construct(private readonly ActivationEvidence $evidence)
     {
     }
@@ -29,13 +50,27 @@ final class ActivationGate
             $reasons[] = 'Founder approval does not target governing plan version 1.0.';
         }
 
-        foreach ($dependencies as $dependency => $ready) {
-            if ($ready !== true) {
+        foreach (['change_control_id', 'approved_by', 'approved_at'] as $field) {
+            if (!isset($founderApproval[$field]) || !is_string($founderApproval[$field]) || trim($founderApproval[$field]) === '') {
+                $reasons[] = sprintf('Founder approval field is missing: %s.', $field);
+            }
+        }
+
+        if (
+            isset($founderApproval['approved_at'])
+            && is_string($founderApproval['approved_at'])
+            && !$this->isIso8601Timestamp($founderApproval['approved_at'])
+        ) {
+            $reasons[] = 'Founder approval timestamp is not valid ISO 8601.';
+        }
+
+        foreach (self::REQUIRED_DEPENDENCIES as $dependency) {
+            if (($dependencies[$dependency] ?? false) !== true) {
                 $reasons[] = sprintf('Required dependency contract is not ready: %s.', $dependency);
             }
         }
 
-        foreach (['volume_trigger', 'staffing', 'privacy_review', 'security_review', 'rollback_plan'] as $requiredEvidence) {
+        foreach (self::REQUIRED_OPERATIONAL_EVIDENCE as $requiredEvidence) {
             if (($operations[$requiredEvidence] ?? false) !== true) {
                 $reasons[] = sprintf('Required operational evidence is missing: %s.', $requiredEvidence);
             }
@@ -48,9 +83,17 @@ final class ActivationGate
         ];
 
         if ($reasons !== []) {
-            return ActivationDecision::deny($reasons, $allEvidence);
+            return ActivationDecision::deny(array_values(array_unique($reasons)), $allEvidence);
         }
 
         return ActivationDecision::allow($allEvidence);
+    }
+
+    private function isIso8601Timestamp(string $value): bool
+    {
+        $date = DateTimeImmutable::createFromFormat(DATE_ATOM, $value);
+        $errors = DateTimeImmutable::getLastErrors();
+
+        return $date !== false && ($errors === false || ($errors['warning_count'] === 0 && $errors['error_count'] === 0));
     }
 }
