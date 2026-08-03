@@ -19,17 +19,16 @@ final class QueueDefinition
         private readonly string $escalationRole,
         private readonly bool $sensitive = false
     ) {
-        if (preg_match('/^[a-z][a-z0-9_]*$/', $key) !== 1) {
-            throw new InvalidArgumentException('Invalid queue key.');
+        self::assertIdentifier($key, 'queue');
+        self::assertIdentifier($ownerRole, 'owner role');
+        self::assertIdentifier($escalationRole, 'escalation role');
+
+        if (trim($label) === '' || preg_match('/^[a-z0-9][a-z0-9._-]*$/', $scheduleReference) !== 1) {
+            throw new InvalidArgumentException('Queue label and a stable schedule reference are required.');
         }
 
-        if (trim($label) === '' || trim($ownerRole) === '' || trim($scheduleReference) === '' || trim($escalationRole) === '') {
-            throw new InvalidArgumentException('Queue ownership and schedule data are required.');
-        }
-
-        if ($categoryKeys === [] || $requiredSkills === []) {
-            throw new InvalidArgumentException('Queue categories and skills are required.');
-        }
+        self::assertIdentifierList($categoryKeys, 'category');
+        self::assertIdentifierList($requiredSkills, 'skill');
     }
 
     public function key(): string { return $this->key; }
@@ -40,4 +39,30 @@ final class QueueDefinition
     public function scheduleReference(): string { return $this->scheduleReference; }
     public function escalationRole(): string { return $this->escalationRole; }
     public function sensitive(): bool { return $this->sensitive; }
+
+    private static function assertIdentifier(string $value, string $label): void
+    {
+        if (preg_match('/^[a-z][a-z0-9_]*$/', $value) !== 1) {
+            throw new InvalidArgumentException(sprintf('Invalid %s identifier.', $label));
+        }
+    }
+
+    /** @param list<string> $values */
+    private static function assertIdentifierList(array $values, string $label): void
+    {
+        if ($values === []) {
+            throw new InvalidArgumentException(sprintf('Queue %s values are required.', $label));
+        }
+
+        if (count(array_unique($values)) !== count($values)) {
+            throw new InvalidArgumentException(sprintf('Duplicate queue %s values are not allowed.', $label));
+        }
+
+        foreach ($values as $value) {
+            if (!is_string($value)) {
+                throw new InvalidArgumentException(sprintf('Every queue %s must be a string.', $label));
+            }
+            self::assertIdentifier($value, $label);
+        }
+    }
 }
