@@ -13,10 +13,6 @@ use Sabri\CF02\Security\SensitiveContentDetector;
 
 final class SecureExportService
 {
-    public function __construct(private readonly SensitiveContentDetector $detector)
-    {
-    }
-
     /**
      * @param array<string, string> $safeFiles filename => content
      * @return array{manifest:ExportManifest,files:array<string,string>}
@@ -44,8 +40,10 @@ final class SecureExportService
             if (!is_string($name) || !is_string($content) || strlen($content) > 5_000_000) {
                 throw new InvalidArgumentException('Invalid export file.');
             }
-            $finding = $this->detector->inspect($content);
-            if ($finding->containsProhibitedContent()) {
+            if (preg_match('/^[A-Za-z0-9_.-]{1,120}$/', $name) !== 1) {
+                throw new InvalidArgumentException('Invalid export filename.');
+            }
+            if (SensitiveContentDetector::containsProhibitedSecret($content)) {
                 throw new DomainException('Export contains prohibited secret, card or credential material.');
             }
             $hashes[$name] = hash('sha256', $content);
