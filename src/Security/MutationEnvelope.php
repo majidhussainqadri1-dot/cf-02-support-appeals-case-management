@@ -48,8 +48,6 @@ final class MutationEnvelope
         array $payload,
         ?string $traceId = null
     ): self {
-        $canonical = self::canonicalize($payload);
-        $encoded = json_encode($canonical, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         return new self(
             $idempotencyKey,
             $traceId ?? 'tr_' . bin2hex(random_bytes(16)),
@@ -57,8 +55,22 @@ final class MutationEnvelope
             $purpose,
             $expectedVersion,
             $occurredAt,
-            hash('sha256', $encoded)
+            self::fingerprint($payload)
         );
+    }
+
+    /** @param array<string, mixed> $payload */
+    public function matchesPayload(array $payload): bool
+    {
+        return hash_equals($this->payloadFingerprint, self::fingerprint($payload));
+    }
+
+    /** @param array<string, mixed> $payload */
+    public static function fingerprint(array $payload): string
+    {
+        $canonical = self::canonicalize($payload);
+        $encoded = json_encode($canonical, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
+        return hash('sha256', $encoded);
     }
 
     public function idempotencyKey(): string { return $this->idempotencyKey; }
@@ -72,12 +84,12 @@ final class MutationEnvelope
     /** @param array<string, mixed> $value @return array<string, mixed> */
     private static function canonicalize(array $value): array
     {
-        ksort($value);
+        if (!array_is_list($value)) {
+            ksort($value);
+        }
         foreach ($value as $key => $item) {
             if (is_array($item)) {
-                $value[$key] = array_is_list($item)
-                    ? array_map(static fn (mixed $entry): mixed => is_array($entry) ? self::canonicalize($entry) : $entry, $item)
-                    : self::canonicalize($item);
+                $value[$key] = self::canonicalize($item);
             }
         }
         return $value;
