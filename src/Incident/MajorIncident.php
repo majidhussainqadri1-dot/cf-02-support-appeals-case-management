@@ -9,6 +9,7 @@ use DomainException;
 use InvalidArgumentException;
 use Sabri\CF02\Domain\ConcurrencyConflict;
 use Sabri\CF02\Domain\SupportCaseId;
+use Sabri\CF02\Security\SensitiveContentDetector;
 
 final class MajorIncident
 {
@@ -35,6 +36,9 @@ final class MajorIncident
         }
         if (preg_match('/^[a-z][a-z0-9_.-]*$/', $serviceKey) !== 1 || trim($publicSummary) === '') {
             throw new InvalidArgumentException('Major-incident service and public summary are required.');
+        }
+        if (SensitiveContentDetector::containsProhibitedSecret($publicSummary)) {
+            throw new InvalidArgumentException('Public incident summary contains prohibited secret material.');
         }
         if ($nextUpdateAt <= $openedAt) {
             throw new InvalidArgumentException('Major-incident next update must be after opening time.');
@@ -153,6 +157,9 @@ final class MajorIncident
                 throw new InvalidArgumentException('Incident resolution summary, notice and actor are required.');
             }
         }
+        if (SensitiveContentDetector::containsProhibitedSecret($publicResolutionSummary)) {
+            throw new InvalidArgumentException('Public incident resolution contains prohibited secret material.');
+        }
         $this->status = IncidentStatus::Resolved;
         $this->resolutionSummary = trim($publicResolutionSummary);
         $this->resolutionNoticeReference = trim($noticeReference);
@@ -173,7 +180,7 @@ final class MajorIncident
             'public_summary' => $this->publicSummary,
             'next_update_at' => $this->nextUpdateAt->format(DATE_ATOM),
             'resolution_summary' => $this->resolutionSummary,
-            'resolution_notice_reference' => $this->resolutionNoticeReference,
+            'resolution_notice_available' => $this->resolutionNoticeReference !== null,
             'case_action_required' => 'Continue individual case handling; incident linkage does not merge, close or authorize the case.',
         ];
     }
