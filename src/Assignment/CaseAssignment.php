@@ -14,8 +14,9 @@ final class CaseAssignment
 {
     private int $version = 1;
     private ?string $ownerReference = null;
+    private ?string $queueKey = null;
     private bool $ownerRestrictedAccess = false;
-    /** @var array<string, array{scopes:list<string>, expires_at:DateTimeImmutable}> */
+    /** @var array<string, array{scopes:list<string>, expires_at:DateTimeImmutable, restricted_approved:bool}> */
     private array $collaborators = [];
     /** @var list<array<string, string>> */
     private array $history = [];
@@ -24,21 +25,23 @@ final class CaseAssignment
     {
     }
 
-    public function assign(AssignmentDecision $decision, int $expectedVersion): void
+    public function assign(AssignmentDecision $decision, int $expectedVersion, DateTimeImmutable $assignedAt): void
     {
         $this->assertVersion($expectedVersion);
-        $this->assertDecision($decision);
+        $this->assertDecision($decision, $assignedAt);
         if ($this->ownerReference !== null) {
             throw new DomainException('Case already has an accountable owner; use transfer().');
         }
 
+        $this->queueKey = $decision->queueKey();
         $this->ownerReference = $decision->agentReference();
         $this->ownerRestrictedAccess = $decision->restrictedAccessApproved();
         $this->history[] = [
             'type' => 'assigned',
             'agent' => (string) $this->ownerReference,
+            'queue' => $this->queueKey,
             'restricted' => $this->ownerRestrictedAccess ? 'yes' : 'no',
-            'at' => $decision->decidedAt()->format(DATE_ATOM),
+            'at' => $assignedAt->format(DATE_ATOM),
         ];
         ++$this->version;
     }
@@ -47,11 +50,10 @@ final class CaseAssignment
         AssignmentDecision $decision,
         string $reason,
         int $expectedVersion,
-        ?DateTimeImmutable $transferredAt = null
+        DateTimeImmutable $transferredAt
     ): void {
         $this->assertVersion($expectedVersion);
-        $this->assertDecision($decision);
-        $transferredAt ??= new DateTimeImmutable('now');
+        $this->assertDecision($decision, $transferredAt);
 
         if ($this->ownerReference === null) {
             throw new DomainException('An unowned case must be assigned before transfer.');
@@ -73,6 +75,7 @@ final class CaseAssignment
             'type' => 'transferred',
             'from' => $previous,
             'to' => (string) $this->ownerReference,
+            'queue' => (string) $this->queueKey,
             'restricted' => $this->ownerRestrictedAccess ? 'yes' : 'no',
             'reason' => trim($reason),
             'at' => $transferredAt->format(DATE_ATOM),
@@ -86,7 +89,8 @@ final class CaseAssignment
         array $scopes,
         DateTimeImmutable $expiresAt,
         int $expectedVersion,
-        ?DateTimeImmutable $now = null
+        ?DateTimeImmutable $now = null,
+        bool $restrictedAccessApproved = false
     ): bool {
         $this->assertVersion($expectedVersion);
         $now ??= new DateTimeImmutable('now');
@@ -102,22 +106,31 @@ final class CaseAssignment
         if ($expiresAt <= $now) {
             throw new InvalidArgumentException('Collaborator access must have a future expiry.');
         }
+        if (in_array('restricted_projection', $scopes, true) && !$restrictedAccessApproved) {
+            throw new DomainException('Restricted collaborator scope requires explicit purpose-bound approval.');
+        }
 
         $existing = $this->collaborators[$agentReference] ?? null;
         if ($existing !== null) {
             $sameScopes = $existing['scopes'] === $scopes;
             $sameExpiry = $existing['expires_at'] == $expiresAt;
-            if ($sameScopes && $sameExpiry) {
+            $sameRestricted = $existing['restricted_approved'] === $restrictedAccessApproved;
+            if ($sameScopes && $sameExpiry && $sameRestricted) {
                 return false;
             }
             throw new DomainException('Existing collaborator grant must be revoked before scope or expiry changes.');
         }
 
-        $this->collaborators[$agentReference] = ['scopes' => $scopes, 'expires_at' => $expiresAt];
+        $this->collaborators[$agentReference] = [
+            'scopes' => $scopes,
+            'expires_at' => $expiresAt,
+            'restricted_approved' => $restrictedAccessApproved,
+        ];
         $this->history[] = [
             'type' => 'collaborator_added',
             'agent' => $agentReference,
             'scopes' => implode(',', $scopes),
+            'restricted' => $restrictedAccessApproved ? 'yes' : 'no',
             'expires_at' => $expiresAt->format(DATE_ATOM),
             'at' => $now->format(DATE_ATOM),
         ];
@@ -158,19 +171,29 @@ final class CaseAssignment
         if ($grant === null || $grant['expires_at'] <= $now) {
             return false;
         }
+        if ($scope === 'restricted_projection' && !$grant['restricted_approved']) {
+            return false;
+        }
         return in_array($scope, $grant['scopes'], true);
     }
 
     public function caseId(): SupportCaseId { return $this->caseId; }
     public function version(): int { return $this->version; }
     public function ownerReference(): ?string { return $this->ownerReference; }
+    public function queueKey(): ?string { return $this->queueKey; }
     public function ownerRestrictedAccess(): bool { return $this->ownerRestrictedAccess; }
     /** @return list<array<string, string>> */ public function history(): array { return $this->history; }
 
-    private function assertDecision(AssignmentDecision $decision): void
+    private function assertDecision(AssignmentDecision $decision, DateTimeImmutable $at): void
     {
         if (!$decision->caseId()->equals($this->caseId) || !$decision->isAssigned()) {
             throw new DomainException('Assignment decision is unassigned or belongs to another case.');
+        }
+        if (!$decision->isValidAt($at)) {
+            throw new DomainException('Assignment decision is not valid at commit time; reroute against current capacity.');
+        }
+        if ($this->queueKey !== null && !hash_equals($this->queueKey, $decision->queueKey())) {
+            throw new DomainException('Transfer decision belongs to another queue.');
         }
     }
 
