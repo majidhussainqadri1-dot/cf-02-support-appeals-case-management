@@ -202,7 +202,6 @@ def build_sbom(config: dict[str, Any], source_sha: str, created: str, file_hashe
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source-sha")
-    parser.add_argument("--clean", action="store_true", default=True)
     args = parser.parse_args()
 
     config = load_config()
@@ -243,12 +242,16 @@ def main() -> int:
     }
     manifest_bytes = (json.dumps(package_manifest, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
+    archive_payloads = {
+        f"{slug}/{relative}": data
+        for relative, data in file_payloads.items()
+    }
+    archive_payloads[f"{slug}/package-manifest.json"] = manifest_bytes
+
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-        for relative, data in sorted(file_payloads.items()):
-            info, payload = zip_entry(f"{slug}/{relative}", data)
+        for archive_name, data in sorted(archive_payloads.items()):
+            info, payload = zip_entry(archive_name, data)
             archive.writestr(info, payload)
-        info, payload = zip_entry(f"{slug}/package-manifest.json", manifest_bytes)
-        archive.writestr(info, payload)
 
     zip_digest = sha256_file(zip_path)
     sbom = build_sbom(config, source_sha, created, file_hashes)
