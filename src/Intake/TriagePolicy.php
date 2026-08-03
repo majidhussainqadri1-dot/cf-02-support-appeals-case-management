@@ -28,9 +28,17 @@ final class TriagePolicy
         $specialistRequired = $category->specialistOnly()
             || in_array($request->categoryKey(), ['account_access', 'verification', 'clinic_appointment', 'messages_calls'], true);
 
+        $fields = $request->fields();
+        $indicator = strtolower(trim($fields['safety_indicator'] ?? $fields['immediacy'] ?? ''));
+        $explicitAcuteIndicator = in_array($indicator, ['immediate', 'emergency', 'acute_danger', 'danger_now'], true);
+        $emergencyDiversionRequired = $explicitAcuteIndicator
+            || ($request->urgency() === 'immediate'
+                && in_array($request->categoryKey(), ['clinic_appointment', 'messages_calls', 'safety_abuse'], true));
+
         $humanReviewRequired = !$request->senderVerified()
             || $priority === 'P1'
             || $specialistRequired
+            || $emergencyDiversionRequired
             || $request->accessibilityNeeds() !== [];
 
         $reasons = [sprintf('Category routes to queue %s.', $category->queueKey())];
@@ -38,7 +46,10 @@ final class TriagePolicy
             $reasons[] = 'Sender trust is unverified; no identity-sensitive action may be taken from the intake alone.';
         }
         if ($priority === 'P1') {
-            $reasons[] = 'Immediate or critical intake requires human specialist review and approved diversion where applicable.';
+            $reasons[] = 'Immediate or critical intake requires human specialist review.';
+        }
+        if ($emergencyDiversionRequired) {
+            $reasons[] = 'Approved local emergency or acute-danger direction is required; ordinary support SLA is not emergency help.';
         }
         if ($category->specialistOnly()) {
             $reasons[] = 'Category is specialist-only and purpose-bound.';
@@ -50,6 +61,7 @@ final class TriagePolicy
             $severity,
             $specialistRequired,
             $humanReviewRequired,
+            $emergencyDiversionRequired,
             $reasons
         );
     }
