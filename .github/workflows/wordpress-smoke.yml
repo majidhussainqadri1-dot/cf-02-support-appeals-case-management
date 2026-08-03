@@ -69,18 +69,18 @@ jobs:
           php /tmp/wp-cli.phar core install --path=/tmp/cf02-wp --url=http://cf02.test --title='CF-02 Smoke' --admin_user=admin --admin_password='temporary-smoke-password' --admin_email=admin@example.test --skip-email
           unzip -q "dist/cf-02-support-appeals-case-management-1.0.0-rc.2.zip" -d /tmp/cf02-wp/wp-content/plugins
 
-      - name: Activate in fail-closed state
+      - name: Activate and prove fail-closed dormant state
         run: |
           php /tmp/wp-cli.phar plugin activate cf-02-support-appeals-case-management --path=/tmp/cf02-wp
           test "$(php /tmp/wp-cli.phar option get cf02_installed_version --path=/tmp/cf02-wp)" = "1.0.0-rc.2"
-          php /tmp/wp-cli.phar eval '$state=get_option("cf02_activation_state", []); if (($state["status"] ?? null) !== "pending") { fwrite(STDERR, "CF-02 did not remain pending/fail-closed.\n"); exit(1); }' --path=/tmp/cf02-wp
+          php /tmp/wp-cli.phar eval '$state=get_option("cf02_activation_state", []); if (($state["status"] ?? null) !== "dormant" || empty($state["reasons"])) { fwrite(STDERR, "CF-02 did not fail closed with explicit dormant reasons.\n"); exit(1); }' --path=/tmp/cf02-wp
 
       - name: Prove deactivate and reactivate idempotency
         run: |
           php /tmp/wp-cli.phar plugin deactivate cf-02-support-appeals-case-management --path=/tmp/cf02-wp
           php /tmp/wp-cli.phar plugin activate cf-02-support-appeals-case-management --path=/tmp/cf02-wp
           test "$(php /tmp/wp-cli.phar option get cf02_installed_version --path=/tmp/cf02-wp)" = "1.0.0-rc.2"
-          php /tmp/wp-cli.phar eval '$state=get_option("cf02_activation_state", []); if (($state["status"] ?? null) !== "pending") { exit(1); }' --path=/tmp/cf02-wp
+          php /tmp/wp-cli.phar eval '$state=get_option("cf02_activation_state", []); if (($state["status"] ?? null) !== "dormant" || empty($state["reasons"])) { exit(1); }' --path=/tmp/cf02-wp
 
       - name: Prove default uninstall preserves canonical data
         run: |
