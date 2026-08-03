@@ -42,10 +42,24 @@ final class CoverageCalendar
                     throw new InvalidArgumentException('Invalid coverage time window.');
                 }
             }
+            $sorted = $windows;
+            usort($sorted, static fn (array $left, array $right): int => strcmp($left[0], $right[0]));
+            $previousEnd = null;
+            foreach ($sorted as [$start, $end]) {
+                if ($previousEnd !== null && $start < $previousEnd) {
+                    throw new InvalidArgumentException('Coverage time windows must not overlap.');
+                }
+                $previousEnd = $end;
+            }
         }
         foreach ($holidays as $holiday) {
             if (!is_string($holiday) || preg_match('/^\d{4}-\d{2}-\d{2}$/', $holiday) !== 1) {
                 throw new InvalidArgumentException('Invalid holiday date.');
+            }
+            $date = DateTimeImmutable::createFromFormat('!Y-m-d', $holiday, $this->timezone);
+            $errors = DateTimeImmutable::getLastErrors();
+            if ($date === false || $date->format('Y-m-d') !== $holiday || ($errors !== false && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))) {
+                throw new InvalidArgumentException('Holiday is not a real calendar date.');
             }
         }
         if (count($holidays) !== count(array_unique($holidays))) {
