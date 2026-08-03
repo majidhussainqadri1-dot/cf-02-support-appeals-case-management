@@ -91,11 +91,14 @@ final class SlaClock
         if ($this->resolvedAt !== null || $this->pauseReason !== null) {
             throw new DomainException('SLA clock is resolved or already paused.');
         }
+        if ($this->firstResponseAt === null) {
+            throw new DomainException('SLA pause is prohibited before the first response is recorded.');
+        }
+        if (str_starts_with($this->status($at), 'breached_')) {
+            throw new DomainException('A breached SLA cannot be hidden by starting a pause.');
+        }
         if (!$this->policy->allowsPause($reason)) {
             throw new DomainException('SLA policy does not allow this pause reason.');
-        }
-        if ($reason === SlaPauseReason::AwaitingRequester && $this->firstResponseAt === null) {
-            throw new DomainException('Awaiting-requester pause requires a recorded first response.');
         }
         self::assertEvidenceReference($reason, $evidenceReference);
 
@@ -115,9 +118,7 @@ final class SlaClock
         }
 
         $pausedWorkingMinutes = $this->calendar->workingMinutesBetween($this->pauseStartedAt, $at);
-        if ($this->firstResponseAt !== null) {
-            $this->nextUpdateDeadline = $this->calendar->addWorkingMinutes($this->nextUpdateDeadline, $pausedWorkingMinutes);
-        }
+        $this->nextUpdateDeadline = $this->calendar->addWorkingMinutes($this->nextUpdateDeadline, $pausedWorkingMinutes);
         $this->resolutionDeadline = $this->calendar->addWorkingMinutes($this->resolutionDeadline, $pausedWorkingMinutes);
 
         $this->pauseHistory[] = [
@@ -143,6 +144,9 @@ final class SlaClock
         $this->assertNotPaused();
         if ($this->resolvedAt !== null) {
             throw new DomainException('SLA clock is already resolved.');
+        }
+        if ($this->firstResponseAt === null) {
+            throw new DomainException('SLA resolution requires a recorded first response.');
         }
         $this->resolvedAt = $at;
         $this->lastMutationAt = $at;
