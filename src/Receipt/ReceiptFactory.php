@@ -37,7 +37,8 @@ final class ReceiptFactory
             },
             'This support service does not provide emergency diagnosis, prescription or emergency response.',
             $request->channel()->value,
-            $deliveryStatus
+            $deliveryStatus,
+            $request->senderVerified() ? 'verified' : 'unverified'
         );
     }
 }
