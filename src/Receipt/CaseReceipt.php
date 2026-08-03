@@ -19,7 +19,8 @@ final class CaseReceipt
         private readonly string $slaRange,
         private readonly string $emergencyBoundary,
         private readonly string $replyMethod,
-        private readonly string $deliveryStatus
+        private readonly string $deliveryStatus,
+        private readonly string $senderTrust
     ) {
         foreach ([$category, $status, $nextStep, $slaRange, $emergencyBoundary, $replyMethod] as $value) {
             if (trim($value) === '') {
@@ -29,6 +30,10 @@ final class CaseReceipt
 
         if (!in_array($deliveryStatus, ['queued', 'sent', 'failed', 'not_applicable'], true)) {
             throw new InvalidArgumentException('Invalid receipt delivery status.');
+        }
+
+        if (!in_array($senderTrust, ['verified', 'unverified'], true)) {
+            throw new InvalidArgumentException('Invalid sender-trust state.');
         }
     }
 
@@ -41,4 +46,5 @@ final class CaseReceipt
     public function emergencyBoundary(): string { return $this->emergencyBoundary; }
     public function replyMethod(): string { return $this->replyMethod; }
     public function deliveryStatus(): string { return $this->deliveryStatus; }
+    public function senderTrust(): string { return $this->senderTrust; }
 }
