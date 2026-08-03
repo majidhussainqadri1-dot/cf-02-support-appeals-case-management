@@ -17,14 +17,18 @@ final class Installer
             throw new RuntimeException('WordPress database adapter is unavailable.');
         }
         $installed = (string) get_option(self::OPTION_SCHEMA_VERSION, '0.0.0');
-        if (version_compare($installed, Schema::VERSION, '>=')) {
+        if (version_compare($installed, SchemaExtension::VERSION, '>=')) {
             return;
         }
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-        foreach (Schema::statements((string) $wpdb->prefix, (string) $wpdb->get_charset_collate()) as $sql) {
+        $statements = array_merge(
+            Schema::statements((string) $wpdb->prefix, (string) $wpdb->get_charset_collate()),
+            SchemaExtension::statements((string) $wpdb->prefix, (string) $wpdb->get_charset_collate())
+        );
+        foreach ($statements as $sql) {
             dbDelta($sql);
         }
-        update_option(self::OPTION_SCHEMA_VERSION, Schema::VERSION, false);
+        update_option(self::OPTION_SCHEMA_VERSION, SchemaExtension::VERSION, false);
     }
 
     public static function schemaVersion(): string
