@@ -16,6 +16,7 @@ final class MajorIncident
     private IncidentStatus $status = IncidentStatus::Open;
     private ?string $resolutionSummary = null;
     private ?string $resolutionNoticeReference = null;
+    private DateTimeImmutable $lastMutationAt;
     /** @var array<string, array{queue_key:string, linked_at:DateTimeImmutable, actor:string}> */
     private array $caseLinks = [];
     /** @var list<array<string, string>> */
@@ -25,14 +26,21 @@ final class MajorIncident
         private readonly string $incidentId,
         private readonly string $serviceKey,
         private readonly string $publicSummary,
-        private DateTimeImmutable $nextUpdateAt
+        private DateTimeImmutable $nextUpdateAt,
+        ?DateTimeImmutable $openedAt = null
     ) {
+        $openedAt ??= new DateTimeImmutable('now');
         if (preg_match('/^CF02-INC-\d{4}$/', $incidentId) !== 1) {
             throw new InvalidArgumentException('Invalid major-incident ID.');
         }
         if (preg_match('/^[a-z][a-z0-9_.-]*$/', $serviceKey) !== 1 || trim($publicSummary) === '') {
             throw new InvalidArgumentException('Major-incident service and public summary are required.');
         }
+        if ($nextUpdateAt <= $openedAt) {
+            throw new InvalidArgumentException('Major-incident next update must be after opening time.');
+        }
+        $this->lastMutationAt = $openedAt;
+        $this->history[] = ['type' => 'opened', 'at' => $openedAt->format(DATE_ATOM)];
     }
 
     public function linkCase(
@@ -44,6 +52,7 @@ final class MajorIncident
         int $expectedVersion
     ): bool {
         $this->assertVersion($expectedVersion);
+        $this->assertChronological($at);
         if ($this->status === IncidentStatus::Resolved) {
             throw new DomainException('Resolved incident cannot accept new case links.');
         }
@@ -71,6 +80,7 @@ final class MajorIncident
             'actor' => $actorReference,
             'at' => $at->format(DATE_ATOM),
         ];
+        $this->lastMutationAt = $at;
         ++$this->version;
         return true;
     }
@@ -83,6 +93,7 @@ final class MajorIncident
         int $expectedVersion
     ): bool {
         $this->assertVersion($expectedVersion);
+        $this->assertChronological($at);
         if (trim($reason) === '' || trim($actorReference) === '') {
             throw new InvalidArgumentException('Incident unlink reason and actor are required.');
         }
@@ -99,19 +110,29 @@ final class MajorIncident
             'actor' => $actorReference,
             'at' => $at->format(DATE_ATOM),
         ];
+        $this->lastMutationAt = $at;
         ++$this->version;
         return true;
     }
 
-    public function markMonitoring(DateTimeImmutable $nextUpdateAt, string $actorReference, int $expectedVersion): void
-    {
+    public function markMonitoring(
+        DateTimeImmutable $nextUpdateAt,
+        string $actorReference,
+        DateTimeImmutable $at,
+        int $expectedVersion
+    ): void {
         $this->assertVersion($expectedVersion);
+        $this->assertChronological($at);
         if ($this->status !== IncidentStatus::Open || trim($actorReference) === '') {
             throw new DomainException('Only an open incident may enter monitoring.');
         }
+        if ($nextUpdateAt <= $at) {
+            throw new InvalidArgumentException('Monitoring next-update time must be in the future.');
+        }
         $this->status = IncidentStatus::Monitoring;
         $this->nextUpdateAt = $nextUpdateAt;
-        $this->history[] = ['type' => 'monitoring', 'actor' => $actorReference, 'at' => (new DateTimeImmutable('now'))->format(DATE_ATOM)];
+        $this->history[] = ['type' => 'monitoring', 'actor' => $actorReference, 'at' => $at->format(DATE_ATOM)];
+        $this->lastMutationAt = $at;
         ++$this->version;
     }
 
@@ -123,6 +144,7 @@ final class MajorIncident
         int $expectedVersion
     ): void {
         $this->assertVersion($expectedVersion);
+        $this->assertChronological($at);
         if ($this->status === IncidentStatus::Resolved) {
             throw new DomainException('Incident is already resolved.');
         }
@@ -135,6 +157,7 @@ final class MajorIncident
         $this->resolutionSummary = trim($publicResolutionSummary);
         $this->resolutionNoticeReference = trim($noticeReference);
         $this->history[] = ['type' => 'resolved', 'actor' => $actorReference, 'notice' => $noticeReference, 'at' => $at->format(DATE_ATOM)];
+        $this->lastMutationAt = $at;
         ++$this->version;
     }
 
@@ -161,6 +184,13 @@ final class MajorIncident
     public function version(): int { return $this->version; }
     public function linkedCaseCount(): int { return count($this->caseLinks); }
     /** @return list<array<string, string>> */ public function history(): array { return $this->history; }
+
+    private function assertChronological(DateTimeImmutable $at): void
+    {
+        if ($at < $this->lastMutationAt) {
+            throw new DomainException('Incident mutation timestamp is backdated.');
+        }
+    }
 
     private function assertVersion(int $expectedVersion): void
     {
