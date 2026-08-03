@@ -27,7 +27,7 @@ final class IdempotencyKey
         return new self(hash('sha256', implode('|', [
             'cf02-intake-v1',
             $channel->value,
-            mb_strtolower($requesterReference),
+            $requesterReference,
             $sourceMessageId,
         ])));
     }
