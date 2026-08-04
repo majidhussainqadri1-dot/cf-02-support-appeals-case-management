@@ -63,6 +63,6 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add cf-02-support-appeals-case-management.php readme.txt uninstall.php composer.json CHANGELOG.md release docs src tests .github/workflows/release-candidate.yml .github/workflows/wordpress-smoke.yml .github/workflows/wordpress-runtime-smoke.yml
+          git add cf-02-support-appeals-case-management.php readme.txt uninstall.php composer.json CHANGELOG.md release docs src tests
           git commit -m 'Complete CF-02 master-plan runtime integration and two review rounds'
           git push origin HEAD:agent/cf-02-foundation-c2-a
