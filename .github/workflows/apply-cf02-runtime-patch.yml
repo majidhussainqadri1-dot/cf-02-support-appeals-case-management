@@ -1,0 +1,59 @@
+name: Apply CF-02 Complete Runtime Patch
+
+on:
+  push:
+    branches:
+      - agent/cf-02-foundation-c2-a
+    paths:
+      - '.cf02-patch/**'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Reconstruct and verify governed patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat \
+            .cf02-patch/part00 \
+            .cf02-patch/pair01 \
+            .cf02-patch/pair02 \
+            .cf02-patch/pair03 \
+            .cf02-patch/pair04 \
+            .cf02-patch/pair05 \
+            .cf02-patch/pair06 > /tmp/cf02-runtime-patch.tar.gz.b64
+          base64 --decode /tmp/cf02-runtime-patch.tar.gz.b64 > /tmp/cf02-runtime-patch.tar.gz
+          echo 'b87a7c76d70553079dab16ea08816b2bc347a77774280ff54bf538706b6a2746  /tmp/cf02-runtime-patch.tar.gz' | sha256sum --check --strict
+          tar -tzf /tmp/cf02-runtime-patch.tar.gz | grep -Fx 'src/Infrastructure/WordPress/ComprehensiveRestController.php'
+          tar -tzf /tmp/cf02-runtime-patch.tar.gz | grep -Fx 'tests/c2i-review2.php'
+
+      - name: Apply exact code and evidence tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -xzf /tmp/cf02-runtime-patch.tar.gz -C .
+          php -l cf-02-support-appeals-case-management.php
+          find src tests -name '*.php' -print0 | xargs -0 -n1 php -l >/tmp/cf02-lint.log
+          php -d zend.assertions=1 tests/c2h.php
+          php -d zend.assertions=1 tests/c2i.php
+          php -d zend.assertions=1 tests/c2i-review1.php
+          php -d zend.assertions=1 tests/c2i-review2.php
+          php -d zend.assertions=1 tests/release.php
+
+      - name: Commit complete runtime integration candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add cf-02-support-appeals-case-management.php readme.txt uninstall.php composer.json CHANGELOG.md release docs src tests .github/workflows/release-candidate.yml .github/workflows/wordpress-smoke.yml .github/workflows/wordpress-runtime-smoke.yml
+          git commit -m 'Complete CF-02 master-plan runtime integration and two review rounds'
+          git push origin HEAD:agent/cf-02-foundation-c2-a
