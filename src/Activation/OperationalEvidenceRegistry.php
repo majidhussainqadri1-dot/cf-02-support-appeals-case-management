@@ -17,6 +17,12 @@ final class OperationalEvidenceRegistry
         'migration_plan',
         'rollback_plan',
         'zero_critical_high_defects',
+        'staging_acceptance',
+        'provider_acceptance',
+        'accessibility_review',
+        'load_resilience',
+        'backup_restore_rehearsal',
+        'rollback_rehearsal',
     ];
 
     /**
@@ -100,6 +106,21 @@ final class OperationalEvidenceRegistry
             ] as $field) {
                 if (($staffing[$field] ?? false) !== true) {
                     $reasons[] = sprintf('Staffing evidence is incomplete: %s.', $field);
+                }
+            }
+        }
+
+        foreach (['staging_acceptance','provider_acceptance','accessibility_review','load_resilience','backup_restore_rehearsal','rollback_rehearsal'] as $gate) {
+            $record = $records[$gate] ?? null;
+            if (is_array($record) && ($record['status'] ?? null) === 'accepted') {
+                if (($record['exact_runtime_version'] ?? null) !== (defined('CF02_VERSION') ? CF02_VERSION : null)) {
+                    $reasons[] = sprintf('Operational evidence is not bound to the exact runtime: %s.', $gate);
+                }
+                if (($record['source_sha'] ?? '') === '' || ($record['package_sha256'] ?? '') === '') {
+                    $reasons[] = sprintf('Operational evidence lacks exact source/package identity: %s.', $gate);
+                }
+                if (($record['passed'] ?? false) !== true) {
+                    $reasons[] = sprintf('Operational acceptance gate did not pass: %s.', $gate);
                 }
             }
         }

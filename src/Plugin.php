@@ -7,6 +7,7 @@ namespace Sabri\CF02;
 use Sabri\CF02\Activation\ActivationGate;
 use Sabri\CF02\Activation\WordPressActivationEvidence;
 use Sabri\CF02\Infrastructure\WordPress\Runtime;
+use Throwable;
 
 final class Plugin
 {
@@ -40,7 +41,13 @@ final class Plugin
             return;
         }
 
-        Runtime::boot();
+        try {
+            Runtime::boot();
+        } catch (Throwable $error) {
+            self::registerDormantState(['Runtime dependency failed closed: ' . sanitize_text_field($error->getMessage())]);
+            do_action('cf02_runtime_failed_closed', $error);
+            return;
+        }
         update_option(self::OPTION_INSTALLED_VERSION, CF02_VERSION, false);
         update_option(self::OPTION_ACTIVATION_STATE, [
             'status' => 'ready',

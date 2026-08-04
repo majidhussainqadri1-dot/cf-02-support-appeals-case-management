@@ -1,15 +1,16 @@
-name: CF-02 CI
+name: Apply CF-02 Forty Review Patch
 
 on:
   push:
-    branches: [main, 'agent/**']
-  pull_request:
+    branches: ['agent/cf-02-plan-completion-audit-fixes']
+  workflow_dispatch:
 
 permissions:
   contents: write
 
+# This second commit ensures the workflow already exists before the triggering push.
 jobs:
-  apply-forty-review-correction:
+  apply:
     if: ${{ github.actor != 'github-actions[bot]' }}
     runs-on: ubuntu-latest
     steps:
@@ -17,14 +18,14 @@ jobs:
         with:
           ref: agent/cf-02-plan-completion-audit-fixes
           fetch-depth: 2
-      - name: Reconstruct and verify exact patch
+      - name: Reconstruct and verify patch
         run: |
           cat .github/cf02-review-patch/* > /tmp/cf02.patch.gz.b64
           base64 -d /tmp/cf02.patch.gz.b64 > /tmp/cf02.patch.gz
           test "$(sha256sum /tmp/cf02.patch.gz | cut -d' ' -f1)" = "cf488deb6dfe146eb719d7c635f346500b828829d30634835d8e76f826417a51"
           gzip -dc /tmp/cf02.patch.gz > /tmp/cf02.patch
           git apply --check /tmp/cf02.patch
-      - name: Apply, validate, clean transfer files and push
+      - name: Apply, validate and commit
         run: |
           git apply /tmp/cf02.patch
           rm -rf .github/cf02-review-patch
