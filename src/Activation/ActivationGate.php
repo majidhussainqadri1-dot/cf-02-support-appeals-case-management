@@ -51,7 +51,7 @@ final class ActivationGate
         }
         foreach (['source_sha','package_sha256'] as $hashField) {
             if (isset($founderApproval[$hashField]) && is_string($founderApproval[$hashField])
-                && preg_match('/^[a-f0-9]{64}$/', $founderApproval[$hashField]) !== 1) {
+                && preg_match('/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/', $founderApproval[$hashField]) !== 1) {
                 $reasons[] = sprintf('Founder approval hash is invalid: %s.', $hashField);
             }
         }

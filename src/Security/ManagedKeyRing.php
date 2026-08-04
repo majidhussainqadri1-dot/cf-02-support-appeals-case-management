@@ -25,6 +25,9 @@ final class ManagedKeyRing
         if ($provider === '' || $rotationReference === '') {
             throw new RuntimeException('Managed key provider and rotation evidence are required.');
         }
+        if ($keys === [] || count($keys) > 32) {
+            throw new RuntimeException('Encryption key ring size is invalid.');
+        }
         foreach ($keys as $id => $material) {
             if (preg_match('/^[A-Za-z0-9._-]{3,64}$/', (string) $id) !== 1 || !is_string($material) || strlen($material) < 32) {
                 throw new RuntimeException('Encryption key ring is malformed.');

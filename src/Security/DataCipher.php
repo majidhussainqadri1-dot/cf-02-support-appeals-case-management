@@ -42,8 +42,15 @@ final class DataCipher
             return $this->open($parts[2], $this->derive($this->keyRing->material($parts[1])));
         }
         if (str_starts_with($encoded, 'v1:')) {
-            // Controlled migration support: old records use the active material.
-            return $this->open(substr($encoded, 3), $this->derive($this->keyRing->activeMaterial()));
+            // Legacy v1 did not carry a key ID. Try the bounded retained-key ring so
+            // records remain decryptable during rotation, then rewrite them as v2.
+            foreach ($this->keyRing->keyIds() as $keyId) {
+                $plaintext = $this->tryOpen(substr($encoded, 3), $this->derive($this->keyRing->material($keyId)));
+                if ($plaintext !== null) {
+                    return $plaintext;
+                }
+            }
+            throw new RuntimeException('Encrypted payload authentication failed for every retained key.');
         }
         throw new RuntimeException('Unsupported encrypted payload version.');
     }
@@ -87,5 +94,14 @@ final class DataCipher
             throw new RuntimeException('Encrypted payload authentication failed.');
         }
         return $plaintext;
+    }
+
+    private function tryOpen(string $base64, string $key): ?string
+    {
+        try {
+            return $this->open($base64, $key);
+        } catch (RuntimeException) {
+            return null;
+        }
     }
 }
