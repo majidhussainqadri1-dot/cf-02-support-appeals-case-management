@@ -70,4 +70,10 @@ $test('worker SLA and event queues are observable and SQL aliases are valid',sta
     assert(str_contains($block,"publish_state IN ('pending','retry')"));
 });
 
+$test('WP CLI eval fixture avoids strict-types declaration that cannot be first after eval wrapping',static function()use($read):void{
+    $fixture=$read('tests/wordpress-runtime-smoke.php');
+    assert(!str_contains($fixture,'declare(strict_types=1)'));
+    assert(str_starts_with($fixture,"<?php\n"));
+});
+
 if($failures!==[]){exit(1);}fwrite(STDOUT,"All CF-02 C2-I second-review adversarial tests passed.\n");
