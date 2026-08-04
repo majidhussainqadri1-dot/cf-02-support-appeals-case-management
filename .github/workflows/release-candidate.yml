@@ -11,66 +11,56 @@ permissions:
 
 env:
   SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PACKAGE_VERSION: 1.0.0-rc.3
 
 jobs:
   package:
     name: Deterministic package and evidence
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.SOURCE_SHA }}
           fetch-depth: 1
-
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
           coverage: none
           extensions: sodium
           tools: composer:v2
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
       - name: Validate exact source identity
         run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
-
       - name: Validate source metadata
         run: composer validate --strict --no-check-publish
-
       - name: Run complete repository tests
         run: composer test
-
       - name: Scan public repository safety
         run: python3 build/security_scan.py
-
       - name: Build first deterministic candidate
         run: |
           python3 build/package.py --source-sha "$SOURCE_SHA"
-          cp "dist/cf-02-support-appeals-case-management-1.0.0-rc.2.zip" /tmp/cf02-first.zip
+          cp "dist/cf-02-support-appeals-case-management-${PACKAGE_VERSION}.zip" /tmp/cf02-first.zip
           python3 build/verify_package.py --source-sha "$SOURCE_SHA"
           (cd dist && sha256sum -c SHA256SUMS)
-
       - name: Rebuild and prove reproducibility
         run: |
           python3 build/package.py --source-sha "$SOURCE_SHA"
-          cmp /tmp/cf02-first.zip "dist/cf-02-support-appeals-case-management-1.0.0-rc.2.zip"
+          cmp /tmp/cf02-first.zip "dist/cf-02-support-appeals-case-management-${PACKAGE_VERSION}.zip"
           python3 build/verify_package.py --source-sha "$SOURCE_SHA"
           (cd dist && sha256sum -c SHA256SUMS)
-
       - name: Validate packaged PHP syntax
         run: |
           rm -rf /tmp/cf02-package
           mkdir -p /tmp/cf02-package
-          unzip -q "dist/cf-02-support-appeals-case-management-1.0.0-rc.2.zip" -d /tmp/cf02-package
+          unzip -q "dist/cf-02-support-appeals-case-management-${PACKAGE_VERSION}.zip" -d /tmp/cf02-package
           find /tmp/cf02-package -name '*.php' -print0 | xargs -0 -n1 php -l
-
       - name: Upload exact candidate evidence
         uses: actions/upload-artifact@v4
         with:
-          name: cf02-1.0.0-rc.2-${{ env.SOURCE_SHA }}
+          name: cf02-${{ env.PACKAGE_VERSION }}-${{ env.SOURCE_SHA }}
           path: dist/*
           if-no-files-found: error
           retention-days: 30
