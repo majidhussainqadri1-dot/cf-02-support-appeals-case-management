@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Sabri\CF02\Infrastructure\WordPress;
 
-use RuntimeException;
+use Sabri\CF02\Search\CursorCodec;
 use Sabri\CF02\Security\DataCipher;
 
 final class Runtime
@@ -21,13 +21,17 @@ final class Runtime
         Installer::install();
         RoleRegistrar::register();
         RouteRegistrar::register();
-        FrontendSurfaces::register();
-        AdminSurfaces::register();
+        CompleteFrontendSurfaces::register();
+        CompleteAdminSurfaces::register();
+        RepairService::register();
 
-        $cipher = new DataCipher(self::keyMaterial());
+        $keyRing = ManagedKeyRingProvider::current();
+        $cipher = new DataCipher($keyRing);
         $operations = new OperationsRepository();
         $worker = new RuntimeWorker($operations, $cipher);
         Scheduler::register($worker);
+
+        (new CompleteRestOverlay(new CursorCodec($keyRing->activeMaterial())))->register();
 
         add_action('rest_api_init', static function () use ($cipher, $operations): void {
             $cases = new CaseRepository();
@@ -60,24 +64,13 @@ final class Runtime
 
         do_action('cf02_runtime_booted', [
             'version' => CF02_VERSION,
-            'schema_version' => SchemaExtension::VERSION,
+            'schema_version' => SchemaCompletion::VERSION,
             'contract_version' => \Sabri\CF02\Contracts\SupportContractCatalog::CONTRACT_VERSION,
             'routes' => RouteRegistrar::contracts(),
+            'key_provider' => $keyRing->provider(),
+            'active_key_id' => $keyRing->activeKeyId(),
+            'rotation_reference' => $keyRing->rotationReference(),
         ]);
-    }
-
-    private static function keyMaterial(): string
-    {
-        $keyMaterial = '';
-        foreach (['AUTH_KEY', 'SECURE_AUTH_KEY', 'LOGGED_IN_KEY', 'NONCE_KEY'] as $constant) {
-            if (defined($constant)) {
-                $keyMaterial .= (string) constant($constant);
-            }
-        }
-        if (strlen($keyMaterial) < 32) {
-            throw new RuntimeException('WordPress security keys are insufficient for CF-02 encrypted storage.');
-        }
-        return $keyMaterial;
     }
 
     private static function isPrivateRoute(): bool
@@ -85,7 +78,7 @@ final class Runtime
         $path = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
         return str_starts_with($path, '/support/cases/')
             || str_starts_with($path, '/support/appeals/')
-            || str_starts_with($path, '/wp-admin/admin.php') && isset($_GET['page']) && str_starts_with((string) $_GET['page'], 'cf02-support')
+            || (str_starts_with($path, '/wp-admin/admin.php') && isset($_GET['page']) && str_starts_with((string) $_GET['page'], 'cf02-support'))
             || str_starts_with($path, '/wp-json/cf02/v1/')
             || str_starts_with($path, '/wp-json/api/support/v1/')
             || str_starts_with($path, '/api/support/v1/');
