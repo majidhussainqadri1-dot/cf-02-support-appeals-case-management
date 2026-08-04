@@ -99,6 +99,15 @@ jobs:
       - name: C2-H second-review adversarial tests
         run: php -d zend.assertions=1 tests/c2h-review2.php
 
+      - name: C2-I complete runtime integration tests
+        run: php -d zend.assertions=1 tests/c2i.php
+
+      - name: C2-I first-review regressions
+        run: php -d zend.assertions=1 tests/c2i-review1.php
+
+      - name: C2-I second-review adversarial tests
+        run: php -d zend.assertions=1 tests/c2i-review2.php
+
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
 
