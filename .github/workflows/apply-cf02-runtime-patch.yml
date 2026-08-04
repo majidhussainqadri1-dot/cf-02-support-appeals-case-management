@@ -6,16 +6,25 @@ on:
       - agent/cf-02-foundation-c2-a
     paths:
       - '.cf02-patch/**'
+      - '.github/workflows/apply-cf02-runtime-patch.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.cf02-patch/**'
+      - '.github/workflows/apply-cf02-runtime-patch.yml'
 
 permissions:
   contents: write
 
 jobs:
   apply:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: agent/cf-02-foundation-c2-a
           fetch-depth: 1
 
       - name: Reconstruct and verify governed patch
