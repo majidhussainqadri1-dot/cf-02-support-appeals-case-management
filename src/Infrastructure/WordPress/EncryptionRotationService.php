@@ -30,6 +30,8 @@ final class EncryptionRotationService
         ];
         $scanned = $rotated = $failed = 0;
         foreach ($targets as [$table, $idColumn, $cipherColumn]) {
+            $remaining = $limit - $scanned;
+            if ($remaining <= 0) { break; }
             if (preg_match('/^[A-Za-z0-9_]+$/', $table . $idColumn . $cipherColumn) !== 1) {
                 throw new RuntimeException('Key rotation target is invalid.');
             }
@@ -37,7 +39,7 @@ final class EncryptionRotationService
             $sql = $wpdb->prepare(
                 "SELECT {$idColumn} AS row_id,{$cipherColumn} AS ciphertext FROM {$table} WHERE {$cipherColumn} IS NOT NULL AND {$cipherColumn} NOT LIKE %s ORDER BY {$idColumn} ASC LIMIT %d",
                 $activePrefix,
-                $limit
+                $remaining
             );
             $rows = $wpdb->get_results($sql, ARRAY_A);
             if (!is_array($rows)) { continue; }
@@ -52,13 +54,40 @@ final class EncryptionRotationService
                     if ($updated === 1) {
                         ++$rotated;
                         $evidence = ['table' => $table, 'row_id' => (int) $row['row_id'], 'from' => $fromKey, 'to' => $this->cipher->activeKeyId()];
-                        $wpdb->insert($wpdb->prefix . 'cf02_key_rotation', [
+                        $inserted = $wpdb->insert($wpdb->prefix . 'cf02_key_rotation', [
                             'table_name' => $table, 'row_id' => (int) $row['row_id'], 'from_key_id' => $fromKey,
                             'to_key_id' => $this->cipher->activeKeyId(), 'status' => 'rotated',
                             'evidence_hash' => hash('sha256', wp_json_encode($evidence)), 'rotated_at' => gmdate('Y-m-d H:i:s.u'),
                         ]);
-                    } else { ++$failed; }
-                } catch (Throwable) { ++$failed; }
+                        if ($inserted !== 1) {
+                            do_action('cf02_key_rotation_evidence_write_failed', [
+                                'table_hash' => hash('sha256', $table),
+                                'row_id' => (int) $row['row_id'],
+                                'to_key_id' => $this->cipher->activeKeyId(),
+                            ]);
+                        }
+                    } else {
+                        $current = $wpdb->get_var($wpdb->prepare(
+                            "SELECT {$cipherColumn} FROM {$table} WHERE {$idColumn}=%d",
+                            (int) $row['row_id']
+                        ));
+                        if (!is_string($current) || !str_starts_with($current, 'v2:' . $this->cipher->activeKeyId() . ':')) {
+                            ++$failed;
+                            do_action('cf02_key_rotation_item_failed', [
+                                'table_hash' => hash('sha256', $table),
+                                'row_id' => (int) $row['row_id'],
+                                'error_class' => 'concurrency_conflict',
+                            ]);
+                        }
+                    }
+                } catch (Throwable $error) {
+                    ++$failed;
+                    do_action('cf02_key_rotation_item_failed', [
+                        'table_hash' => hash('sha256', $table),
+                        'row_id' => (int)($row['row_id'] ?? 0),
+                        'error_class' => $error::class,
+                    ]);
+                }
             }
         }
         do_action('cf02_key_rotation_batch_completed', compact('scanned','rotated','failed'));

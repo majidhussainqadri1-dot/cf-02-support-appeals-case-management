@@ -145,23 +145,23 @@ final class ComprehensiveRestController
 
     public function contracts(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
-        return $this->run(static fn (): array => [
-            'version' => SupportContractCatalog::CONTRACT_VERSION,
-            'commands' => SupportContractCatalog::commands(),
-            'queries' => SupportContractCatalog::queries(),
-            'events' => SupportContractCatalog::events(),
-            'categories' => SupportContractCatalog::categories(),
-            'native_owners' => SupportContractCatalog::nativeOwners(),
-        ]);
+        return $this->run(function (): array {
+            $context = $this->context();
+            RequestGuard::requireCapability($context, $this->now(), 'release.evidence.read', 'case.own.read');
+            return [
+                'version' => SupportContractCatalog::CONTRACT_VERSION,
+                'commands' => SupportContractCatalog::commands(),
+                'queries' => SupportContractCatalog::queries(),
+                'events' => SupportContractCatalog::events(),
+                'categories' => SupportContractCatalog::categories(),
+                'native_owners' => SupportContractCatalog::nativeOwners(),
+            ];
+        });
     }
 
     public function myCases(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
-        return $this->run(function () use ($request): array {
-            $context = $this->context();
-            RequestGuard::requireCapability($context, $this->now(), 'case.own.read', 'case.represented.read');
-            return ['items' => $this->operations->listMyCases($context, $this->limit($request), $this->offset($request))];
-        });
+        return new \WP_Error('cf02_cursor_runtime_required', __('The canonical keyset-pagination service is unavailable.', 'cf-02-support-appeals-case-management'), ['status' => 503, 'trace_id' => RequestGuard::traceId()]);
     }
 
     public function createCase(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
@@ -187,20 +187,25 @@ final class ComprehensiveRestController
             if (preg_match('/^[a-z]{2}(?:-[A-Z]{2})?$/', $locale) !== 1) {
                 throw new RuntimeException('Locale is invalid.');
             }
-            $priority = strtoupper(sanitize_text_field((string) ($request->get_param('priority') ?: 'P3')));
-            if (!in_array($priority, ['P1','P2','P3','P4'], true)) {
-                throw new RuntimeException('Priority is invalid.');
+            $impact = sanitize_key((string) $request->get_param('impact'));
+            $urgency = sanitize_key((string) $request->get_param('urgency'));
+            if (!in_array($impact, ['', 'single_action', 'account_blocked', 'many_users'], true)
+                || !in_array($urgency, ['', 'normal', 'time_sensitive'], true)) {
+                throw new RuntimeException('Impact or urgency is invalid.');
             }
+            // Requesters describe impact/urgency; they never grant themselves P1/P2 authority.
+            $priority = $impact === 'account_blocked' && $urgency === 'time_sensitive' ? 'P2' : 'P3';
             $queue = $this->queueForCategory($category);
             $payload = [
                 'category' => $category,
+                'subcategory' => sanitize_key((string) $request->get_param('subcategory')),
                 'priority' => $priority,
-                'severity' => sanitize_key((string) ($request->get_param('severity') ?: 'normal')),
+                'severity' => 'normal',
                 'queue' => $queue,
                 'locale' => $locale,
                 'subject' => $subject,
-                'impact' => sanitize_text_field((string) $request->get_param('impact')),
-                'urgency' => sanitize_text_field((string) $request->get_param('urgency')),
+                'impact' => $impact,
+                'urgency' => $urgency,
                 'accessibility' => sanitize_text_field((string) $request->get_param('accessibility')),
                 'diagnostics_consented' => (bool) $request->get_param('diagnostics_consented'),
             ];
@@ -338,6 +343,9 @@ final class ComprehensiveRestController
         return $this->run(function () use ($request): array {
             $context = $this->context();
             RequestGuard::requireCapability($context, $this->now(), 'case.own.attach','case.represented.attach','case.assigned.reply','case.specialist.reply');
+            if ((bool) $request->get_param('consented') !== true) {
+                throw new RuntimeException('Attachment consent is required.');
+            }
             $purpose = RequestGuard::purpose($request, true);
             $row = $this->operations->createAttachment(
                 $this->caseId($request), $context,
@@ -355,6 +363,17 @@ final class ComprehensiveRestController
             ]);
             $accepted = is_array($provider) && ($provider['accepted'] ?? false) === true;
             $upload = $accepted ? array_intersect_key($provider, array_flip(['provider_ref','upload_url','headers','expires_at'])) : [];
+            if ($accepted) {
+                $url = (string) ($upload['upload_url'] ?? '');
+                $expires = isset($upload['expires_at']) ? strtotime((string) $upload['expires_at']) : false;
+                if ($url === '' || !str_starts_with(strtolower($url), 'https://') || wp_http_validate_url($url) === false
+                    || $expires === false || $expires <= time() || $expires > time() + 900) {
+                    throw new RuntimeException('Attachment provider returned an unsafe upload session.');
+                }
+                if (isset($upload['headers']) && !is_array($upload['headers'])) {
+                    throw new RuntimeException('Attachment provider returned malformed upload headers.');
+                }
+            }
             return ['attachment' => $row, 'provider_request_accepted' => $accepted, 'upload_session' => $upload];
         }, 202);
     }
@@ -391,7 +410,7 @@ final class ComprehensiveRestController
             return $this->operations->addFeedback(
                 $this->caseId($request), $context,
                 $optedOut ? null : (int) $request->get_param('rating'),
-                $comment === '' ? null : $this->cipher->encrypt($comment),
+                $optedOut || $comment === '' ? null : $this->cipher->encrypt($comment),
                 $optedOut, $this->now()
             );
         }, 201);
@@ -402,14 +421,15 @@ final class ComprehensiveRestController
         return $this->run(function () use ($request): array {
             $context = $this->context();
             RequestGuard::requireCapability($context, $this->now(), 'appeal.own.submit','appeal.represented.submit');
-            $evidence = $request->get_param('evidence_refs');
+            $evidence = ApiInput::referenceList($request->get_param('evidence_refs'));
+            $grounds = ApiInput::safeTextarea($request->get_param('grounds'), 10000, true);
             return $this->operations->submitAppeal(
                 SupportCaseId::fromString((string) $request->get_param('case_id')),
                 $context,
                 sanitize_text_field((string) $request->get_param('original_decision_ref')),
                 sanitize_text_field((string) $request->get_param('policy_version')),
-                is_array($evidence) ? array_values(array_filter($evidence, 'is_string')) : [],
-                sanitize_textarea_field((string) $request->get_param('grounds')),
+                $evidence,
+                $grounds,
                 RequestGuard::idempotencyKey($request),
                 $this->now()
             );
@@ -423,24 +443,12 @@ final class ComprehensiveRestController
 
     public function assignedQueue(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
-        return $this->run(function () use ($request): array {
-            $context = $this->context();
-            RequestGuard::requireCapability($context, $this->now(), 'queue.assigned.read','queue.specialist.read','queue.manage');
-            return ['items' => $this->operations->assignedQueue($context, $this->limit($request), $this->offset($request), sanitize_key((string) $request->get_param('state')))];
-        });
+        return new \WP_Error('cf02_cursor_runtime_required', __('The canonical keyset-pagination service is unavailable.', 'cf-02-support-appeals-case-management'), ['status' => 503, 'trace_id' => RequestGuard::traceId()]);
     }
 
     public function searchCases(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
-        return $this->run(function () use ($request): array {
-            $context = $this->context();
-            RequestGuard::requireCapability($context, $this->now(), 'case.search.scoped','queue.manage');
-            $filters = [];
-            foreach (['state','category','priority','queue_key'] as $key) {
-                $filters[$key] = sanitize_key((string) $request->get_param($key));
-            }
-            return ['items' => $this->operations->searchAuthorized($context, $filters, $this->limit($request), $this->offset($request)), 'hidden_counts_disclosed' => false];
-        });
+        return new \WP_Error('cf02_cursor_runtime_required', __('The canonical keyset-pagination service is unavailable.', 'cf-02-support-appeals-case-management'), ['status' => 503, 'trace_id' => RequestGuard::traceId()]);
     }
 
     public function workbench(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
@@ -731,11 +739,7 @@ final class ComprehensiveRestController
 
     public function appealQueue(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
-        return $this->run(function () use ($request): array {
-            $context = $this->context();
-            RequestGuard::requireCapability($context, $this->now(), 'appeal.queue.read','appeal.review');
-            return ['items' => $this->operations->appealQueue($context, $this->limit($request), $this->offset($request))];
-        });
+        return new \WP_Error('cf02_cursor_runtime_required', __('The canonical keyset-pagination service is unavailable.', 'cf-02-support-appeals-case-management'), ['status' => 503, 'trace_id' => RequestGuard::traceId()]);
     }
 
     public function appealEligibility(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
@@ -822,10 +826,10 @@ final class ComprehensiveRestController
             }
             return $this->operations->mutateAppeal((string) $request['id'], $context, RequestGuard::expectedVersion($request), ['state' => 'decided','outcome' => $outcome], 'AppealDecided', 'appeal_decision', RequestGuard::idempotencyKey($request), [
                 'outcome' => $outcome, 'policy_version' => sanitize_text_field((string) $request->get_param('policy_version')),
-                'findings' => sanitize_textarea_field((string) $request->get_param('findings')),
-                'evidence_considered' => $request->get_param('evidence_considered'),
-                'effective_actions' => sanitize_textarea_field((string) $request->get_param('effective_actions')),
-                'further_rights' => sanitize_textarea_field((string) $request->get_param('further_rights')),
+                'findings' => ApiInput::safeTextarea($request->get_param('findings'), 20000, true),
+                'evidence_considered' => ApiInput::referenceList($request->get_param('evidence_considered')),
+                'effective_actions' => ApiInput::safeTextarea($request->get_param('effective_actions'), 10000, in_array($outcome, ['modify','overturn'], true)),
+                'further_rights' => ApiInput::safeTextarea($request->get_param('further_rights'), 10000, true),
             ], $this->now());
         });
     }
@@ -1033,7 +1037,6 @@ final class ComprehensiveRestController
     private function now(): DateTimeImmutable { return new DateTimeImmutable('now', new DateTimeZone('UTC')); }
     private function caseId(\WP_REST_Request $request): SupportCaseId { return SupportCaseId::fromString((string) $request['id']); }
     private function limit(\WP_REST_Request $request): int { return max(1, min(100, (int) ($request->get_param('limit') ?: 50))); }
-    private function offset(\WP_REST_Request $request): int { return max(0, (int) ($request->get_param('offset') ?: 0)); }
 
     private function queueForCategory(string $category): string
     {
@@ -1059,12 +1062,16 @@ final class ComprehensiveRestController
                 'Cache-Control' => 'private, no-store, max-age=0',
                 'X-Content-Type-Options' => 'nosniff',
             ]);
+        } catch (PublicApiException $error) {
+            return new \WP_Error($error->publicCode(), $error->publicMessage(), ['status'=>$error->httpStatus(),'trace_id'=>RequestGuard::traceId()]);
+        } catch (\Sabri\CF02\Domain\ConcurrencyConflict|\DomainException $error) {
+            $trace = RequestGuard::traceId();
+            do_action('cf02_api_conflict', ['trace_id'=>$trace,'error_class'=>$error::class]);
+            return new \WP_Error('cf02_conflict', __('The record changed. Refresh it and retry.', 'cf-02-support-appeals-case-management'), ['status'=>409,'trace_id'=>$trace]);
         } catch (Throwable $error) {
-            $message = $error instanceof RuntimeException ? $error->getMessage() : __('The request could not be completed.', 'cf-02-support-appeals-case-management');
-            $status = str_contains(strtolower($message), 'not found') ? 404
-                : (str_contains(strtolower($message), 'authorized') || str_contains(strtolower($message), 'authentication') ? 403
-                : (str_contains(strtolower($message), 'stale') || str_contains(strtolower($message), 'conflict') ? 409 : 422));
-            return new \WP_Error('cf02_request_rejected', $message, ['status' => $status, 'trace_id' => RequestGuard::traceId()]);
+            $trace = RequestGuard::traceId();
+            do_action('cf02_api_request_failed', ['trace_id'=>$trace,'error_class'=>$error::class,'error'=>$error]);
+            return new \WP_Error('cf02_request_rejected', __('The request was rejected. Review the fields and your current authorization, then retry.', 'cf-02-support-appeals-case-management'), ['status'=>422,'trace_id'=>$trace]);
         }
     }
 }

@@ -43,3 +43,7 @@ The final head must pass PHP 8.1–8.4, all C2-A–I suites, release tests, secr
 ## Truthful boundary
 
 The repository may be declared code-complete only after exact-head runs pass. Hostinger staging, real companions/providers, browser/accessibility/security/load testing, production migration, restore/rollback and operational acceptance remain external gates. Any new defect reopens the cycle.
+
+## Forty-round corrective cycle
+
+The independently requested forty distinct review/fix cycles are recorded in `docs/FORTY-ROUND-REVIEW-REGISTER.md` and enforced by `tests/c2j-forty-review.php`.

@@ -102,7 +102,7 @@ def validate_metadata(config: dict[str, Any]) -> None:
     if plan.group(1) != str(config["plan_version"]):
         fail("plugin plan version differs from release manifest")
 
-    schema_text = (ROOT / "src" / "Infrastructure" / "WordPress" / "SchemaExtension.php").read_text(encoding="utf-8")
+    schema_text = (ROOT / "src" / "Infrastructure" / "WordPress" / "SchemaCompletion.php").read_text(encoding="utf-8")
     schema = re.search(r"public const VERSION = '([^']+)';", schema_text)
     if schema is None or schema.group(1) != str(config["database_schema_version"]):
         fail("database schema version differs from release manifest")

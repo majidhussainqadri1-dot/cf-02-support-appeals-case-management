@@ -2,7 +2,7 @@
 
 All notable CF-02 repository changes are recorded here. Status words follow the platform's truthful completion law: coded, packaged, automated-QA, staging-accepted, live-deployed and operational are separate states.
 
-## 1.0.0-rc.3 — Complete central-plan and CF-02-plan coded runtime candidate
+## 1.0.0-rc.4 — Complete central-plan and CF-02-plan coded runtime candidate
 
 ### Added
 
@@ -57,3 +57,8 @@ All notable CF-02 repository changes are recorded here. Status words follow the 
 
 - Completed C2-A through C2-H domain/repository implementation and two review/fix rounds per phase.
 - Added fail-closed WordPress schema foundations.
+
+## 1.0.0-rc.4 — Forty-round corrective review candidate
+- Removes permissive File 00 fallbacks and duplicate local authorization authority.
+- Adds exact-artifact, environment-aware activation, managed key lifecycle, opaque keyset cursors, governed repair, complete requester/admin surfaces and forty distinct review/fix regressions.
+- Remains staging-unaccepted, live-undeployed and non-operational until external gates pass.

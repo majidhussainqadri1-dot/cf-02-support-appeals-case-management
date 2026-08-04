@@ -15,8 +15,8 @@ $state = get_option('cf02_activation_state', []);
 if (!is_array($state) || ($state['status'] ?? null) !== 'ready') {
     $fail('CF-02 active-runtime evidence did not reach ready state.');
 }
-if ((string) get_option('cf02_schema_version', '') !== '1.2.0') {
-    $fail('CF-02 schema 1.2.0 was not installed.');
+if ((string) get_option('cf02_schema_version', '') !== '1.3.0') {
+    $fail('CF-02 schema 1.3.0 was not installed.');
 }
 
 if (!did_action('rest_api_init')) {
@@ -41,8 +41,6 @@ $request->set_body_params([
     'category' => 'technical',
     'subject' => 'Runtime integration smoke case',
     'description' => 'A minimized test message without secret data.',
-    'priority' => 'P3',
-    'severity' => 'normal',
     'locale' => 'ur-PK',
     'impact' => 'single_action',
     'urgency' => 'normal',

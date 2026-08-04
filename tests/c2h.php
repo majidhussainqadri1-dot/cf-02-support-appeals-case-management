@@ -6,6 +6,7 @@ require_once dirname(__DIR__).'/src/Autoload.php';\Sabri\CF02\Autoload::register
 
 use Sabri\CF02\Infrastructure\WordPress\Schema;
 use Sabri\CF02\Infrastructure\WordPress\SchemaExtension;
+use Sabri\CF02\Infrastructure\WordPress\SchemaCompletion;
 use Sabri\CF02\Operations\TrainingRegister;
 use Sabri\CF02\Release\ReleaseGate;
 use Sabri\CF02\Resilience\LoadBudget;
@@ -17,13 +18,14 @@ $failures=[];$test=static function(string $n,callable $c)use(&$failures):void{tr
 $test('canonical schema covers all support case appeal evidence quality migration and audit truth',static function():void{
     $statements=array_merge(
         Schema::statements('wp_','DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'),
-        SchemaExtension::statements('wp_','DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci')
+        SchemaExtension::statements('wp_','DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'),
+        SchemaCompletion::statements('wp_','DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci')
     );
-    foreach(['cases','messages','attachments','assignments','sla_timers','appeals','commands','outbox','holds','configuration','migration','audit','intake_replay','tasks','appeal_dossiers','quality_reviews','feedback','retention_ledger','command_payloads','outbox_payloads','events','representatives','case_links','inbound_receipts','attachment_tokens','merge_redirects','incident_links','metrics','note_revisions'] as $table){
+    foreach(['cases','messages','attachments','assignments','sla_timers','appeals','commands','outbox','holds','configuration','migration','audit','intake_replay','tasks','appeal_dossiers','quality_reviews','feedback','retention_ledger','command_payloads','outbox_payloads','events','representatives','case_links','inbound_receipts','attachment_tokens','merge_redirects','incident_links','metrics','note_revisions','key_rotation','repair_ledger'] as $table){
         assert(isset($statements[$table]));
         assert(str_contains($statements[$table],'CREATE TABLE wp_cf02_'));
     }
-    assert(SchemaExtension::VERSION==='1.2.0');
+    assert(SchemaCompletion::VERSION==='1.3.0');
 });
 
 $test('data cipher provides authenticated encryption at rest',static function():void{

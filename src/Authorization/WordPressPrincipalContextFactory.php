@@ -58,9 +58,9 @@ final class WordPressPrincipalContextFactory
             throw new RuntimeException('Authorization assertion is not currently valid.');
         }
 
-        $roles = $this->stringList($assertion['roles'] ?? null, 'roles');
-        $capabilities = $this->stringList($assertion['capabilities'] ?? null, 'capabilities');
-        $represented = $this->stringList($assertion['represented_requesters'] ?? [], 'represented requesters');
+        $roles = $this->stringList($assertion['roles'] ?? null, 'roles', 32, '/^[a-z][a-z0-9_.-]{1,63}$/');
+        $capabilities = $this->stringList($assertion['capabilities'] ?? null, 'capabilities', 256, '/^[a-z][a-z0-9_.-]{1,95}$/');
+        $represented = $this->stringList($assertion['represented_requesters'] ?? [], 'represented requesters', 64, '/^(?:user|guardian|representative):[A-Za-z0-9._-]{1,128}$/');
 
         return new PrincipalContext(
             $actorReference,
@@ -80,14 +80,14 @@ final class WordPressPrincipalContextFactory
     }
 
     /** @return list<string> */
-    private function stringList(mixed $value, string $label): array
+    private function stringList(mixed $value, string $label, int $maximum, string $pattern): array
     {
-        if (!is_array($value)) {
+        if (!is_array($value) || count($value) > $maximum) {
             throw new RuntimeException(sprintf('File 00 assertion %s are malformed.', $label));
         }
         $result = [];
         foreach ($value as $item) {
-            if (!is_string($item) || trim($item) === '') {
+            if (!is_string($item) || trim($item) === '' || preg_match($pattern, trim($item)) !== 1) {
                 throw new RuntimeException(sprintf('File 00 assertion %s are malformed.', $label));
             }
             $result[] = trim($item);

@@ -3,7 +3,7 @@
  * Plugin Name: Sabri Support, Appeals and Case Management (Conditional)
  * Plugin URI: https://sabrihomeopathy.com/
  * Description: Conditional, fail-closed support, case, SLA, appeal, evidence, migration and resilience runtime for the Sabri Social Homeopathy Platform.
- * Version: 1.0.0-rc.3
+ * Version: 1.0.0-rc.4
  * Requires at least: 6.0
  * Requires PHP: 8.1
  * Author: Dr. Allamah Majid Hussain Sabri
@@ -13,7 +13,7 @@
 
 defined('ABSPATH') || exit;
 
-define('CF02_VERSION', '1.0.0-rc.3');
+define('CF02_VERSION', '1.0.0-rc.4');
 define('CF02_PLAN_VERSION', '1.0');
 define('CF02_PLUGIN_FILE', __FILE__);
 define('CF02_PLUGIN_DIR', plugin_dir_path(__FILE__));

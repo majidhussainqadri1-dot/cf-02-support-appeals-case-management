@@ -12,14 +12,16 @@ $test=static function(string $name, callable $callback)use(&$failures):void{
 };
 $read=static fn(string $path):string=>(string)file_get_contents($root.'/'.$path);
 
-$test('File 00 assertion is actor-bound versioned expiring and never inferred from WordPress roles',static function()use($read):void{
+$test('File 00 assertion is fail closed verified audience bound and never inferred from WordPress roles',static function()use($read):void{
     $factory=$read('src/Authorization/WordPressPrincipalContextFactory.php');
     assert(str_contains($factory,"cf02_file00_authorization_assertion"));
+    assert(str_contains($factory,"null,"));
+    assert(str_contains($factory, "(\$assertion['verified'] ?? false) !== true"));
+    assert(str_contains($factory,"self::AUDIENCE"));
+    assert(str_contains($factory,"assertion_id"));
     assert(!str_contains($factory,'$wpUser->roles'));
-    assert(str_contains($factory,"'contract_version' => defined('SMC_CONTRACT_VERSION')"));
-    assert(str_contains($factory, 'hash_equals(\'user:\' . $userId, $actorReference)'));
-    assert(str_contains($factory, 'does not match the authenticated WordPress principal'));
-    assert(str_contains($factory, 'DateTimeImmutable::createFromFormat'));
+    assert(!str_contains($factory,'defaultAssertion'));
+    assert(str_contains($factory, "File 00 assertion does not match the authenticated WordPress principal"));
 });
 
 $test('strong optimistic concurrency and idempotency reject weak or altered replay',static function()use($read):void{

@@ -2,7 +2,7 @@
 Contributors: majidhussainqadri1-dot
 Requires at least: 6.0
 Requires PHP: 8.1
-Stable tag: 1.0.0-rc.3
+Stable tag: 1.0.0-rc.4
 License: Proprietary
 Text Domain: cf-02-support-appeals-case-management
 
@@ -12,7 +12,7 @@ Conditional, fail-closed support, case, SLA, appeal, evidence, migration and res
 
 CF-02 is the canonical conditional owner for support intake, support cases, assignments, SLA orchestration, evidence-bound appeals, implementation reconciliation, quality review and support-case retention.
 
-The plugin is intentionally fail-closed. Installing or activating the package does not authorize operational use. Runtime activation requires exact Founder approval, compatible companion-owner contracts, operational staffing evidence, privacy/security review, migration and rollback evidence, staging acceptance and zero known unresolved critical/high defects.
+The plugin is intentionally fail-closed. Installing or activating the package does not authorize operational use. Staging validation runtime requires exact Founder approval, exact artifact identity, compatible companion/provider contracts, operational staffing evidence, privacy/security review, migration and rollback evidence, and zero known unresolved critical/high defects. Production runtime additionally requires completed staging, provider, accessibility, load, restore and rollback acceptance evidence.
 
 CF-02 does not replace the native owners of identity, verification, content moderation, clinical decisions, payment settlement, messaging evidence, privacy-rights workflows, notification transport, global shell or public visual presentation.
 
@@ -21,7 +21,7 @@ CF-02 does not replace the native owners of identity, verification, content mode
 1. Install only on an authorized staging environment.
 2. Verify the package SHA-256 checksum and release manifest.
 3. Confirm PHP 8.1+ with the sodium extension and WordPress 6.0+.
-4. Activate the plugin. It remains dormant unless every activation gate passes.
+4. Activate the plugin. It remains dormant unless the gates for the declared staging or production environment pass.
 5. Complete the repository staging checklist before any runtime-enablement decision.
 
 == Frequently Asked Questions ==
@@ -36,11 +36,11 @@ No. Default uninstall is non-destructive and preserves CF-02 records and configu
 
 = Is this package production accepted? =
 
-No. Version 1.0.0-rc.3 is a complete plan-aligned coded and packaged release candidate. Hostinger staging, real providers, browser/accessibility, security, load, restore, rollback and Founder acceptance remain required.
+No. Version 1.0.0-rc.4 is a corrective plan-aligned coded candidate under forty-round verification. Hostinger staging, real providers, browser/accessibility, security, load, restore, rollback and Founder acceptance remain required.
 
 == Changelog ==
 
-= 1.0.0-rc.3 =
+= 1.0.0-rc.4 =
 * Completed the central-plan and CF-02 plan runtime integration layer for every documented command, query, state, ownership and evidence boundary.
 * Added File 00 assertion binding, canonical owner contracts, dual REST namespaces, signed provider adapters, encrypted payloads, attachment quarantine/scan/redaction, event outbox, SLA workers, native reconciliation, legal holds, reversible merges, configuration governance, metrics and retention reconciliation.
 * Added two fresh C2-I review/fix suites and an active-runtime WordPress integration workflow.
@@ -57,7 +57,7 @@ No. Version 1.0.0-rc.3 is a complete plan-aligned coded and packaged release can
 
 == Upgrade Notice ==
 
-= 1.0.0-rc.3 =
+= 1.0.0-rc.4 =
 Staging-only complete coded release candidate.
 
 = 1.0.0-rc.2 =
