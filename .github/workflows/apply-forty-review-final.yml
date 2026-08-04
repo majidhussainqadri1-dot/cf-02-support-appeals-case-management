@@ -23,14 +23,17 @@ jobs:
           base64 -d /tmp/cf02.patch.gz.b64 > /tmp/cf02.patch.gz
           test "$(sha256sum /tmp/cf02.patch.gz | cut -d' ' -f1)" = "cf488deb6dfe146eb719d7c635f346500b828829d30634835d8e76f826417a51"
           gzip -dc /tmp/cf02.patch.gz > /tmp/cf02.patch
-          git apply --check /tmp/cf02.patch
-      - name: Apply validate clean and push exact corrective source
+          git apply --check --exclude='.github/workflows/*' /tmp/cf02.patch
+      - name: Apply validate clean and push corrective source
         run: |
-          git apply /tmp/cf02.patch
+          git apply --exclude='.github/workflows/*' /tmp/cf02.patch
           rm -rf .github/cf02-review-patch
           rm -f .github/workflows/apply-forty-review-final.yml
+          rm -f docs/.finalization-trigger
           find . -path ./vendor -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
+          php -d zend.assertions=1 tests/run.php
           php -d zend.assertions=1 tests/c2j-forty-review.php
+          php -d zend.assertions=1 tests/release.php
           python3 build/security_scan.py
           git diff --check
           git config user.name "github-actions[bot]"
