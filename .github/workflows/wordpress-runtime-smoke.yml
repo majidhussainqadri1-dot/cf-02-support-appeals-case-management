@@ -98,7 +98,7 @@ jobs:
       - name: Exercise runtime and governed repair
         run: |
           php /tmp/wp-cli.phar eval-file "$GITHUB_WORKSPACE/tests/wordpress-runtime-smoke.php" --path=/tmp/cf02-runtime
-          php /tmp/wp-cli.phar eval '$now=new DateTimeImmutable("now",new DateTimeZone("UTC"));$c=(new \Sabri\CF02\Authorization\WordPressPrincipalContextFactory())->current($now);$r=\Sabri\CF02\Infrastructure\WordPress\RepairService::repair($c,"CF02-REPAIR-CI-0001",$now);if(($r["status"]??null)!=="repaired"){fwrite(STDERR,wp_json_encode($r)."\n");exit(1);}' --user=1 --path=/tmp/cf02-runtime
+          php /tmp/wp-cli.phar eval '$now=new DateTimeImmutable("now",new DateTimeZone("UTC"));$c=(new \Sabri\CF02\Authorization\WordPressPrincipalContextFactory())->current($now);$r=\Sabri\CF02\Infrastructure\WordPress\RepairService::repair($c,"CF02-REPAIR-CI-00001",$now);if(($r["status"]??null)!=="repaired"){fwrite(STDERR,wp_json_encode($r)."\n");exit(1);}' --user=1 --path=/tmp/cf02-runtime
       - name: Prove schedulers and safe deactivation
         run: |
           php /tmp/wp-cli.phar eval 'foreach(["cf02_process_outbox","cf02_process_events","cf02_process_sla","cf02_process_retention","cf02_process_reconciliation","cf02_process_key_rotation"] as $hook){if(!wp_next_scheduled($hook)){fwrite(STDERR,"Missing schedule: $hook\n");exit(1);}}' --path=/tmp/cf02-runtime
