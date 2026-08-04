@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
 
+# This second commit ensures the workflow already exists before the triggering push.
 jobs:
   apply:
     if: ${{ github.actor != 'github-actions[bot]' }}
