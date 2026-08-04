@@ -32,7 +32,7 @@ final class ActivationGate
             $reasons[] = 'Founder approval does not target governing plan version 1.0.';
         }
 
-        foreach (['change_control_id', 'approved_by', 'approved_at'] as $field) {
+        foreach (['change_control_id', 'approved_by', 'approved_at', 'runtime_version', 'schema_version', 'source_sha', 'package_sha256'] as $field) {
             if (!isset($founderApproval[$field]) || !is_string($founderApproval[$field]) || trim($founderApproval[$field]) === '') {
                 $reasons[] = sprintf('Founder approval field is missing: %s.', $field);
             }
@@ -40,6 +40,20 @@ final class ActivationGate
 
         if (($founderApproval['approved_by'] ?? null) !== 'founder') {
             $reasons[] = 'Activation approval is not bound to the canonical Founder identity.';
+        }
+
+
+        if (($founderApproval['runtime_version'] ?? null) !== (defined('CF02_VERSION') ? CF02_VERSION : null)) {
+            $reasons[] = 'Founder approval does not target the exact runtime version.';
+        }
+        if (($founderApproval['schema_version'] ?? null) !== \Sabri\CF02\Infrastructure\WordPress\SchemaCompletion::VERSION) {
+            $reasons[] = 'Founder approval does not target the exact schema version.';
+        }
+        foreach (['source_sha','package_sha256'] as $hashField) {
+            if (isset($founderApproval[$hashField]) && is_string($founderApproval[$hashField])
+                && preg_match('/^[a-f0-9]{64}$/', $founderApproval[$hashField]) !== 1) {
+                $reasons[] = sprintf('Founder approval hash is invalid: %s.', $hashField);
+            }
         }
 
         if (
