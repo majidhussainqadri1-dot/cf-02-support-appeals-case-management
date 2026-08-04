@@ -17,23 +17,22 @@ final class Runtime
             return;
         }
         self::$booted = true;
+
         Installer::install();
-        Scheduler::register();
+        RoleRegistrar::register();
+        RouteRegistrar::register();
         FrontendSurfaces::register();
         AdminSurfaces::register();
 
-        add_action('rest_api_init', static function (): void {
-            $keyMaterial = '';
-            foreach (['AUTH_KEY', 'SECURE_AUTH_KEY', 'LOGGED_IN_KEY', 'NONCE_KEY'] as $constant) {
-                if (defined($constant)) {
-                    $keyMaterial .= (string) constant($constant);
-                }
-            }
-            if (strlen($keyMaterial) < 32) {
-                throw new RuntimeException('WordPress security keys are insufficient for CF-02 encrypted storage.');
-            }
-            $controller = new RestController(new CaseRepository(), new DataCipher($keyMaterial));
-            $controller->registerRoutes();
+        $cipher = new DataCipher(self::keyMaterial());
+        $operations = new OperationsRepository();
+        $worker = new RuntimeWorker($operations, $cipher);
+        Scheduler::register($worker);
+
+        add_action('rest_api_init', static function () use ($cipher, $operations): void {
+            $cases = new CaseRepository();
+            (new ComprehensiveRestController($cases, $operations, $cipher))->registerRoutes();
+            (new ProviderWebhookController($cases, $operations, $cipher))->registerRoutes();
         });
 
         add_filter('wp_robots', static function (array $robots): array {
@@ -46,17 +45,39 @@ final class Runtime
         });
 
         add_action('send_headers', static function (): void {
-            if (self::isPrivateRoute()) {
-                nocache_headers();
-                header('Cache-Control: private, no-store, max-age=0, must-revalidate', true);
-                header('Pragma: no-cache', true);
-                header('Referrer-Policy: no-referrer', true);
-                header('X-Robots-Tag: noindex, noarchive, nofollow', true);
-                header('X-Content-Type-Options: nosniff', true);
+            if (!self::isPrivateRoute()) {
+                return;
             }
+            nocache_headers();
+            header('Cache-Control: private, no-store, max-age=0, must-revalidate', true);
+            header('Pragma: no-cache', true);
+            header('Referrer-Policy: no-referrer', true);
+            header('X-Robots-Tag: noindex, noarchive, nofollow', true);
+            header('X-Content-Type-Options: nosniff', true);
+            header("Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()", true);
+            header("Content-Security-Policy: frame-ancestors 'self'; base-uri 'self'; form-action 'self'", true);
         });
 
-        do_action('cf02_runtime_booted', ['version' => CF02_VERSION, 'schema_version' => SchemaExtension::VERSION]);
+        do_action('cf02_runtime_booted', [
+            'version' => CF02_VERSION,
+            'schema_version' => SchemaExtension::VERSION,
+            'contract_version' => \Sabri\CF02\Contracts\SupportContractCatalog::CONTRACT_VERSION,
+            'routes' => RouteRegistrar::contracts(),
+        ]);
+    }
+
+    private static function keyMaterial(): string
+    {
+        $keyMaterial = '';
+        foreach (['AUTH_KEY', 'SECURE_AUTH_KEY', 'LOGGED_IN_KEY', 'NONCE_KEY'] as $constant) {
+            if (defined($constant)) {
+                $keyMaterial .= (string) constant($constant);
+            }
+        }
+        if (strlen($keyMaterial) < 32) {
+            throw new RuntimeException('WordPress security keys are insufficient for CF-02 encrypted storage.');
+        }
+        return $keyMaterial;
     }
 
     private static function isPrivateRoute(): bool
@@ -64,7 +85,9 @@ final class Runtime
         $path = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
         return str_starts_with($path, '/support/cases/')
             || str_starts_with($path, '/support/appeals/')
-            || str_starts_with($path, '/wp-admin/admin.php') && isset($_GET['page']) && $_GET['page'] === 'cf02-support'
-            || str_starts_with($path, '/wp-json/cf02/v1/');
+            || str_starts_with($path, '/wp-admin/admin.php') && isset($_GET['page']) && str_starts_with((string) $_GET['page'], 'cf02-support')
+            || str_starts_with($path, '/wp-json/cf02/v1/')
+            || str_starts_with($path, '/wp-json/api/support/v1/')
+            || str_starts_with($path, '/api/support/v1/');
     }
 }

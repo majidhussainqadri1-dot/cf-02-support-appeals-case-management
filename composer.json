@@ -37,6 +37,9 @@
       "php -d zend.assertions=1 tests/c2h.php",
       "php -d zend.assertions=1 tests/c2h-review1.php",
       "php -d zend.assertions=1 tests/c2h-review2.php",
+      "php -d zend.assertions=1 tests/c2i.php",
+      "php -d zend.assertions=1 tests/c2i-review1.php",
+      "php -d zend.assertions=1 tests/c2i-review2.php",
       "php -d zend.assertions=1 tests/release.php"
     ],
     "security-scan": "python3 build/security_scan.py",

@@ -2,34 +2,21 @@
   "manifest_schema": 1,
   "package_slug": "cf-02-support-appeals-case-management",
   "plugin_name": "Sabri Support, Appeals and Case Management (Conditional)",
-  "plugin_version": "1.0.0-rc.2",
+  "plugin_version": "1.0.0-rc.3",
   "plan_version": "1.0",
-  "database_schema_version": "1.1.0",
+  "database_schema_version": "1.2.0",
   "minimum_php": "8.1",
   "minimum_wordpress": "6.0",
   "entrypoint": "cf-02-support-appeals-case-management.php",
-  "release_status": "packaged-candidate-not-staging-accepted",
+  "release_status": "complete-coded-packaged-candidate-not-staging-accepted",
   "package_root_files": [
     "cf-02-support-appeals-case-management.php",
     "readme.txt",
     "uninstall.php",
     "LICENSE"
   ],
-  "package_directories": [
-    "src",
-    "languages"
-  ],
-  "forbidden_package_paths": [
-    ".git",
-    ".github",
-    ".env",
-    "build",
-    "docs",
-    "tests",
-    "release",
-    "vendor",
-    "node_modules"
-  ],
+  "package_directories": ["src", "languages"],
+  "forbidden_package_paths": [".git", ".github", ".env", "build", "docs", "tests", "release", "vendor", "node_modules"],
   "external_acceptance_gates": [
     "real-companion-contracts",
     "real-provider-acceptance",

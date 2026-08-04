@@ -2,7 +2,7 @@
 Contributors: majidhussainqadri1-dot
 Requires at least: 6.0
 Requires PHP: 8.1
-Stable tag: 1.0.0-rc.2
+Stable tag: 1.0.0-rc.3
 License: Proprietary
 Text Domain: cf-02-support-appeals-case-management
 
@@ -36,9 +36,15 @@ No. Default uninstall is non-destructive and preserves CF-02 records and configu
 
 = Is this package production accepted? =
 
-No. Version 1.0.0-rc.2 is a packaged release candidate. Hostinger staging, real providers, browser/accessibility, security, load, restore, rollback and Founder acceptance remain required.
+No. Version 1.0.0-rc.3 is a complete plan-aligned coded and packaged release candidate. Hostinger staging, real providers, browser/accessibility, security, load, restore, rollback and Founder acceptance remain required.
 
 == Changelog ==
+
+= 1.0.0-rc.3 =
+* Completed the central-plan and CF-02 plan runtime integration layer for every documented command, query, state, ownership and evidence boundary.
+* Added File 00 assertion binding, canonical owner contracts, dual REST namespaces, signed provider adapters, encrypted payloads, attachment quarantine/scan/redaction, event outbox, SLA workers, native reconciliation, legal holds, reversible merges, configuration governance, metrics and retention reconciliation.
+* Added two fresh C2-I review/fix suites and an active-runtime WordPress integration workflow.
+* Kept Hostinger staging, real provider, real companion, browser/accessibility/load, restore/rollback and Founder operational acceptance as separate gates.
 
 = 1.0.0-rc.2 =
 * Added deterministic packaging, package verification, SBOM, provenance and checksum evidence.
@@ -50,6 +56,9 @@ No. Version 1.0.0-rc.2 is a packaged release candidate. Hostinger staging, real 
 * Completed the C2-A through C2-H repository coding candidate and two review/fix rounds per phase.
 
 == Upgrade Notice ==
+
+= 1.0.0-rc.3 =
+Staging-only complete coded release candidate.
 
 = 1.0.0-rc.2 =
 Staging-only release candidate. Do not enable operational runtime or deploy live without exact-artifact acceptance evidence.

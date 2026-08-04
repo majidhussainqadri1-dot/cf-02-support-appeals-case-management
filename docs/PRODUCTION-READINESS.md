@@ -2,50 +2,44 @@
 
 ## Status boundary
 
-Runtime candidate: `1.0.0-rc.2`  
+Runtime candidate: `1.0.0-rc.3`  
 Plan: `1.0`  
-Schema: `1.1.0`
+Schema: `1.2.0`  
+Contract: `1.0.0`
 
-This register prepares evidence collection. It does not itself prove staging, live deployment or operational acceptance.
+The central-plan and CF-02-plan code surface is complete. This register does not itself prove Hostinger staging, live deployment or operational acceptance.
 
 ## Evidence states
 
-Each gate must be recorded as one of: `not-started`, `in-progress`, `passed`, `failed`, `blocked`, or `Founder-accepted-risk`. A gate cannot be inferred from another gate.
+Each gate is independent: `not-started`, `in-progress`, `passed`, `failed`, `blocked`, or `Founder-accepted-risk`.
 
-| Gate | Required evidence | Current state |
+| Gate | Required evidence | Current code/repository state |
 |---|---|---|
-| Source identity | Exact branch, commit SHA, clean diff, PR and review record | automated candidate |
-| Deterministic package | Canonical ZIP, manifest, source/package parity, SHA-256 | automated candidate |
-| SBOM/provenance | SPDX SBOM, provenance statement, dependency inventory | automated candidate |
-| Public repository safety | Obvious secret/private-key scan and forbidden-file scan | automated candidate |
-| Fresh WordPress lifecycle | Install, activate, deactivate, reactivate, uninstall preservation | automated candidate |
-| Supported upgrade | Prior accepted schema/package to exact candidate | not-started |
-| Companion contracts | Files 00/09/17/18/20/21/24/25 exact version and behavior | not-started |
-| Provider contracts | Scanner, object storage, email/notification and any required adapters | not-started |
-| Security | IDOR/BOLA/CSRF/XSS/SQLi/SSRF/replay/race/cache leakage and privilege tests | not-started |
-| Privacy | minimization, export, erasure, holds, retention, logs/search/telemetry leakage | not-started |
-| Accessibility | keyboard, screen reader, contrast, zoom, reflow, RTL and reduced motion | not-started |
-| Performance/resilience | load, queue saturation, timeout, partial outage, recovery and alerts | not-started |
-| Migration | inventory, dry run, dual read, reconciliation, cutover and rollback | not-started |
-| Backup/restore | database/configuration/private object evidence and downstream reconciliation | not-started |
-| Staffing/operations | named roles, coverage, escalation, training and runbooks | not-started |
-| Observation window | staged monitoring with zero unresolved critical/high defects | not-started |
-| Founder approval | exact commit, ZIP checksum, evidence package and residual risks | not-started |
+| Governing traceability | Central plan + CF02-FR-001…034 → code/tests | complete candidate |
+| Runtime command/query surface | 33 commands + 20 queries + both namespaces | complete candidate |
+| Authorization/ownership | File 00 assertion, native-owner keys, no direct companion writes | complete candidate |
+| Persistence/lifecycles | Schema 1.2, replay, events, attachments, SLA, appeals, holds, retention | complete candidate |
+| Two fresh coding reviews | C2-I Review 1 and fresh adversarial Review 2 | complete candidate |
+| Source identity | Exact branch/head/PR | automated on exact head |
+| Deterministic package | ZIP, manifest, SBOM, provenance, checksums, parity | automated on exact head |
+| Dormant lifecycle | clean install, fail-closed activation, reactivation, safe uninstall | automated on exact head |
+| Active runtime integration | ready activation, schema, routes, intake/replay/persistence | automated controlled environment |
+| Supported upgrade | prior accepted package/schema to candidate | not-started |
+| Real companion contracts | Files 00/09/17/18/20/21/24/25 | not-started |
+| Real providers | File 19, scanner/storage, native owners | not-started |
+| Security deployment tests | IDOR/BOLA/CSRF/XSS/SQLi/SSRF/replay/race/cache leakage | not-started |
+| Accessibility/device | keyboard, screen reader, zoom, reflow, RTL, reduced motion, devices | not-started |
+| Performance/resilience | load, soak, queue saturation, provider outage, recovery | not-started |
+| Migration | inventory, dry run, dual read, reconciliation, cutover, rollback | not-started |
+| Backup/restore | database/config/private objects/deletion-ledger reconciliation | not-started |
+| Staffing/operations | named roles, coverage, escalation, training, runbooks | not-started |
+| Observation window | staged monitoring and zero unresolved critical/high defects | not-started |
+| Founder acceptance | exact commit, package checksum, evidence and residual risk | not-started |
 
 ## Mandatory evidence metadata
 
-Every manual artifact must contain:
-
-- exact commit and package SHA-256;
-- environment name and URL classification without exposing secrets;
-- WordPress, PHP, database and relevant provider versions;
-- test date/time in Pakistan Standard Time and UTC;
-- tester role, not private credentials;
-- preconditions, steps, expected result and actual result;
-- screenshots/log references with sensitive fields redacted;
-- defect IDs, fixes, retest results and unresolved residual risk;
-- approver and approval scope.
+Every manual artifact must bind the exact commit and package checksum, environment, software/provider versions, date/time, tester role, preconditions, expected/actual result, redacted logs/screenshots, defect/fix/retest links and approval scope.
 
 ## Release law
 
-`Coded`, `Automated-QA Green`, `Packaged`, `Staging-Accepted`, `Live-Deployed` and `Operational` remain separate statuses. Missing evidence is `unknown/not-started`, never an implicit pass.
+`Coded`, `Automated-QA Green`, `Packaged`, `Staging-Accepted`, `Live-Deployed` and `Operational` remain separate statuses. No missing external evidence is converted into a pass.

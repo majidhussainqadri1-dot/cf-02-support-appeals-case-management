@@ -16,6 +16,8 @@ if (!defined('WP_UNINSTALL_PLUGIN')) {
  */
 foreach ([
     'cf02_process_outbox',
+    'cf02_process_events',
+    'cf02_process_sla',
     'cf02_process_retention',
     'cf02_process_reconciliation',
 ] as $hook) {

@@ -2,41 +2,58 @@
 
 All notable CF-02 repository changes are recorded here. Status words follow the platform's truthful completion law: coded, packaged, automated-QA, staging-accepted, live-deployed and operational are separate states.
 
-## 1.0.0-rc.2 — Packaged candidate
+## 1.0.0-rc.3 — Complete central-plan and CF-02-plan coded runtime candidate
 
 ### Added
 
-- Deterministic, allowlisted WordPress package builder.
-- Package manifest containing exact source SHA and per-file SHA-256 hashes.
-- Package/source parity and archive-safety verifier.
-- SPDX 2.3 SBOM and unsigned provenance statement.
-- SHA-256 checksum evidence and exact-head GitHub artifact workflow.
-- Public repository secret/private-key and forbidden-file safety scan.
-- WordPress `readme.txt`, proprietary license notice and non-destructive uninstall law.
-- Clean WordPress/MariaDB lifecycle workflow covering install, fail-closed activation, deactivate/reactivate and safe uninstall preservation.
-- Production-readiness, staging, security/privacy, release and backup/restore/rollback runbooks.
-- Release engineering regression suite across PHP 8.1–8.4.
+- Canonical public catalogue for all 33 commands, 20 queries, events, categories, native owners and role capabilities.
+- Complete WordPress REST runtime under both `cf02/v1` and `api/support/v1`.
+- Exact File 00 actor-bound, versioned, expiring and suspension-aware authorization assertions.
+- Strong optimistic concurrency, replay/idempotency collision checks and purpose-bound mutation evidence.
+- Runtime persistence for encrypted command/outbox payloads, events, representatives, linked objects, inbound receipts, one-time attachment tokens, merge history, incident links, metrics and note revisions.
+- Signed inbound, scan, redaction and native-result provider adapters.
+- Concrete workers for event publication, File 19 delivery, native reconciliation, SLA and retention.
+- Complete case, attachment, task, hold, appeal, configuration, merge/split, quality and retention runtime workflows.
+- Active-runtime WordPress integration workflow in addition to the fail-closed dormant lifecycle workflow.
+- `docs/COMPLETE-RUNTIME-INTEGRATION.md` and updated traceability/readiness evidence.
 
-### Corrected during review
+### Corrected during Review 1
 
-- Release workflows now bind packages to the exact pull-request head, not GitHub's synthetic merge commit.
-- Generated package-manifest entries are included in the globally sorted deterministic archive order.
-- Static uninstall safety checks no longer fail on descriptive comment text.
-- WordPress smoke testing now distinguishes activation-hook `pending` from the stable fail-closed `dormant` runtime state and requires explicit denial reasons.
+- Replaced limited REST exposure with the full governed command/query surface.
+- Prevented staff authority from being inferred from WordPress role labels.
+- Bound File 00 assertions to the exact authenticated WordPress principal and strict timestamps.
+- Rejected weak ETags and sensitive case descriptions before persistence.
+- Completed attachment quarantine, scan, verdict, redaction and one-time delivery states.
+- Made task, hold, appeal, configuration and merge evidence transactional/idempotent.
+- Made retention fail closed without an approved active schedule.
+- Minimized requester attachment projections and preserved authorized post-purge reconciliation.
+
+### Corrected during fresh adversarial Review 2
+
+- Removed an invalid SQL alias from the event worker query.
+- Blocked terminal native-result mutation and required an outcome reference for success.
+- Treated definitive native failure as terminal instead of endless retry.
+- Added synchronous native reconciliation and SLA at-risk/breach events.
+- Added signed redaction callbacks and canonical native-owner validation.
+- Preserved reversible merge history and linked-object event evidence.
 
 ### Status
 
-- Coded: yes.
-- Deterministically packaged candidate: yes.
-- Automated repository QA: yes.
-- Clean generic WordPress lifecycle smoke: yes.
+- Specified: yes.
+- Coded against both governing plans: yes.
+- Two fresh review/fix rounds after final coding: yes.
+- Automated-QA/package evidence: generated only for the exact final head.
 - Hostinger staging accepted: no.
 - Live deployed: no.
 - Operational: no.
 
-## 1.0.0-rc.1 — Complete coding candidate
+## 1.0.0-rc.2 — Packaged candidate
 
-- Completed C2-A through C2-H repository implementation.
-- Added two review/fix rounds per phase and complete PHP 8.1–8.4 test matrix.
-- Added fail-closed WordPress runtime/schema, case/appeal/SLA/security/migration/resilience foundations.
-- Did not claim deterministic packaging, Hostinger staging, live deployment or operational acceptance.
+- Added deterministic, allowlisted WordPress packaging, exact source manifest, SBOM, provenance and checksums.
+- Added clean fail-closed WordPress lifecycle verification and non-destructive uninstall.
+- Corrected exact-head binding, archive ordering, uninstall-scanner false positive and lifecycle state expectation.
+
+## 1.0.0-rc.1 — Complete domain coding candidate
+
+- Completed C2-A through C2-H domain/repository implementation and two review/fix rounds per phase.
+- Added fail-closed WordPress schema foundations.
