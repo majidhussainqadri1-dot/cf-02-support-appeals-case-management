@@ -41,6 +41,7 @@ No. Version 1.0.0-rc.6 is a three-plan harmonized coded/package candidate with f
 == Changelog ==
 
 = 1.0.0-rc.6 =
+* C2-M: Completed a fresh forty-round review/fix cycle and hardened routing, REST input, provider signatures, repair audit evidence, and secure attachment delivery.
 * Harmonized the central plan v3.0, All-Chats directives v2.1 and CF-02 plan v1.0.
 * Added free learning-access taxonomy with a safe legacy alias and canonical category-to-queue routing.
 * Added donor/payment/sponsorship-neutral support priority and appeal enforcement.
@@ -61,6 +62,7 @@ No. Version 1.0.0-rc.6 is a three-plan harmonized coded/package candidate with f
 == Upgrade Notice ==
 
 = 1.0.0-rc.6 =
+* C2-M: Completed a fresh forty-round review/fix cycle and hardened routing, REST input, provider signatures, repair audit evidence, and secure attachment delivery.
 Staging-only three-plan harmonized coded/package candidate.
 
 = 1.0.0-rc.2 =

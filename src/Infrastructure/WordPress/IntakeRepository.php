@@ -7,6 +7,7 @@ namespace Sabri\CF02\Infrastructure\WordPress;
 use DateTimeImmutable;
 use RuntimeException;
 use Sabri\CF02\Configuration\CategoryRoutingPolicy;
+use Sabri\CF02\Contracts\SupportContractCatalog;
 use Sabri\CF02\Domain\SupportCaseId;
 use Sabri\CF02\Governance\ServiceEqualityPolicy;
 use Sabri\CF02\Security\MutationEnvelope;
@@ -35,9 +36,24 @@ final class IntakeRepository
         DateTimeImmutable $at
     ): array {
         ServiceEqualityPolicy::assertNoPrivilegeSignals($payload);
+        if (preg_match('/^[A-Za-z0-9][A-Za-z0-9_.:@-]{2,190}$/', $requesterReference) !== 1
+            || preg_match('/^[A-Za-z0-9._:-]{16,128}$/', $idempotencyKey) !== 1) {
+            throw new RuntimeException('Intake requester or idempotency identity is invalid.');
+        }
         $category = CategoryRoutingPolicy::normalize((string) ($payload['category'] ?? ''));
+        SupportContractCatalog::assertCategory($category);
+        $priority = strtoupper((string) ($payload['priority'] ?? ''));
+        $severity = (string) ($payload['severity'] ?? '');
+        if (!in_array($priority, ['P1','P2','P3','P4'], true)
+            || !in_array($severity, ['normal','S1','S2','S3','S4'], true)) {
+            throw new RuntimeException('Intake priority or severity is invalid.');
+        }
         $payload['category'] = $category;
+        $payload['priority'] = $priority;
+        $payload['severity'] = $severity;
         $payload['queue'] = CategoryRoutingPolicy::queueFor($category);
+        $payload['locale'] = ApiInput::locale($payload['locale'] ?? null);
+        $payload['subject'] = ApiInput::safeSingleLine($payload['subject'] ?? '', 'Case subject', 191, true);
         $fingerprint = MutationEnvelope::fingerprint($payload);
         $existing = $this->find($idempotencyKey);
         if ($existing !== null) {

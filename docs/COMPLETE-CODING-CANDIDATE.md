@@ -32,3 +32,7 @@ Every earlier phase retains two reviews. After the final release-governance corr
 ## Truthful acceptance boundary
 
 `1.0.0-rc.6` means corrective code candidate under forty review/fix cycles within the three governing plans. It does not mean Hostinger staging accepted, live deployed or operational. Real companion adapters, providers, named staff, browser/accessibility/security/load tests, production migration, backup/restore/rollback and Founder exact-artifact approval remain mandatory.
+
+## C2-M fresh forty-round corrective cycle
+
+The RC6 source received a new forty-round review/fix cycle. The permanent regression is `tests/c2m-forty-fresh-review.php`; the review register is `docs/FORTY-ROUND-FRESH-REVIEW-C2M.md`; provider signature compatibility is governed by `docs/PROVIDER-SIGNATURE-CONTRACT.md`. This does not alter the pending Hostinger staging, live or operational gates.

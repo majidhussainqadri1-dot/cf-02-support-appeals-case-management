@@ -17,7 +17,8 @@
         "tests/c2b.php",
         "tests/c2b-review1.php",
         "tests/c2b-review2.php",
-        "tests/c2i.php"
+        "tests/c2i.php",
+        "tests/c2m-forty-fresh-review.php"
       ],
       "migration": [
         "src/Infrastructure/WordPress/SchemaCompletion.php",
@@ -25,7 +26,8 @@
       ],
       "security_privacy": [
         "src/Authorization/PurposeBoundAccessPolicy.php",
-        "src/Security/SensitiveContentDetector.php"
+        "src/Security/SensitiveContentDetector.php",
+        "src/Infrastructure/WordPress/ApiInput.php"
       ],
       "staging_evidence_status": "pending-external"
     },
@@ -39,7 +41,8 @@
         "tests/c2b.php",
         "tests/c2b-review1.php",
         "tests/c2b-review2.php",
-        "tests/c2i.php"
+        "tests/c2i.php",
+        "tests/c2m-forty-fresh-review.php"
       ],
       "migration": [
         "src/Infrastructure/WordPress/SchemaCompletion.php",
@@ -47,7 +50,8 @@
       ],
       "security_privacy": [
         "src/Authorization/PurposeBoundAccessPolicy.php",
-        "src/Security/SensitiveContentDetector.php"
+        "src/Security/SensitiveContentDetector.php",
+        "src/Infrastructure/WordPress/ApiInput.php"
       ],
       "staging_evidence_status": "pending-external"
     },
@@ -127,7 +131,8 @@
         "tests/c2b.php",
         "tests/c2b-review1.php",
         "tests/c2b-review2.php",
-        "tests/c2i.php"
+        "tests/c2i.php",
+        "tests/c2m-forty-fresh-review.php"
       ],
       "migration": [
         "src/Infrastructure/WordPress/SchemaCompletion.php",
@@ -135,7 +140,8 @@
       ],
       "security_privacy": [
         "src/Authorization/PurposeBoundAccessPolicy.php",
-        "src/Security/SensitiveContentDetector.php"
+        "src/Security/SensitiveContentDetector.php",
+        "src/Infrastructure/WordPress/ApiInput.php"
       ],
       "staging_evidence_status": "pending-external"
     },
@@ -217,7 +223,8 @@
         "tests/c2b.php",
         "tests/c2b-review1.php",
         "tests/c2b-review2.php",
-        "tests/c2i.php"
+        "tests/c2i.php",
+        "tests/c2m-forty-fresh-review.php"
       ],
       "migration": [
         "src/Infrastructure/WordPress/SchemaCompletion.php",
@@ -225,7 +232,8 @@
       ],
       "security_privacy": [
         "src/Authorization/PurposeBoundAccessPolicy.php",
-        "src/Security/SensitiveContentDetector.php"
+        "src/Security/SensitiveContentDetector.php",
+        "src/Infrastructure/WordPress/ApiInput.php"
       ],
       "staging_evidence_status": "pending-external"
     },
@@ -240,7 +248,8 @@
         "tests/c2b.php",
         "tests/c2b-review1.php",
         "tests/c2b-review2.php",
-        "tests/c2i.php"
+        "tests/c2i.php",
+        "tests/c2m-forty-fresh-review.php"
       ],
       "migration": [
         "src/Infrastructure/WordPress/SchemaCompletion.php",
@@ -248,7 +257,8 @@
       ],
       "security_privacy": [
         "src/Authorization/PurposeBoundAccessPolicy.php",
-        "src/Security/SensitiveContentDetector.php"
+        "src/Security/SensitiveContentDetector.php",
+        "src/Infrastructure/WordPress/ApiInput.php"
       ],
       "staging_evidence_status": "pending-external"
     },
@@ -394,7 +404,8 @@
         "tests/c2e.php",
         "tests/c2e-review1.php",
         "tests/c2e-review2.php",
-        "tests/c2i.php"
+        "tests/c2i.php",
+        "tests/c2m-forty-fresh-review.php"
       ],
       "migration": [
         "src/Infrastructure/WordPress/SchemaCompletion.php",
@@ -402,7 +413,8 @@
       ],
       "security_privacy": [
         "src/Authorization/PurposeBoundAccessPolicy.php",
-        "src/Security/SensitiveContentDetector.php"
+        "src/Security/SensitiveContentDetector.php",
+        "src/Infrastructure/WordPress/ApiInput.php"
       ],
       "staging_evidence_status": "pending-external"
     },
@@ -527,7 +539,8 @@
         "tests/c2d.php",
         "tests/c2d-review1.php",
         "tests/c2d-review2.php",
-        "tests/c2i.php"
+        "tests/c2i.php",
+        "tests/c2m-forty-fresh-review.php"
       ],
       "migration": [
         "src/Infrastructure/WordPress/SchemaCompletion.php",
@@ -535,7 +548,8 @@
       ],
       "security_privacy": [
         "src/Authorization/PurposeBoundAccessPolicy.php",
-        "src/Security/SensitiveContentDetector.php"
+        "src/Security/SensitiveContentDetector.php",
+        "src/Infrastructure/WordPress/ApiInput.php"
       ],
       "staging_evidence_status": "pending-external"
     },
@@ -638,7 +652,8 @@
         "tests/c2f.php",
         "tests/c2f-review1.php",
         "tests/c2f-review2.php",
-        "tests/c2i.php"
+        "tests/c2i.php",
+        "tests/c2m-forty-fresh-review.php"
       ],
       "migration": [
         "src/Infrastructure/WordPress/SchemaCompletion.php",
@@ -646,7 +661,8 @@
       ],
       "security_privacy": [
         "src/Authorization/PurposeBoundAccessPolicy.php",
-        "src/Security/SensitiveContentDetector.php"
+        "src/Security/SensitiveContentDetector.php",
+        "src/Infrastructure/WordPress/ApiInput.php"
       ],
       "staging_evidence_status": "pending-external"
     },
@@ -660,7 +676,8 @@
         "tests/c2f.php",
         "tests/c2f-review1.php",
         "tests/c2f-review2.php",
-        "tests/c2i.php"
+        "tests/c2i.php",
+        "tests/c2m-forty-fresh-review.php"
       ],
       "migration": [
         "src/Infrastructure/WordPress/SchemaCompletion.php",
@@ -704,7 +721,8 @@
         "tests/c2f.php",
         "tests/c2f-review1.php",
         "tests/c2f-review2.php",
-        "tests/c2i.php"
+        "tests/c2i.php",
+        "tests/c2m-forty-fresh-review.php"
       ],
       "migration": [
         "src/Infrastructure/WordPress/SchemaCompletion.php",

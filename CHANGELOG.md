@@ -2,6 +2,9 @@
 
 ## 1.0.0-rc.6 — Three-plan final code-completion and release-governance candidate
 
+- Completed a fresh C2-M forty-round review/fix cycle on the RC6 exact source.
+- Corrected canonical routing drift, unsafe boolean coercion, provider input/signature weaknesses, repair-audit persistence and secure-delivery validation.
+- Added `tests/c2m-forty-fresh-review.php`, the C2-M register, provider signature contract and change-control record.
 - Corrected stale RC2/schema references in release and staging documentation.
 - Made `release/manifest.json` the single release identity source for every GitHub workflow.
 - Added `build/verify_release_identity.py` to fail CI on plugin/readme/docs/workflow identity drift.

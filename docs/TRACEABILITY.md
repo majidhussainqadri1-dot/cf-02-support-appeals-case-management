@@ -76,3 +76,12 @@
 ## Machine-verifiable evidence
 
 `release/traceability.json` contains the exact ordered CF02-FR-001 through CF02-FR-034 set plus central-plan and All-Chats directives. `build/verify_traceability.py` fails CI if any evidence path is absent, any ID is missing/duplicated, or external staging evidence is represented as passed.
+
+## C2-M fresh forty-round corrective trace
+
+- Test: `tests/c2m-forty-fresh-review.php`
+- Register: `docs/FORTY-ROUND-FRESH-REVIEW-C2M.md`
+- Change control: `docs/CHANGE-CONTROL-C2M.md`
+- Provider contract: `docs/PROVIDER-SIGNATURE-CONTRACT.md`
+- Requirements strengthened: CF02-FR-001 intake; CF02-FR-002 signed provider intake; CF02-FR-006 triage; CF02-FR-010 internal-note visibility; CF02-FR-011 secure attachments; CF02-FR-018 appeal eligibility; CF02-FR-024 purpose-bound access; CF02-FR-029 feedback booleans; CF02-FR-030 governed repair; CF02-FR-032 degraded/provider channels.
+- Evidence boundary: code and automated regression only; external staging evidence remains pending.

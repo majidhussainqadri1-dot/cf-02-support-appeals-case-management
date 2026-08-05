@@ -33,7 +33,7 @@ final class RepairService
     /** @return array<string,mixed> */
     public static function repair(PrincipalContext $context,string $approvalRef,DateTimeImmutable $at):array
     {
-        if(!$context->hasCapability('repair.execute')||!$context->recentlyAuthenticated($at))throw new RuntimeException('Repair requires dedicated File 00 authority and recent authentication.');
+        if(!$context->validAt($at)||!$context->hasCapability('repair.execute')||!$context->recentlyAuthenticated($at))throw new RuntimeException('Repair requires dedicated File 00 authority and recent authentication.');
         if(preg_match('/^CF02-REPAIR-[A-Za-z0-9_-]{8,64}$/',$approvalRef)!==1)throw new RuntimeException('A governed repair approval reference is required.');
         /** @var mixed $approval */
         $approval=apply_filters('cf02_repair_approval_evidence',null,$approvalRef,$context->actorReference(),$at->format(DATE_ATOM));
@@ -43,7 +43,9 @@ final class RepairService
         $result['status']=$result['missing_tables']===[]&&$result['legacy_local_roles_present']===[]&&$result['route_receipt_errors']===[]?'repaired':'incomplete';
         update_option('cf02_last_repair_evidence',$result,false);
         global $wpdb;$json=wp_json_encode($result,JSON_UNESCAPED_SLASHES);
-        $wpdb->insert($wpdb->prefix.'cf02_repair_ledger',['repair_uuid'=>'CF02-REPAIR-'.strtoupper(bin2hex(random_bytes(10))),'actor_ref'=>$context->actorReference(),'approval_ref'=>$approvalRef,'status'=>(string)$result['status'],'evidence_json'=>$json,'evidence_hash'=>hash('sha256',$json),'repaired_at'=>$at->format('Y-m-d H:i:s.u')]);
+        if(!is_string($json)||$json==='')throw new RuntimeException('Repair evidence serialization failed.');
+        $inserted=$wpdb->insert($wpdb->prefix.'cf02_repair_ledger',['repair_uuid'=>'CF02-REPAIR-'.strtoupper(bin2hex(random_bytes(10))),'actor_ref'=>$context->actorReference(),'approval_ref'=>$approvalRef,'status'=>(string)$result['status'],'evidence_json'=>$json,'evidence_hash'=>hash('sha256',$json),'repaired_at'=>$at->format('Y-m-d H:i:s.u')]);
+        if($inserted!==1){update_option('cf02_last_repair_evidence',$result+['status'=>'evidence_write_failed'],false);throw new RuntimeException('Repair completed but immutable audit evidence could not be persisted.');}
         return $result;
     }
 

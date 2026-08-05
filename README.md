@@ -36,6 +36,7 @@ No live-deployment or operational-completion claim is made by the repository, CI
 - C2-I/C2-J — complete runtime integration and forty-round corrective verification
 - C2-K — three-plan harmonization, free-tier governance, due process, File 26 projection and accessible frontend
 - C2-L — manifest-owned release identity, complete machine traceability, documentation drift prevention and two independent review/fix rounds
+- C2-M — fresh forty-round review/fix cycle, canonical intake routing, strict REST booleans, provider-signature hardening, repair-audit integrity and secure-delivery validation
 
 ## Security notice
 

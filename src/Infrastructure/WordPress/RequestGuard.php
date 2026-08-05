@@ -26,11 +26,15 @@ final class RequestGuard
 
     public static function purpose(\WP_REST_Request $request, bool $required = true): string
     {
-        $purpose = sanitize_key((string) $request->get_header('X-CF02-Purpose'));
+        $purpose = strtolower(trim((string) $request->get_header('X-CF02-Purpose')));
         if ($purpose === '') {
-            $purpose = sanitize_key((string) $request->get_param('purpose'));
+            $purpose = strtolower(trim((string) $request->get_param('purpose')));
         }
-        if ($required && ($purpose === '' || preg_match('/^[a-z][a-z0-9_]{2,63}$/', $purpose) !== 1)) {
+        if ($purpose === '') {
+            if ($required) { throw new RuntimeException('A bounded action purpose is required.'); }
+            return '';
+        }
+        if (preg_match('/^[a-z][a-z0-9_]{2,63}$/', $purpose) !== 1) {
             throw new RuntimeException('A bounded action purpose is required.');
         }
         return $purpose;
