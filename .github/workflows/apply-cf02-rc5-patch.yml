@@ -1,5 +1,6 @@
 name: Apply CF-02 RC5 patch
 
+# Retry after verifying every staged patch-part blob and correcting part 02.
 on:
   push:
     branches:
