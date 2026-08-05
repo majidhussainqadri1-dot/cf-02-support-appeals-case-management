@@ -1,6 +1,6 @@
 name: Apply CF-02 RC5 patch
 
-# Retry after verifying every staged patch-part blob and correcting part 02.
+# Apply source first; workflow-file updates are committed separately through the connector.
 on:
   push:
     branches:
@@ -22,7 +22,7 @@ jobs:
           ref: agent/cf-02-three-plan-harmonization-rc5
           fetch-depth: 0
 
-      - name: Apply three-plan harmonization patch
+      - name: Apply three-plan harmonization source patch
         shell: bash
         run: |
           set -euo pipefail
@@ -35,6 +35,7 @@ jobs:
           cat "${parts[@]}" | base64 --decode > /tmp/cf02-rc5.patch.gz
           gzip -dc /tmp/cf02-rc5.patch.gz > /tmp/cf02-rc5.patch
           git apply --binary --index /tmp/cf02-rc5.patch
+          git restore --source=HEAD --staged --worktree .github/workflows
           rm -f "${parts[@]}" .github/cf02-rc5-payload.part-*
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
