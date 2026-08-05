@@ -41,10 +41,17 @@
       "php -d zend.assertions=1 tests/c2i-review1.php",
       "php -d zend.assertions=1 tests/c2i-review2.php",
       "php -d zend.assertions=1 tests/c2j-forty-review.php",
+      "php -d zend.assertions=1 tests/c2k-three-plan-harmonization.php",
+      "php -d zend.assertions=1 tests/c2k-review1.php",
+      "php -d zend.assertions=1 tests/c2k-review2.php",
       "php -d zend.assertions=1 tests/release.php"
     ],
     "security-scan": "python3 build/security_scan.py",
-    "check": ["@lint", "@test", "@security-scan"]
+    "check": [
+      "@lint",
+      "@test",
+      "@security-scan"
+    ]
   },
   "config": {
     "sort-packages": true

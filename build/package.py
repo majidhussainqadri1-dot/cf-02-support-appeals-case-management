@@ -232,6 +232,7 @@ def main() -> int:
         "package_slug": slug,
         "plugin_version": version,
         "plan_version": str(config["plan_version"]),
+        "contract_version": str(config.get("contract_version", "")),
         "database_schema_version": str(config["database_schema_version"]),
         "source_repository": "https://github.com/majidhussainqadri1-dot/cf-02-support-appeals-case-management",
         "source_sha": source_sha,

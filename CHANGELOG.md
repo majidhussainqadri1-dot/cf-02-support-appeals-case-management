@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.0-rc.5 — Three-plan harmonization candidate
+
+- Reconciled the Definitive Master Plan v3.0, All-Chats Directive Register v2.1 and CF-02 plan v1.0.
+- Replaced paid/billing support taxonomy with free learning access while preserving a legacy input alias.
+- Enforced donation/payment/sponsorship non-privilege for priority, SLA and appeals.
+- Added Islamic institutional due-process validation and native-owner implementation verification.
+- Added a privacy-thresholded, non-punitive File 26 outcome projection contract.
+- Corrected category-to-queue routing and provider normalization.
+- Replaced inline requester assets with packaged, translatable, RTL-aware, green, accessible and resilient frontend assets.
+- Added two fresh review/fix test rounds. External staging, provider, accessibility, security, load, migration, restore and Founder gates remain pending.
+
 All notable CF-02 repository changes are recorded here. Status words follow the platform's truthful completion law: coded, packaged, automated-QA, staging-accepted, live-deployed and operational are separate states.
 
 ## 1.0.0-rc.4 — Complete central-plan and CF-02-plan coded runtime candidate

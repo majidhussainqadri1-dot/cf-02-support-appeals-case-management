@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Sabri\CF02\Intake;
 
 use Sabri\CF02\Configuration\SupportTaxonomy;
+use Sabri\CF02\Governance\ServiceEqualityPolicy;
 
 final class TriagePolicy
 {
     public function decide(IntakeRequest $request): TriageDecision
     {
+        ServiceEqualityPolicy::assertNoPrivilegeSignals($request->fields());
         $category = SupportTaxonomy::defaults()[$request->categoryKey()];
         $priority = match (true) {
             $request->urgency() === 'immediate', $request->impact() === 'critical' => 'P1',

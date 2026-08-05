@@ -1,6 +1,6 @@
 # CF-02 Configuration Governance
 
-Status: Phase C2-A specification and validation baseline. No runtime queue, route, table or user-data processing is enabled by this document or its classes.
+Status: C2-K three-plan harmonized coded candidate. Operational runtime remains fail-closed until activation and external acceptance gates pass.
 
 ## Canonical categories
 
@@ -9,7 +9,7 @@ Status: Phase C2-A specification and validation baseline. No runtime queue, rout
 | `account_access` | `account` | C3 | Files 00/02 | No |
 | `verification` | `verification` | C3 | File 09 | No |
 | `publishing` | `publishing` | C2 | Files 21/22/23 | No |
-| `learning_billing` | `learning` | C3 | File 05 / approved entitlement owner | No |
+| `learning_access` | `learning` | C2 | File 05 / File 00 access assertions | No |
 | `clinic_appointment` | `clinic` | C3 | File 08 | No |
 | `messages_calls` | `communications` | C3 | File 17 | No |
 | `media_pdf` | `media` | C2 | Files 10/11/12 | No |
@@ -18,6 +18,7 @@ Status: Phase C2-A specification and validation baseline. No runtime queue, rout
 | `safety_abuse` | `safety_liaison` | C4 | Relevant native safety owner | Yes |
 | `accessibility` | `technical` | C2 | Files 20/25 | No |
 | `technical` | `technical` | C2 | Platform operations | No |
+| `institutional_governance` | `governance_liaison` | C4 | Founder/File 24/native owner | Yes |
 
 The taxonomy only classifies and routes support work. It never grants CF-02 authority to approve identity, verification, moderation, clinical, payment, privacy-right or marketplace decisions.
 
@@ -51,3 +52,4 @@ Categories, forms, queues, skills, templates, SLA policies, escalation rules and
 7. Founder approval where the change is strategic or high risk.
 
 Invalid configuration never falls back to broader access or automatic resolution. It remains inactive and produces a diagnostic result.
+

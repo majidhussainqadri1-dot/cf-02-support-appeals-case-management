@@ -14,7 +14,7 @@ use InvalidArgumentException;
  */
 final class SupportContractCatalog
 {
-    public const CONTRACT_VERSION = '1.0.0';
+    public const CONTRACT_VERSION = '1.1.0';
 
     /** @var list<string> */
     private const COMMANDS = [
@@ -53,9 +53,9 @@ final class SupportContractCatalog
 
     /** @var list<string> */
     private const CATEGORIES = [
-        'account_access', 'verification', 'learning_billing', 'publishing', 'clinic_appointment',
+        'account_access', 'verification', 'learning_access', 'publishing', 'clinic_appointment',
         'messages_calls', 'media_pdf', 'marketplace', 'privacy_data_rights', 'safety_abuse',
-        'accessibility', 'technical',
+        'accessibility', 'technical', 'institutional_governance',
     ];
 
     /** @var array<string,string> */
@@ -68,8 +68,14 @@ final class SupportContractCatalog
         'content_moderation' => 'File 21/18',
         'security_assurance' => 'File 24',
         'visual_components' => 'File 25',
+        'search_ranking' => 'File 26',
         'payments' => 'CF-03/provider',
         'clinical' => 'File 08/CF-01',
+    ];
+
+    /** @var array<string,string> */
+    private const LEGACY_CATEGORY_ALIASES = [
+        'learning_billing' => 'learning_access',
     ];
 
     /** @var array<string,list<string>> */
@@ -120,6 +126,13 @@ final class SupportContractCatalog
     /** @return list<string> */
     public static function categories(): array { return self::CATEGORIES; }
     /** @return array<string,string> */
+    public static function legacyCategoryAliases(): array { return self::LEGACY_CATEGORY_ALIASES; }
+    public static function normalizeCategory(string $category): string
+    {
+        $normalized = trim($category);
+        return self::LEGACY_CATEGORY_ALIASES[$normalized] ?? $normalized;
+    }
+    /** @return array<string,string> */
     public static function nativeOwners(): array { return self::NATIVE_OWNERS; }
     /** @return list<string> */ public static function nativeOwnerKeys(): array { return array_keys(self::NATIVE_OWNERS); }
 
@@ -149,7 +162,7 @@ final class SupportContractCatalog
 
     public static function assertCategory(string $category): void
     {
-        self::assertIn($category, self::CATEGORIES, 'category');
+        self::assertIn(self::normalizeCategory($category), self::CATEGORIES, 'category');
     }
 
     public static function ownerForDomain(string $domain): string

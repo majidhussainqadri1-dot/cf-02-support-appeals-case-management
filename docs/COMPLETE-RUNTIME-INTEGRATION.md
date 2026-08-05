@@ -4,7 +4,7 @@
 
 - Central constitution: `SSH-PMP-2026-v3.0`
 - CF-02 plan: `1.0 — Four-Round Reviewed and Corrected Final`
-- Plugin candidate: `1.0.0-rc.4`
+- Plugin candidate: `1.0.0-rc.5`
 - Schema: `1.3.0`
 - Public contract: `1.0.0`
 

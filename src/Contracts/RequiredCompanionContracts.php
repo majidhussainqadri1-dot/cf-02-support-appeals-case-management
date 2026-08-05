@@ -20,6 +20,7 @@ final class RequiredCompanionContracts
         'file_21_content_case_contract' => ['owner'=>'File 21','capability'=>'content_decision_reference','required'=>true],
         'file_24_assurance_manifest' => ['owner'=>'File 24','capability'=>'assurance_manifest','required'=>true],
         'file_25_component_contract' => ['owner'=>'File 25','capability'=>'component_manifest','required'=>true],
+        'file_26_ranking_contract' => ['owner'=>'File 26','capability'=>'privacy_safe_case_outcome_projection','required'=>false,'condition'=>'ranking_outcome_projection_enabled'],
         'attachment_storage_provider' => ['owner'=>'Approved Attachment Storage','capability'=>'private_quarantine_storage','required'=>true],
         'malware_scanner_provider' => ['owner'=>'Approved Malware Scanner','capability'=>'malware_scan_verdict','required'=>true],
         'email_adapter_provider' => ['owner'=>'Approved Email Adapter','capability'=>'signed_inbound_email','required'=>true],
