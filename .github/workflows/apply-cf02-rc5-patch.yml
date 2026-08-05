@@ -1,0 +1,42 @@
+name: Apply CF-02 RC5 patch
+
+on:
+  push:
+    branches:
+      - agent/cf-02-three-plan-harmonization-rc5
+    paths:
+      - .github/workflows/apply-cf02-rc5-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact harmonization branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/cf-02-three-plan-harmonization-rc5
+          fetch-depth: 0
+
+      - name: Apply three-plan harmonization patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          parts=(.github/cf02-rc5-patch.part-*)
+          if (( ${#parts[@]} == 0 )); then
+            echo "No patch parts present; exiting."
+            exit 0
+          fi
+          cat "${parts[@]}" | base64 --decode > /tmp/cf02-rc5.patch.gz
+          gzip -dc /tmp/cf02-rc5.patch.gz > /tmp/cf02-rc5.patch
+          git apply --binary --index /tmp/cf02-rc5.patch
+          rm -f "${parts[@]}" .github/cf02-rc5-payload.part-*
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Harmonize CF-02 across three governing plans"
+          git push origin HEAD:agent/cf-02-three-plan-harmonization-rc5
