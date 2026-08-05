@@ -2,9 +2,9 @@
 
 ## Status boundary
 
-Runtime candidate: `1.0.0-rc.3`  
-Plan: `1.0`  
-Schema: `1.2.0`  
+Runtime candidate: `1.0.0-rc.4`
+Plan: `1.0`
+Schema: `1.3.0`
 Contract: `1.0.0`
 
 The central-plan and CF-02-plan code surface is complete. This register does not itself prove Hostinger staging, live deployment or operational acceptance.

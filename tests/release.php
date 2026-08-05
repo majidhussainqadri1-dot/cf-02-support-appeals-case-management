@@ -15,7 +15,7 @@ $manifest = json_decode((string) file_get_contents($root . '/release/manifest.js
 $test('release identity is aligned across manifest plugin readme and schema', static function () use ($root, $manifest): void {
     $plugin = (string) file_get_contents($root . '/cf-02-support-appeals-case-management.php');
     $readme = (string) file_get_contents($root . '/readme.txt');
-    $schema = (string) file_get_contents($root . '/src/Infrastructure/WordPress/SchemaExtension.php');
+    $schema = (string) file_get_contents($root . '/src/Infrastructure/WordPress/SchemaCompletion.php');
     $version = (string) $manifest['plugin_version'];
     assert(str_contains($plugin, '* Version: ' . $version));
     assert(str_contains($plugin, "define('CF02_VERSION', '" . $version . "')"));
@@ -41,7 +41,7 @@ $test('default uninstall is non destructive and clears every scheduler hook', st
 });
 
 $test('release status remains truthful and external evidence gates remain explicit', static function () use ($manifest): void {
-    assert($manifest['release_status'] === 'complete-coded-packaged-candidate-not-staging-accepted');
+    assert($manifest['release_status'] === 'forty-review-corrective-candidate-not-staging-accepted');
     $gates = $manifest['external_acceptance_gates'] ?? [];
     assert(is_array($gates) && count($gates) >= 8);
     foreach (['hostinger-staging-install-upgrade-migration', 'backup-restore-and-rollback-rehearsal', 'founder-exact-artifact-approval'] as $gate) assert(in_array($gate, $gates, true));

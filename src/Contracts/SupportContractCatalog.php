@@ -107,7 +107,7 @@ final class SupportContractCatalog
         ],
         'support_manager' => [
             'configuration.stage', 'configuration.activate', 'configuration.rollback',
-            'retention.review', 'reconciliation.manage', 'release.evidence.read',
+            'retention.review', 'reconciliation.manage', 'release.evidence.read', 'repair.inspect', 'repair.execute',
         ],
     ];
 

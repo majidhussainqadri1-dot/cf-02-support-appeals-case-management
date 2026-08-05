@@ -108,6 +108,9 @@ jobs:
       - name: C2-I second-review adversarial tests
         run: php -d zend.assertions=1 tests/c2i-review2.php
 
+      - name: Forty-round corrective review regressions
+        run: php -d zend.assertions=1 tests/c2j-forty-review.php
+
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
 

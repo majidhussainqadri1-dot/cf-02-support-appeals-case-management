@@ -170,6 +170,11 @@ final class RuntimeWorker
         return compact('processed', 'atRisk', 'breached');
     }
 
+    public function processKeyRotation(int $limit = 100): array
+    {
+        return (new EncryptionRotationService($this->cipher))->rotate($limit);
+    }
+
     public function processRetention(int $limit = 250): array
     {
         $processed = $purged = $deferred = 0;

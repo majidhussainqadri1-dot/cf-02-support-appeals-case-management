@@ -1,0 +1,39 @@
+name: CF-02 Exact Source Audit Artifact
+
+on:
+  push:
+    branches: ['agent/cf-02-plan-completion-audit-fixes']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source:
+    name: Package exact repository source for forensic review
+    runs-on: ubuntu-latest
+    env:
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+      - name: Record exact identity and package public-safe source
+        run: |
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          printf '%s\n' "$SOURCE_SHA" > EXACT_SOURCE_SHA
+          zip -q -r cf02-exact-source.zip . \
+            -x '.git/*' 'dist/*' '*.zip' '.env*' '*private*' '*secret*'
+          sha256sum cf02-exact-source.zip > cf02-exact-source.zip.sha256
+      - name: Upload exact source audit artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cf02-exact-source-${{ env.SOURCE_SHA }}
+          path: |
+            cf02-exact-source.zip
+            cf02-exact-source.zip.sha256
+            EXACT_SOURCE_SHA
+          if-no-files-found: error
+          retention-days: 7

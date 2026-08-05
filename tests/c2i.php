@@ -9,6 +9,7 @@ use Sabri\CF02\Authorization\PrincipalContext;
 use Sabri\CF02\Contracts\SupportContractCatalog;
 use Sabri\CF02\Infrastructure\WordPress\RouteRegistrar;
 use Sabri\CF02\Infrastructure\WordPress\SchemaExtension;
+use Sabri\CF02\Infrastructure\WordPress\SchemaCompletion;
 
 $failures=[];$test=static function(string $n,callable $c)use(&$failures):void{try{$c();fwrite(STDOUT,"PASS {$n}\n");}catch(Throwable $e){$failures[]=$n.': '.$e->getMessage();fwrite(STDERR,"FAIL {$n}: {$e->getMessage()}\n");}};
 
@@ -49,10 +50,10 @@ $test('canonical routes preserve CF-02 ownership without creating a second shell
     assert($routes['/support/cases/{id}']['cache']==='no-store');
 });
 
-$test('schema 1.2 covers runtime contracts replay secure payloads links metrics and lifecycle evidence',static function():void{
-    assert(SchemaExtension::VERSION==='1.2.0');
-    $sql=SchemaExtension::statements('wp_','DEFAULT CHARACTER SET utf8mb4');
-    foreach(['intake_replay','tasks','appeal_dossiers','quality_reviews','feedback','command_payloads','outbox_payloads','events','representatives','case_links','inbound_receipts','attachment_tokens','merge_redirects','incident_links','metrics','note_revisions','retention_ledger'] as $table){assert(isset($sql[$table]),$table);assert(str_contains($sql[$table],'CREATE TABLE wp_cf02_'));}
+$test('schema 1.3 covers runtime contracts replay secure payloads links metrics and lifecycle evidence',static function():void{
+    assert(SchemaCompletion::VERSION==='1.3.0');
+    $sql=array_merge(SchemaExtension::statements('wp_','DEFAULT CHARACTER SET utf8mb4'),SchemaCompletion::statements('wp_','DEFAULT CHARACTER SET utf8mb4'));
+    foreach(['intake_replay','tasks','appeal_dossiers','quality_reviews','feedback','command_payloads','outbox_payloads','events','representatives','case_links','inbound_receipts','attachment_tokens','merge_redirects','incident_links','metrics','note_revisions','retention_ledger','key_rotation','repair_ledger'] as $table){assert(isset($sql[$table]),$table);assert(str_contains($sql[$table],'CREATE TABLE wp_cf02_'));}
 });
 
 if($failures!==[]){exit(1);}fwrite(STDOUT,"All CF-02 C2-I complete runtime integration tests passed.\n");

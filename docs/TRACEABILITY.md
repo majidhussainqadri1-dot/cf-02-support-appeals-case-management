@@ -2,7 +2,7 @@
 
 ## Status constitution
 
-- **Coded-reviewed**: executable implementation plus C2-I foundation and two fresh review/fix suites.
+- **Coded-reviewed**: executable implementation plus C2-I foundation, two prior reviews and the forty-round corrective suite.
 - **Runtime-integrated**: WordPress schema, REST command/query, worker, route or surface code exists.
 - **External evidence pending**: real provider/companion/staging/operations proof remains separate.
 
@@ -54,5 +54,11 @@
 | File 24 assurance boundary | dependency evidence; native controls remain in CF-02 |
 | Public/private law | public help, authenticated actions, private no-store/noindex routes |
 | Security/privacy | encryption, signatures, replay, strong ETag, purpose access, minimization |
-| Two review/fix rounds | `tests/c2i-review1.php`, `tests/c2i-review2.php` |
+| Forty corrective review/fix rounds | `docs/FORTY-ROUND-REVIEW-REGISTER.md`, `tests/c2j-forty-review.php` |
 | Truthful completion | release gate still requires external evidence |
+
+## Truthful implementation status
+
+- Source state: corrective `1.0.0-rc.4`, schema `1.3.0`.
+- Automated status: must be taken from the exact-head GitHub workflows; local passes alone are not staging acceptance.
+- External state: real companion/provider, Hostinger staging, browser/accessibility, independent security, load, restore, rollback, observation and Founder exact-artifact approval remain pending.

@@ -20,6 +20,7 @@ foreach ([
     'cf02_process_sla',
     'cf02_process_retention',
     'cf02_process_reconciliation',
+    'cf02_process_key_rotation',
 ] as $hook) {
     wp_clear_scheduled_hook($hook);
 }

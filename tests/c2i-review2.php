@@ -28,13 +28,15 @@ $test('native authority remains behind versioned command filters and never direc
 
 $test('privacy safety accessibility and shell boundaries remain explicit',static function()use($read):void{
     $runtime=$read('src/Infrastructure/WordPress/Runtime.php');
-    $surface=$read('src/Infrastructure/WordPress/FrontendSurfaces.php');
+    $surface=$read('src/Infrastructure/WordPress/CompleteFrontendSurfaces.php');
     $routes=$read('src/Infrastructure/WordPress/RouteRegistrar.php');
     foreach(['no-store','X-Robots-Tag','Permissions-Policy','Content-Security-Policy'] as $needle){assert(str_contains($runtime,$needle));}
     assert(str_contains($surface,'This is not an emergency or clinical queue'));
     assert(str_contains($surface,'prefers-reduced-motion'));
     assert(str_contains($routes,'sabri_register_route_contract'));
-    assert(str_contains($routes,'File 20 remains the shell/layout owner'));
+    assert(str_contains($routes,'sabri_register_route_registry_contract'));
+    assert(str_contains($routes,'sabri_register_route_contract'));
+    assert(str_contains($routes,'SchemaCompletion::VERSION'));
 });
 
 $test('retention cannot claim purge without provider reconciliation hold check and canonical deletion',static function()use($read):void{
