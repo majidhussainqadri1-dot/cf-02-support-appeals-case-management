@@ -20,7 +20,7 @@ chunks = [part.read_text(encoding="ascii").strip() for part in parts]
 encoded = chunks[0] + chunks[1][2000:] + "".join(chunks[2:])
 if len(encoded) != 81944:
     raise SystemExit(f"RC6 payload length is invalid: {len(encoded)}")
-expected_sha256 = "ee7c96250a41f70e7564f745bf4c0555a5be845f600aac88d28908f3fcd119b2"
+expected_sha256 = "75a28004c31a157fb2b52d416fd87fc2c1fe38de052312e071bc251f021578e7"
 actual_sha256 = hashlib.sha256(encoded.encode("ascii")).hexdigest()
 if actual_sha256 != expected_sha256:
     raise SystemExit(f"RC6 payload digest mismatch: {actual_sha256}")
