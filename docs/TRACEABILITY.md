@@ -59,6 +59,16 @@
 
 ## Truthful implementation status
 
-- Source state: corrective `1.0.0-rc.4`, schema `1.3.0`.
+- Source state: corrective `1.0.0-rc.5`, schema `1.3.0`.
 - Automated status: must be taken from the exact-head GitHub workflows; local passes alone are not staging acceptance.
 - External state: real companion/provider, Hostinger staging, browser/accessibility, independent security, load, restore, rollback, observation and Founder exact-artifact approval remain pending.
+
+## All-Chats v2.1 directive traceability
+
+| Directive | Runtime evidence | Status |
+|---|---|---|
+| `CHAT-BIZ-022` — single free tier and donor non-privilege | `learning_access` taxonomy, legacy alias, `ServiceEqualityPolicy`, REST boundary rejection, C2-K parity tests | Coded-reviewed |
+| `CHAT-GOV-023` — Islamic institutional governance and due process | specialist governance category, `InstitutionalDueProcessPolicy`, native implementation verification and appeal safeguards | Coded-reviewed; native institutional owner integration pending |
+| `CHAT-QA-001` — post-GitHub harmonization and iterative review | C2-K change record, Review 1, fresh adversarial Review 2, full regression/CI/package gates | Coded-reviewed; platform-wide final harmonization remains future cross-repository gate |
+| Doctor ranking complaint/appeal boundary | conditional File 26 contract and `PrivacySafeOutcomeProjection`; no appeal-use or donor signal | Coded-reviewed; real File 26 contract pending |
+| Green, RTL, icon and accessibility rule | external CSS/JS, platform green token fallback, logical properties, SVG icons, 44px controls, keyboard/reduced-motion/forced-colors states | Coded-reviewed; real browser/device acceptance pending |

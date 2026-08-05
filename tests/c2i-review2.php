@@ -28,7 +28,7 @@ $test('native authority remains behind versioned command filters and never direc
 
 $test('privacy safety accessibility and shell boundaries remain explicit',static function()use($read):void{
     $runtime=$read('src/Infrastructure/WordPress/Runtime.php');
-    $surface=$read('src/Infrastructure/WordPress/CompleteFrontendSurfaces.php');
+    $surface=$read('src/Infrastructure/WordPress/CompleteFrontendSurfaces.php').$read('assets/css/cf02-frontend.css');
     $routes=$read('src/Infrastructure/WordPress/RouteRegistrar.php');
     foreach(['no-store','X-Robots-Tag','Permissions-Policy','Content-Security-Policy'] as $needle){assert(str_contains($runtime,$needle));}
     assert(str_contains($surface,'This is not an emergency or clinical queue'));

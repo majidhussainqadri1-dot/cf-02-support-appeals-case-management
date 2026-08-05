@@ -22,7 +22,7 @@ C2-D through C2-H established purpose authorization, commands/search/evidence, a
 |---|---|
 | Requested by | Founder instruction to complete coding in one pass against both governing plans |
 | Recorded at | 2026-08-04T04:15:00+05:00 |
-| Candidate | `1.0.0-rc.4`; schema `1.3.0`; contract `1.0.0` |
+| Candidate | `1.0.0-rc.5`; schema `1.3.0`; contract `1.1.0` |
 | Old state | complete domain/repository candidate, but limited real WordPress command/query exposure |
 | New state | complete plan-aligned WordPress runtime integration for 33 commands and 20 queries |
 | Ownership | CF-02 owns support/appeal orchestration; identity, messaging, moderation, payment, clinical, notification, shell, assurance and visual truth stay native |

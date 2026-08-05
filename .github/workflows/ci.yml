@@ -111,6 +111,15 @@ jobs:
       - name: Forty-round corrective review regressions
         run: php -d zend.assertions=1 tests/c2j-forty-review.php
 
+      - name: C2-K three-plan harmonization tests
+        run: php -d zend.assertions=1 tests/c2k-three-plan-harmonization.php
+
+      - name: C2-K first-review regressions
+        run: php -d zend.assertions=1 tests/c2k-review1.php
+
+      - name: C2-K fresh adversarial review
+        run: php -d zend.assertions=1 tests/c2k-review2.php
+
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
 

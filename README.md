@@ -7,11 +7,13 @@ This repository is the canonical development home for support intake, ticket/cas
 ## Current status
 
 - Planning identifier: `CF-02`
-- Specification: `1.0 — Four-Round Reviewed and Corrected Final`
-- Runtime status: **Not activated**
-- Development stage: **Phase C2-A — foundation, ownership contracts, activation evidence, and governance gates**
+- Governing plans: Master Plan v3.0, All-Chats Directive Register v2.1, CF-02 plan v1.0
+- Runtime candidate: `1.0.0-rc.5`
+- Contract / schema: `1.1.0` / `1.3.0`
+- Development stage: **C2-K three-plan harmonized coded/package candidate**
+- Runtime: fail-closed; Hostinger staging, real integrations and Founder exact-artifact acceptance pending
 
-No production, staging, or operational-completion claim is made by the existence of this repository.
+No live-deployment or operational-completion claim is made by the repository, CI or package.
 
 ## Governing principles
 
@@ -21,7 +23,7 @@ No production, staging, or operational-completion claim is made by the existence
 4. Native owner commands are required for cross-domain decisions and mutations; direct foreign-table writes are prohibited.
 5. Activation remains fail-closed until Founder-approved gates and evidence are recorded.
 
-## Planned implementation phases
+## Implemented coding phases
 
 - C2-A — charter, ownership, categories, activation evidence, staffing and native contracts
 - C2-B — intake, case thread, attachments, state machine and user portal
@@ -30,7 +32,9 @@ No production, staging, or operational-completion claim is made by the existence
 - C2-E — appeals, independent review and implementation reconciliation
 - C2-F — quality, metrics, knowledge suggestions and automation guardrails
 - C2-G — migration, deduplication, shadow/dual-read and rollback
-- C2-H — load, resilience, restore, training and staged rollout
+- C2-H — load, resilience, restore, training and staged-rollout foundations
+- C2-I/C2-J — complete runtime integration and forty-round corrective verification
+- C2-K — three-plan harmonization, free-tier governance, due process, File 26 projection and accessible frontend
 
 ## Security notice
 

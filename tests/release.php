@@ -22,6 +22,8 @@ $test('release identity is aligned across manifest plugin readme and schema', st
     assert(str_contains($plugin, "define('CF02_PLAN_VERSION', '" . $manifest['plan_version'] . "')"));
     assert(str_contains($readme, 'Stable tag: ' . $version));
     assert(str_contains($schema, "public const VERSION = '" . $manifest['database_schema_version'] . "';"));
+    $contract = (string) file_get_contents($root . '/src/Contracts/SupportContractCatalog.php');
+    assert(str_contains($contract, "public const CONTRACT_VERSION = '" . $manifest['contract_version'] . "';"));
 });
 
 $test('release package is explicit allowlist and excludes development surfaces', static function () use ($manifest): void {
@@ -30,7 +32,7 @@ $test('release package is explicit allowlist and excludes development surfaces',
     $forbidden = $manifest['forbidden_package_paths'] ?? null;
     assert(is_array($rootFiles) && is_array($directories) && is_array($forbidden));
     foreach (['cf-02-support-appeals-case-management.php', 'readme.txt', 'uninstall.php', 'LICENSE'] as $required) assert(in_array($required, $rootFiles, true));
-    assert(in_array('src', $directories, true));
+    foreach (['src', 'assets', 'languages'] as $directory) assert(in_array($directory, $directories, true));
     foreach (['.git', '.github', '.env', 'build', 'docs', 'tests', 'release', 'vendor', 'node_modules'] as $excluded) assert(in_array($excluded, $forbidden, true));
 });
 
@@ -41,7 +43,7 @@ $test('default uninstall is non destructive and clears every scheduler hook', st
 });
 
 $test('release status remains truthful and external evidence gates remain explicit', static function () use ($manifest): void {
-    assert($manifest['release_status'] === 'forty-review-corrective-candidate-not-staging-accepted');
+    assert($manifest['release_status'] === 'three-plan-harmonized-candidate-not-staging-accepted');
     $gates = $manifest['external_acceptance_gates'] ?? [];
     assert(is_array($gates) && count($gates) >= 8);
     foreach (['hostinger-staging-install-upgrade-migration', 'backup-restore-and-rollback-rehearsal', 'founder-exact-artifact-approval'] as $gate) assert(in_array($gate, $gates, true));
@@ -55,6 +57,9 @@ $test('complete runtime integration and operational runbooks are present', stati
         'src/Infrastructure/WordPress/ProviderWebhookController.php','src/Infrastructure/WordPress/RuntimeWorker.php',
         'docs/PRODUCTION-READINESS.md','docs/STAGING-ACCEPTANCE.md','docs/BACKUP-RESTORE-ROLLBACK.md',
         'docs/RELEASE-PROCESS.md','docs/SECURITY-TEST-PLAN.md','docs/COMPLETE-RUNTIME-INTEGRATION.md',
+        'assets/css/cf02-frontend.css','assets/js/cf02-frontend.js',
+        'languages/cf-02-support-appeals-case-management-ur.mo',
+        'docs/THREE-PLAN-HARMONIZATION.md','docs/CHANGE-CONTROL-C2K.md','docs/REVIEW-REGISTER-C2K.md',
     ] as $required) assert(is_file($root . '/' . $required), $required . ' is missing');
 });
 

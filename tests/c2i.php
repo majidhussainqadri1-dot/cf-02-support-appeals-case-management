@@ -17,10 +17,10 @@ $test('plan command query event and category catalog is complete and immutable',
     assert(count(SupportContractCatalog::commands())===33);
     assert(count(SupportContractCatalog::queries())===20);
     assert(count(SupportContractCatalog::events())>=24);
-    assert(count(SupportContractCatalog::categories())===12);
+    assert(count(SupportContractCatalog::categories())===13);
     foreach(['CreateCase','MergeCases','SubmitAppeal','RequestNativeDecisionAction','RollBackSupportConfiguration'] as $name){SupportContractCatalog::assertCommand($name);}
     foreach(['GetMyCases','SearchAuthorizedCases','GetAppealDossier','GetPurgeReconciliation'] as $name){SupportContractCatalog::assertQuery($name);}
-    foreach(['account_access','verification','learning_billing','publishing','clinic_appointment','messages_calls','media_pdf','marketplace','privacy_data_rights','safety_abuse','accessibility','technical'] as $category){SupportContractCatalog::assertCategory($category);}
+    foreach(['account_access','verification','learning_access','publishing','clinic_appointment','messages_calls','media_pdf','marketplace','privacy_data_rights','safety_abuse','accessibility','technical','institutional_governance'] as $category){SupportContractCatalog::assertCategory($category);}
 });
 
 $test('runtime state laws preserve explicit case appeal and attachment lifecycles',static function():void{

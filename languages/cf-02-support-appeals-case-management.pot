@@ -1,0 +1,320 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: CF-02 Support, Appeals and Case Management 1.0.0-rc.5\n"
+"Report-Msgid-Bugs-To: https://github.com/majidhussainqadri1-dot/cf-02-support-appeals-case-management/issues\n"
+"POT-Creation-Date: 2026-08-05 20:20+0500\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "A secure modern browser is required for this action."
+msgstr ""
+
+msgid "A valid File 00 session is required."
+msgstr ""
+
+msgid "Accessibility"
+msgstr ""
+
+msgid "Accessibility or language support"
+msgstr ""
+
+msgid "Account and Access"
+msgstr ""
+
+msgid "An unexpected error occurred."
+msgstr ""
+
+msgid "Appeal ID"
+msgstr ""
+
+msgid "Appeal submitted:"
+msgstr ""
+
+msgid "Appeals"
+msgstr ""
+
+msgid "Application shell and routes"
+msgstr ""
+
+msgid "Attachment quarantined; scan pending."
+msgstr ""
+
+msgid "Authentication required for private actions"
+msgstr ""
+
+msgid "Case accepted:"
+msgstr ""
+
+msgid "Category"
+msgstr ""
+
+msgid "Choose category"
+msgstr ""
+
+msgid "Clinic and Appointment"
+msgstr ""
+
+msgid "Clinical safety owner"
+msgstr ""
+
+msgid "Comment"
+msgstr ""
+
+msgid "Connection restored."
+msgstr ""
+
+msgid "Content or listing moderation"
+msgstr ""
+
+msgid "Create support case"
+msgstr ""
+
+msgid "Decision reference"
+msgstr ""
+
+msgid "Description"
+msgstr ""
+
+msgid "Donations, sponsorships and payments never change support priority, SLA, appeal eligibility or outcome."
+msgstr ""
+
+msgid "Essential task blocked"
+msgstr ""
+
+msgid "Evidence references"
+msgstr ""
+
+msgid "Feedback recorded."
+msgstr ""
+
+msgid "File"
+msgstr ""
+
+msgid "Financial action"
+msgstr ""
+
+msgid "Grounds"
+msgstr ""
+
+msgid "I consent to minimum contextual diagnostics."
+msgstr ""
+
+msgid "I consent to this case-specific upload."
+msgstr ""
+
+msgid "Identity and account"
+msgstr ""
+
+msgid "Immediate danger:"
+msgstr ""
+
+msgid "Impact"
+msgstr ""
+
+msgid "Institutional Governance and Due Process"
+msgstr ""
+
+msgid "Issue type or subcategory"
+msgstr ""
+
+msgid "Learning Access"
+msgstr ""
+
+msgid "Load appeal"
+msgstr ""
+
+msgid "Load more"
+msgstr ""
+
+msgid "Loading…"
+msgstr ""
+
+msgid "Many users"
+msgstr ""
+
+msgid "Marketplace"
+msgstr ""
+
+msgid "Media and PDF"
+msgstr ""
+
+msgid "Membership"
+msgstr ""
+
+msgid "Messages and Calls"
+msgstr ""
+
+msgid "Messages and reports"
+msgstr ""
+
+msgid "My cases"
+msgstr ""
+
+msgid "Never submit passwords, OTPs, private keys, full payment-card data or unrelated clinical records. Native identity, payment, moderation, privacy-rights, security-incident and clinical decisions remain with their canonical owners."
+msgstr ""
+
+msgid "New case"
+msgstr ""
+
+msgid "No cases found."
+msgstr ""
+
+msgid "No linked platform object"
+msgstr ""
+
+msgid "Normal"
+msgstr ""
+
+msgid "Notifications"
+msgstr ""
+
+msgid "Object reference"
+msgstr ""
+
+msgid "Object type"
+msgstr ""
+
+msgid "Object version"
+msgstr ""
+
+msgid "One action"
+msgstr ""
+
+msgid "Open"
+msgstr ""
+
+msgid "Opt out"
+msgstr ""
+
+msgid "Optional affected platform object"
+msgstr ""
+
+msgid "Optional feedback"
+msgstr ""
+
+msgid "Owner domain"
+msgstr ""
+
+msgid "Policy version"
+msgstr ""
+
+msgid "Privacy"
+msgstr ""
+
+msgid "Privacy and Data Rights"
+msgstr ""
+
+msgid "Privacy boundary"
+msgstr ""
+
+msgid "Public help is available without exposing private cases. Sign in for case or appeal actions."
+msgstr ""
+
+msgid "Publishing"
+msgstr ""
+
+msgid "Purpose"
+msgstr ""
+
+msgid "Quarantine upload failed."
+msgstr ""
+
+msgid "Rating"
+msgstr ""
+
+msgid "Refresh"
+msgstr ""
+
+msgid "Reopen"
+msgstr ""
+
+msgid "Reply"
+msgstr ""
+
+msgid "Reply sent."
+msgstr ""
+
+msgid "Requester"
+msgstr ""
+
+msgid "Safety and Abuse"
+msgstr ""
+
+msgid "Search and ranking"
+msgstr ""
+
+msgid "Secure attachment"
+msgstr ""
+
+msgid "Security and privacy assurance"
+msgstr ""
+
+msgid "Send reply"
+msgstr ""
+
+msgid "Status available."
+msgstr ""
+
+msgid "Subject"
+msgstr ""
+
+msgid "Submit"
+msgstr ""
+
+msgid "Submit appeal"
+msgstr ""
+
+msgid "Submit case"
+msgstr ""
+
+msgid "Support Team"
+msgstr ""
+
+msgid "Support actions"
+msgstr ""
+
+msgid "Support and Appeals"
+msgstr ""
+
+msgid "Technical Fault"
+msgstr ""
+
+msgid "The original decision remains immutable; independent review and implementation confirmation are required."
+msgstr ""
+
+msgid "The request failed."
+msgstr ""
+
+msgid "This is not an emergency or clinical queue. Use approved local emergency services. Support does not diagnose or prescribe."
+msgstr ""
+
+msgid "Time-sensitive"
+msgstr ""
+
+msgid "Upload to quarantine"
+msgstr ""
+
+msgid "Urgency"
+msgstr ""
+
+msgid "Using an appeal cannot reduce ranking, access, support quality or future eligibility."
+msgstr ""
+
+msgid "Verification"
+msgstr ""
+
+msgid "Visual components"
+msgstr ""
+
+msgid "Withdraw"
+msgstr ""
+
+msgid "You are offline. Reconnect and retry."
+msgstr ""
+
+msgid "[Unavailable]"
+msgstr ""
+
+msgid "accepted"
+msgstr ""

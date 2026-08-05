@@ -2,7 +2,7 @@
 Contributors: majidhussainqadri1-dot
 Requires at least: 6.0
 Requires PHP: 8.1
-Stable tag: 1.0.0-rc.4
+Stable tag: 1.0.0-rc.5
 License: Proprietary
 Text Domain: cf-02-support-appeals-case-management
 
@@ -36,15 +36,18 @@ No. Default uninstall is non-destructive and preserves CF-02 records and configu
 
 = Is this package production accepted? =
 
-No. Version 1.0.0-rc.4 is a corrective plan-aligned coded candidate under forty-round verification. Hostinger staging, real providers, browser/accessibility, security, load, restore, rollback and Founder acceptance remain required.
+No. Version 1.0.0-rc.5 is a three-plan harmonized coded/package candidate with forty-round and two fresh C2-K review suites. Hostinger staging, real providers, browser/accessibility, security, load, restore, rollback and Founder acceptance remain required.
 
 == Changelog ==
 
-= 1.0.0-rc.4 =
-* Completed the central-plan and CF-02 plan runtime integration layer for every documented command, query, state, ownership and evidence boundary.
-* Added File 00 assertion binding, canonical owner contracts, dual REST namespaces, signed provider adapters, encrypted payloads, attachment quarantine/scan/redaction, event outbox, SLA workers, native reconciliation, legal holds, reversible merges, configuration governance, metrics and retention reconciliation.
-* Added two fresh C2-I review/fix suites and an active-runtime WordPress integration workflow.
-* Kept Hostinger staging, real provider, real companion, browser/accessibility/load, restore/rollback and Founder operational acceptance as separate gates.
+= 1.0.0-rc.5 =
+* Harmonized the central plan v3.0, All-Chats directives v2.1 and CF-02 plan v1.0.
+* Added free learning-access taxonomy with a safe legacy alias and canonical category-to-queue routing.
+* Added donor/payment/sponsorship-neutral support priority and appeal enforcement.
+* Added Islamic institutional due-process validation with native-owner implementation verification.
+* Added a privacy-thresholded File 26 aggregate contract that excludes pending, unimplemented and identifiable case data.
+* Added packaged green, icon-led, translatable, Urdu-enabled, RTL-aware and resilient requester assets.
+* Completed two new review/fix rounds. Hostinger staging, real integrations, browser/accessibility, security, load, migration, restore, rollback and Founder acceptance remain pending.
 
 = 1.0.0-rc.2 =
 * Added deterministic packaging, package verification, SBOM, provenance and checksum evidence.
@@ -57,8 +60,8 @@ No. Version 1.0.0-rc.4 is a corrective plan-aligned coded candidate under forty-
 
 == Upgrade Notice ==
 
-= 1.0.0-rc.4 =
-Staging-only complete coded release candidate.
+= 1.0.0-rc.5 =
+Staging-only three-plan harmonized coded/package candidate.
 
 = 1.0.0-rc.2 =
 Staging-only release candidate. Do not enable operational runtime or deploy live without exact-artifact acceptance evidence.

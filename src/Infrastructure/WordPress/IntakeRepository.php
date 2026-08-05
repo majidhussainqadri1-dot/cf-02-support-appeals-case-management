@@ -6,7 +6,9 @@ namespace Sabri\CF02\Infrastructure\WordPress;
 
 use DateTimeImmutable;
 use RuntimeException;
+use Sabri\CF02\Configuration\CategoryRoutingPolicy;
 use Sabri\CF02\Domain\SupportCaseId;
+use Sabri\CF02\Governance\ServiceEqualityPolicy;
 use Sabri\CF02\Security\MutationEnvelope;
 use Throwable;
 
@@ -32,6 +34,10 @@ final class IntakeRepository
         array $payload,
         DateTimeImmutable $at
     ): array {
+        ServiceEqualityPolicy::assertNoPrivilegeSignals($payload);
+        $category = CategoryRoutingPolicy::normalize((string) ($payload['category'] ?? ''));
+        $payload['category'] = $category;
+        $payload['queue'] = CategoryRoutingPolicy::queueFor($category);
         $fingerprint = MutationEnvelope::fingerprint($payload);
         $existing = $this->find($idempotencyKey);
         if ($existing !== null) {
