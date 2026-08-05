@@ -44,6 +44,12 @@
       "php -d zend.assertions=1 tests/c2k-three-plan-harmonization.php",
       "php -d zend.assertions=1 tests/c2k-review1.php",
       "php -d zend.assertions=1 tests/c2k-review2.php",
+      "php -d zend.assertions=1 tests/c2l-release-governance.php",
+      "php -d zend.assertions=1 tests/c2l-review1.php",
+      "php -d zend.assertions=1 tests/c2l-review2.php",
+      "php -d zend.assertions=1 tests/c2m-forty-fresh-review.php",
+      "python3 build/verify_release_identity.py",
+      "python3 build/verify_traceability.py",
       "php -d zend.assertions=1 tests/release.php"
     ],
     "security-scan": "python3 build/security_scan.py",

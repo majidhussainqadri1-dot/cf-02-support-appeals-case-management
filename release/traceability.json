@@ -1,0 +1,871 @@
+{
+  "schema": 1,
+  "governing_sources": [
+    "SSH-PMP-2026-v3.0",
+    "All-Chats-Recovered-Directives-v2.1",
+    "CF-02-Master-Plan-v1.0"
+  ],
+  "requirements": [
+    {
+      "id": "CF02-FR-001",
+      "source": [
+        "src/Intake/IntakeRequest.php",
+        "src/Intake/TriagePolicy.php",
+        "src/Infrastructure/WordPress/ComprehensiveRestController.php"
+      ],
+      "tests": [
+        "tests/c2b.php",
+        "tests/c2b-review1.php",
+        "tests/c2b-review2.php",
+        "tests/c2i.php",
+        "tests/c2m-forty-fresh-review.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php",
+        "src/Infrastructure/WordPress/ApiInput.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-002",
+      "source": [
+        "src/Infrastructure/WordPress/ProviderWebhookController.php",
+        "src/Intake/IntakeLedger.php"
+      ],
+      "tests": [
+        "tests/c2b.php",
+        "tests/c2b-review1.php",
+        "tests/c2b-review2.php",
+        "tests/c2i.php",
+        "tests/c2m-forty-fresh-review.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php",
+        "src/Infrastructure/WordPress/ApiInput.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-003",
+      "source": [
+        "src/Receipt/ReceiptFactory.php",
+        "src/Delivery/DeliveryOutbox.php"
+      ],
+      "tests": [
+        "tests/c2b.php",
+        "tests/c2b-review1.php",
+        "tests/c2b-review2.php",
+        "tests/c2i.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-004",
+      "source": [
+        "src/Deduplication/CaseMergePlan.php",
+        "src/Infrastructure/WordPress/OperationsRepository.php"
+      ],
+      "tests": [
+        "tests/c2b.php",
+        "tests/c2b-review1.php",
+        "tests/c2b-review2.php",
+        "tests/c2i.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-005",
+      "source": [
+        "src/Security/ProgressiveRateLimiter.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "tests": [
+        "tests/c2b.php",
+        "tests/c2b-review1.php",
+        "tests/c2b-review2.php",
+        "tests/c2i.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-006",
+      "source": [
+        "src/Intake/TriagePolicy.php",
+        "src/Configuration/CategoryRoutingPolicy.php"
+      ],
+      "tests": [
+        "tests/c2b.php",
+        "tests/c2b-review1.php",
+        "tests/c2b-review2.php",
+        "tests/c2i.php",
+        "tests/c2m-forty-fresh-review.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php",
+        "src/Infrastructure/WordPress/ApiInput.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-007",
+      "source": [
+        "src/Domain/CaseWorkspace.php",
+        "src/Infrastructure/WordPress/CompleteAdminSurfaces.php"
+      ],
+      "tests": [
+        "tests/c2b.php",
+        "tests/c2b-review1.php",
+        "tests/c2b-review2.php",
+        "tests/c2i.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-008",
+      "source": [
+        "src/Assignment/AssignmentRouter.php",
+        "src/Assignment/CaseAssignment.php"
+      ],
+      "tests": [
+        "tests/c2b.php",
+        "tests/c2b-review1.php",
+        "tests/c2b-review2.php",
+        "tests/c2i.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-009",
+      "source": [
+        "src/Thread/CaseThread.php",
+        "src/Delivery/DeliveryOutbox.php",
+        "src/Infrastructure/WordPress/CompleteFrontendSurfaces.php"
+      ],
+      "tests": [
+        "tests/c2b.php",
+        "tests/c2b-review1.php",
+        "tests/c2b-review2.php",
+        "tests/c2i.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-010",
+      "source": [
+        "src/Thread/CaseMessage.php",
+        "src/Thread/MessageVisibility.php",
+        "src/Infrastructure/WordPress/OperationsRepository.php"
+      ],
+      "tests": [
+        "tests/c2b.php",
+        "tests/c2b-review1.php",
+        "tests/c2b-review2.php",
+        "tests/c2i.php",
+        "tests/c2m-forty-fresh-review.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php",
+        "src/Infrastructure/WordPress/ApiInput.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-011",
+      "source": [
+        "src/Attachment/AttachmentRecord.php",
+        "src/Attachment/AttachmentStateMachine.php",
+        "src/Infrastructure/WordPress/ProviderWebhookController.php"
+      ],
+      "tests": [
+        "tests/c2b.php",
+        "tests/c2b-review1.php",
+        "tests/c2b-review2.php",
+        "tests/c2i.php",
+        "tests/c2m-forty-fresh-review.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php",
+        "src/Infrastructure/WordPress/ApiInput.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-012",
+      "source": [
+        "src/Resolution/ResolutionPolicy.php",
+        "src/Domain/CaseStateMachine.php"
+      ],
+      "tests": [
+        "tests/c2b.php",
+        "tests/c2b-review1.php",
+        "tests/c2b-review2.php",
+        "tests/c2i.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-013",
+      "source": [
+        "src/Sla/SlaPolicyRegistry.php",
+        "src/Configuration/ConfigurationRegistry.php"
+      ],
+      "tests": [
+        "tests/c2c.php",
+        "tests/c2c-review1.php",
+        "tests/c2c-review2.php",
+        "tests/c2i.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-014",
+      "source": [
+        "src/Sla/SlaClock.php",
+        "src/Sla/SlaPauseReason.php"
+      ],
+      "tests": [
+        "tests/c2c.php",
+        "tests/c2c-review1.php",
+        "tests/c2c-review2.php",
+        "tests/c2i.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-015",
+      "source": [
+        "src/Escalation/BreachPredictor.php",
+        "src/Escalation/EscalationPolicy.php"
+      ],
+      "tests": [
+        "tests/c2c.php",
+        "tests/c2c-review1.php",
+        "tests/c2c-review2.php",
+        "tests/c2i.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-016",
+      "source": [
+        "src/Queue/QueueHealthEvaluator.php",
+        "src/Infrastructure/WordPress/OperationsRepository.php"
+      ],
+      "tests": [
+        "tests/c2c.php",
+        "tests/c2c-review1.php",
+        "tests/c2c-review2.php",
+        "tests/c2i.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-017",
+      "source": [
+        "src/Incident/MajorIncident.php",
+        "src/Infrastructure/WordPress/RuntimeWorker.php"
+      ],
+      "tests": [
+        "tests/c2c.php",
+        "tests/c2c-review1.php",
+        "tests/c2c-review2.php",
+        "tests/c2i.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-018",
+      "source": [
+        "src/Appeal/AppealEligibilityPolicy.php",
+        "src/Appeal/AppealCase.php"
+      ],
+      "tests": [
+        "tests/c2e.php",
+        "tests/c2e-review1.php",
+        "tests/c2e-review2.php",
+        "tests/c2i.php",
+        "tests/c2m-forty-fresh-review.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php",
+        "src/Infrastructure/WordPress/ApiInput.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-019",
+      "source": [
+        "src/Appeal/ReviewerAssignmentPolicy.php",
+        "src/Appeal/ReviewerProfile.php"
+      ],
+      "tests": [
+        "tests/c2e.php",
+        "tests/c2e-review1.php",
+        "tests/c2e-review2.php",
+        "tests/c2i.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-020",
+      "source": [
+        "src/Appeal/AppealDossier.php",
+        "src/Audit/TamperEvidentAudit.php"
+      ],
+      "tests": [
+        "tests/c2e.php",
+        "tests/c2e-review1.php",
+        "tests/c2e-review2.php",
+        "tests/c2i.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-021",
+      "source": [
+        "src/Appeal/AppealDecision.php",
+        "src/Governance/InstitutionalDueProcessPolicy.php"
+      ],
+      "tests": [
+        "tests/c2e.php",
+        "tests/c2e-review1.php",
+        "tests/c2e-review2.php",
+        "tests/c2i.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-022",
+      "source": [
+        "src/Integration/ImplementationReconciler.php",
+        "src/Integration/NativeOwnerCommand.php",
+        "src/Integration/CommandLedger.php"
+      ],
+      "tests": [
+        "tests/c2e.php",
+        "tests/c2e-review1.php",
+        "tests/c2e-review2.php",
+        "tests/c2i.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-023",
+      "source": [
+        "src/Infrastructure/WordPress/CompleteFrontendSurfaces.php",
+        "src/Governance/InstitutionalDueProcessPolicy.php"
+      ],
+      "tests": [
+        "tests/c2e.php",
+        "tests/c2e-review1.php",
+        "tests/c2e-review2.php",
+        "tests/c2i.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-024",
+      "source": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Authorization/WordPressPrincipalContextFactory.php"
+      ],
+      "tests": [
+        "tests/c2d.php",
+        "tests/c2d-review1.php",
+        "tests/c2d-review2.php",
+        "tests/c2i.php",
+        "tests/c2m-forty-fresh-review.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php",
+        "src/Infrastructure/WordPress/ApiInput.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-025",
+      "source": [
+        "src/Security/DataCipher.php",
+        "src/Evidence/SecureExportService.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "tests": [
+        "tests/c2d.php",
+        "tests/c2d-review1.php",
+        "tests/c2d-review2.php",
+        "tests/c2i.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-026",
+      "source": [
+        "src/Search/AuthorizedCaseSearch.php",
+        "src/Search/CursorCodec.php"
+      ],
+      "tests": [
+        "tests/c2d.php",
+        "tests/c2d-review1.php",
+        "tests/c2d-review2.php",
+        "tests/c2i.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-027",
+      "source": [
+        "src/Quality/QualityReview.php",
+        "src/Infrastructure/WordPress/OperationsRepository.php"
+      ],
+      "tests": [
+        "tests/c2f.php",
+        "tests/c2f-review1.php",
+        "tests/c2f-review2.php",
+        "tests/c2i.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-028",
+      "source": [
+        "src/Knowledge/KnowledgeSuggestionService.php",
+        "src/Knowledge/KnowledgeArticle.php"
+      ],
+      "tests": [
+        "tests/c2f.php",
+        "tests/c2f-review1.php",
+        "tests/c2f-review2.php",
+        "tests/c2i.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-029",
+      "source": [
+        "src/Feedback/SatisfactionFeedback.php",
+        "src/Feedback/SatisfactionAggregator.php"
+      ],
+      "tests": [
+        "tests/c2f.php",
+        "tests/c2f-review1.php",
+        "tests/c2f-review2.php",
+        "tests/c2i.php",
+        "tests/c2m-forty-fresh-review.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php",
+        "src/Infrastructure/WordPress/ApiInput.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-030",
+      "source": [
+        "src/Configuration/ConfigurationRegistry.php",
+        "src/Governance/ChangeControlRecord.php"
+      ],
+      "tests": [
+        "tests/c2f.php",
+        "tests/c2f-review1.php",
+        "tests/c2f-review2.php",
+        "tests/c2i.php",
+        "tests/c2m-forty-fresh-review.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-031",
+      "source": [
+        "src/Evidence/SecureExportService.php",
+        "src/Evidence/LegalHold.php"
+      ],
+      "tests": [
+        "tests/c2f.php",
+        "tests/c2f-review1.php",
+        "tests/c2f-review2.php",
+        "tests/c2i.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-032",
+      "source": [
+        "src/Delivery/DeliveryOutbox.php",
+        "src/Infrastructure/WordPress/RuntimeWorker.php"
+      ],
+      "tests": [
+        "tests/c2f.php",
+        "tests/c2f-review1.php",
+        "tests/c2f-review2.php",
+        "tests/c2i.php",
+        "tests/c2m-forty-fresh-review.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-033",
+      "source": [
+        "src/Automation/AutomationGuard.php",
+        "src/Application/RuntimeWorkflowPolicy.php"
+      ],
+      "tests": [
+        "tests/c2f.php",
+        "tests/c2f-review1.php",
+        "tests/c2f-review2.php",
+        "tests/c2i.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    },
+    {
+      "id": "CF02-FR-034",
+      "source": [
+        "src/Retention/RetentionPolicy.php",
+        "src/Retention/PurgePlanner.php",
+        "src/Infrastructure/WordPress/RuntimeWorker.php"
+      ],
+      "tests": [
+        "tests/c2f.php",
+        "tests/c2f-review1.php",
+        "tests/c2f-review2.php",
+        "tests/c2i.php"
+      ],
+      "migration": [
+        "src/Infrastructure/WordPress/SchemaCompletion.php",
+        "src/Migration/MigrationLedger.php"
+      ],
+      "security_privacy": [
+        "src/Authorization/PurposeBoundAccessPolicy.php",
+        "src/Security/SensitiveContentDetector.php"
+      ],
+      "staging_evidence_status": "pending-external"
+    }
+  ],
+  "central_invariants": [
+    {
+      "id": "CENTRAL-OWNER-001",
+      "source": [
+        "src/Contracts/SupportContractCatalog.php",
+        "src/Contracts/RequiredCompanionContracts.php"
+      ],
+      "tests": [
+        "tests/c2d.php",
+        "tests/c2k-three-plan-harmonization.php"
+      ]
+    },
+    {
+      "id": "CENTRAL-AUTH-002",
+      "source": [
+        "src/Authorization/WordPressPrincipalContextFactory.php",
+        "src/Authorization/PurposeBoundAccessPolicy.php"
+      ],
+      "tests": [
+        "tests/c2d-review1.php",
+        "tests/c2j-forty-review.php"
+      ]
+    },
+    {
+      "id": "CENTRAL-RELEASE-003",
+      "source": [
+        "src/Release/ReleaseGate.php",
+        "release/manifest.json"
+      ],
+      "tests": [
+        "tests/release.php",
+        "tests/c2l-release-governance.php"
+      ]
+    }
+  ],
+  "all_chats_directives": [
+    {
+      "id": "CHAT-BIZ-022",
+      "source": [
+        "src/Governance/ServiceEqualityPolicy.php",
+        "src/Configuration/SupportTaxonomy.php"
+      ],
+      "tests": [
+        "tests/c2k-three-plan-harmonization.php"
+      ]
+    },
+    {
+      "id": "CHAT-GOV-023",
+      "source": [
+        "src/Governance/InstitutionalDueProcessPolicy.php"
+      ],
+      "tests": [
+        "tests/c2k-three-plan-harmonization.php"
+      ]
+    },
+    {
+      "id": "CHAT-QA-001",
+      "source": [
+        "release/manifest.json",
+        "docs/REVIEW-REGISTER-C2L.md"
+      ],
+      "tests": [
+        "tests/c2l-review1.php",
+        "tests/c2l-review2.php"
+      ]
+    },
+    {
+      "id": "CHAT-VISUAL-GREEN-RTL",
+      "source": [
+        "assets/css/cf02-frontend.css",
+        "assets/js/cf02-frontend.js"
+      ],
+      "tests": [
+        "tests/c2k-three-plan-harmonization.php"
+      ]
+    },
+    {
+      "id": "CHAT-FILE26-PRIVACY",
+      "source": [
+        "src/Integration/PrivacySafeOutcomeProjection.php",
+        "src/Contracts/RequiredCompanionContracts.php"
+      ],
+      "tests": [
+        "tests/c2k-three-plan-harmonization.php"
+      ]
+    }
+  ],
+  "external_acceptance_gates_status": "pending-external"
+}

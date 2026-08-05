@@ -108,6 +108,15 @@ def validate_metadata(config: dict[str, Any]) -> None:
         fail("database schema version differs from release manifest")
 
 
+
+
+def validate_governance() -> None:
+    for verifier in ("verify_release_identity.py", "verify_traceability.py"):
+        try:
+            subprocess.run([sys.executable, str(ROOT / "build" / verifier)], check=True)
+        except (OSError, subprocess.CalledProcessError) as exc:
+            fail(f"governance verifier failed ({verifier}): {exc}")
+
 def safe_relative(path: Path) -> str:
     relative = path.relative_to(ROOT).as_posix()
     pure = PurePosixPath(relative)
@@ -206,6 +215,7 @@ def main() -> int:
 
     config = load_config()
     validate_metadata(config)
+    validate_governance()
     source_sha = resolve_source_sha(args.source_sha)
     _, created = source_timestamp(source_sha)
     files = collect_files(config)
@@ -270,6 +280,8 @@ def main() -> int:
                     "plugin_version": version,
                     "plan_version": str(config["plan_version"]),
                     "schema_version": str(config["database_schema_version"]),
+                    "contract_version": str(config.get("contract_version", "")),
+                    "release_status": str(config["release_status"]),
                 },
                 "resolvedDependencies": [{
                     "uri": "git+https://github.com/majidhussainqadri1-dot/cf-02-support-appeals-case-management",

@@ -8,10 +8,12 @@ use DateTimeImmutable;
 use DateTimeZone;
 use RuntimeException;
 use Sabri\CF02\Application\RuntimeWorkflowPolicy;
+use Sabri\CF02\Configuration\CategoryRoutingPolicy;
 use Sabri\CF02\Authorization\PrincipalContext;
 use Sabri\CF02\Authorization\WordPressPrincipalContextFactory;
 use Sabri\CF02\Contracts\SupportContractCatalog;
 use Sabri\CF02\Domain\SupportCaseId;
+use Sabri\CF02\Governance\ServiceEqualityPolicy;
 use Sabri\CF02\Security\DataCipher;
 use Sabri\CF02\Security\SensitiveContentDetector;
 use Throwable;
@@ -169,7 +171,7 @@ final class ComprehensiveRestController
         return $this->run(function () use ($request): array {
             $context = $this->context();
             RequestGuard::requireCapability($context, $this->now(), 'case.create');
-            $category = sanitize_key((string) $request->get_param('category'));
+            $category = CategoryRoutingPolicy::normalize(sanitize_key((string) $request->get_param('category')));
             SupportContractCatalog::assertCategory($category);
             $subject = sanitize_text_field((string) $request->get_param('subject'));
             if ($subject === '' || strlen($subject) > 191 || SensitiveContentDetector::containsProhibitedSecret($subject)) {
@@ -183,10 +185,7 @@ final class ComprehensiveRestController
             if (preg_match('/\b(suicide|kill myself|heart attack|unconscious|severe bleeding|emergency|خودکشی|دل کا دورہ|بے ہوش|شدید خون)\b/u', $safety) === 1) {
                 throw new RuntimeException('Immediate danger is not an ordinary support ticket. Use approved local emergency services now.');
             }
-            $locale = sanitize_text_field((string) ($request->get_param('locale') ?: 'ur-PK'));
-            if (preg_match('/^[a-z]{2}(?:-[A-Z]{2})?$/', $locale) !== 1) {
-                throw new RuntimeException('Locale is invalid.');
-            }
+            $locale = ApiInput::locale($request->get_param('locale'));
             $impact = sanitize_key((string) $request->get_param('impact'));
             $urgency = sanitize_key((string) $request->get_param('urgency'));
             if (!in_array($impact, ['', 'single_action', 'account_blocked', 'many_users'], true)
@@ -194,8 +193,8 @@ final class ComprehensiveRestController
                 throw new RuntimeException('Impact or urgency is invalid.');
             }
             // Requesters describe impact/urgency; they never grant themselves P1/P2 authority.
-            $priority = $impact === 'account_blocked' && $urgency === 'time_sensitive' ? 'P2' : 'P3';
-            $queue = $this->queueForCategory($category);
+            $priority = ServiceEqualityPolicy::requesterPriority($impact, $urgency);
+            $queue = CategoryRoutingPolicy::queueFor($category);
             $payload = [
                 'category' => $category,
                 'subcategory' => sanitize_key((string) $request->get_param('subcategory')),
@@ -207,7 +206,7 @@ final class ComprehensiveRestController
                 'impact' => $impact,
                 'urgency' => $urgency,
                 'accessibility' => sanitize_text_field((string) $request->get_param('accessibility')),
-                'diagnostics_consented' => (bool) $request->get_param('diagnostics_consented'),
+                'diagnostics_consented' => ApiInput::boolean($request->get_param('diagnostics_consented'), 'Diagnostics consent', false),
             ];
             $key = RequestGuard::idempotencyKey($request);
             $result = $this->intake->createOrReplay($context->actorReference(), $key, $payload, $this->now());
@@ -282,7 +281,7 @@ final class ComprehensiveRestController
 
     public function addInternalNote(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
-        $visibility = (bool) $request->get_param('restricted') ? 'restricted' : 'internal';
+        $visibility = ApiInput::boolean($request->get_param('restricted'), 'Restricted-note flag', false) ? 'restricted' : 'internal';
         return $this->message($request, $visibility, ['case.assigned.note','case.specialist.note']);
     }
 
@@ -343,7 +342,7 @@ final class ComprehensiveRestController
         return $this->run(function () use ($request): array {
             $context = $this->context();
             RequestGuard::requireCapability($context, $this->now(), 'case.own.attach','case.represented.attach','case.assigned.reply','case.specialist.reply');
-            if ((bool) $request->get_param('consented') !== true) {
+            if (!ApiInput::boolean($request->get_param('consented'), 'Attachment consent', false)) {
                 throw new RuntimeException('Attachment consent is required.');
             }
             $purpose = RequestGuard::purpose($request, true);
@@ -370,9 +369,7 @@ final class ComprehensiveRestController
                     || $expires === false || $expires <= time() || $expires > time() + 900) {
                     throw new RuntimeException('Attachment provider returned an unsafe upload session.');
                 }
-                if (isset($upload['headers']) && !is_array($upload['headers'])) {
-                    throw new RuntimeException('Attachment provider returned malformed upload headers.');
-                }
+                $upload['headers'] = ApiInput::safeHeaderMap($upload['headers'] ?? []);
             }
             return ['attachment' => $row, 'provider_request_accepted' => $accepted, 'upload_session' => $upload];
         }, 202);
@@ -402,7 +399,7 @@ final class ComprehensiveRestController
         return $this->run(function () use ($request): array {
             $context = $this->context();
             RequestGuard::requireCapability($context, $this->now(), 'feedback.own.submit');
-            $optedOut = (bool) $request->get_param('opted_out');
+            $optedOut = ApiInput::boolean($request->get_param('opted_out'), 'Feedback opt-out', false);
             $comment = trim((string) $request->get_param('comment'));
             if ($comment !== '' && SensitiveContentDetector::containsProhibitedSecret($comment)) {
                 throw new RuntimeException('Feedback cannot contain secret data.');
@@ -467,7 +464,7 @@ final class ComprehensiveRestController
             RequestGuard::requireCapability($context, $this->now(), 'case.assigned.triage','queue.manage');
             $case = $this->operations->caseForActor($this->caseId($request), $context);
             RuntimeWorkflowPolicy::assertCase((string) $case['state'], 'triaged');
-            $category = sanitize_key((string) ($request->get_param('category') ?: $case['category']));
+            $category = CategoryRoutingPolicy::normalize(sanitize_key((string) ($request->get_param('category') ?: $case['category'])));
             SupportContractCatalog::assertCategory($category);
             $priority = strtoupper(sanitize_text_field((string) ($request->get_param('priority') ?: $case['priority'])));
             if (!in_array($priority, ['P1','P2','P3','P4'], true)) {
@@ -475,7 +472,7 @@ final class ComprehensiveRestController
             }
             return $this->operations->mutateCase(
                 $this->caseId($request), $context, RequestGuard::expectedVersion($request),
-                ['state' => 'triaged', 'category' => $category, 'priority' => $priority, 'queue_key' => $this->queueForCategory($category)],
+                ['state' => 'triaged', 'category' => $category, 'priority' => $priority, 'queue_key' => CategoryRoutingPolicy::queueFor($category)],
                 'TriageCase', 'SupportCaseTriaged', RequestGuard::purpose($request, true),
                 RequestGuard::idempotencyKey($request), ['human_override_reason' => sanitize_text_field((string) $request->get_param('override_reason'))], $this->now()
             );
@@ -636,7 +633,7 @@ final class ComprehensiveRestController
             $resolutionCode = sanitize_key((string) $request->get_param('resolution_code'));
             $nativeRef = sanitize_text_field((string) $request->get_param('native_outcome_ref'));
             $instructions = sanitize_textarea_field((string) $request->get_param('user_instructions'));
-            if ($resolutionCode === '' || $instructions === '' || ((bool) $request->get_param('native_action_required') && $nativeRef === '')) {
+            if ($resolutionCode === '' || $instructions === '' || (ApiInput::boolean($request->get_param('native_action_required'), 'Native-action-required flag', false) && $nativeRef === '')) {
                 throw new RuntimeException('Resolution requires a code, user instructions and any required native outcome.');
             }
             $caseId = $this->caseId($request);
@@ -644,7 +641,7 @@ final class ComprehensiveRestController
             $resolved = $this->operations->mutateCase(
                 $caseId, $context, RequestGuard::expectedVersion($request), ['state' => 'resolved'],
                 'ResolveCase', 'SupportCaseResolved', RequestGuard::purpose($request, true), $key,
-                ['resolution_code' => $resolutionCode, 'native_outcome_ref' => $nativeRef, 'verified' => (bool) $request->get_param('verified'), 'closure_notice_sent' => (bool) $request->get_param('closure_notice_sent')], $this->now()
+                ['resolution_code' => $resolutionCode, 'native_outcome_ref' => $nativeRef, 'verified' => ApiInput::boolean($request->get_param('verified'), 'Resolution verification flag', false), 'closure_notice_sent' => ApiInput::boolean($request->get_param('closure_notice_sent'), 'Closure-notice flag', false)], $this->now()
             );
             $this->operations->markSlaStatus($caseId->value(), 'resolved', $this->now());
             $notice = ['case_id' => $caseId->value(), 'resolution_code' => $resolutionCode, 'instructions' => $instructions, 'reopen_available' => true];
@@ -660,13 +657,13 @@ final class ComprehensiveRestController
             RequestGuard::requireCapability($context, $this->now(), 'case.assigned.resolve','queue.manage');
             $case = $this->operations->caseForActor($this->caseId($request), $context);
             RuntimeWorkflowPolicy::assertCase((string) $case['state'], 'closed');
-            if (!(bool) $request->get_param('user_confirmed') && !(bool) $request->get_param('eligible_auto_close_notice_sent')) {
+            if (!ApiInput::boolean($request->get_param('user_confirmed'), 'User-confirmation flag', false) && !ApiInput::boolean($request->get_param('eligible_auto_close_notice_sent'), 'Auto-close notice flag', false)) {
                 throw new RuntimeException('Closure requires user confirmation or an eligible noticed auto-close policy.');
             }
             return $this->operations->mutateCase(
                 $this->caseId($request), $context, RequestGuard::expectedVersion($request), ['state' => 'closed', 'closed_at' => $this->now()->format('Y-m-d H:i:s.u')],
                 'CloseCase', 'SupportCaseClosed', RequestGuard::purpose($request, true), RequestGuard::idempotencyKey($request),
-                ['user_confirmed' => (bool) $request->get_param('user_confirmed')], $this->now()
+                ['user_confirmed' => ApiInput::boolean($request->get_param('user_confirmed'), 'User-confirmation flag', false)], $this->now()
             );
         });
     }
@@ -732,7 +729,7 @@ final class ComprehensiveRestController
             return $this->operations->recordQuality(
                 $this->caseId($request), $context, sanitize_key((string) $request->get_param('sample_basis')),
                 is_array($scores) ? $scores : [], is_array($findings) ? array_values(array_filter($findings, 'is_string')) : [],
-                (bool) $request->get_param('identity_suppressed'), $this->now()
+                ApiInput::boolean($request->get_param('identity_suppressed'), 'Identity-suppression flag', false), $this->now()
             );
         }, 201);
     }
@@ -750,13 +747,13 @@ final class ComprehensiveRestController
             $appeal = $this->operations->appealForActor((string) $request['id'], $context);
             RuntimeWorkflowPolicy::assertAppeal((string) $appeal['state'], 'eligibility_review');
             $first = $this->operations->mutateAppeal((string) $request['id'], $context, RequestGuard::expectedVersion($request), ['state' => 'eligibility_review'], 'AppealSubmitted', 'appeal_eligibility', RequestGuard::idempotencyKey($request) . ':review', [], $this->now());
-            $eligible = (bool) $request->get_param('eligible');
+            $eligible = ApiInput::boolean($request->get_param('eligible'), 'Appeal eligibility');
             $to = $eligible ? 'accepted' : 'rejected';
             RuntimeWorkflowPolicy::assertAppeal((string) $first['state'], $to);
             return $this->operations->mutateAppeal((string) $request['id'], $context, (int) $first['record_version'], ['state' => $to], $eligible ? 'AppealAccepted' : 'AppealRejected', 'appeal_eligibility', RequestGuard::idempotencyKey($request) . ':decision', [
                 'reason' => sanitize_textarea_field((string) $request->get_param('reason')),
                 'further_path' => sanitize_text_field((string) $request->get_param('further_path')),
-                'time_exception' => (bool) $request->get_param('time_exception'),
+                'time_exception' => ApiInput::boolean($request->get_param('time_exception'), 'Appeal time-exception flag', false),
             ], $this->now());
         });
     }
@@ -842,7 +839,7 @@ final class ComprehensiveRestController
             $appeal = $this->operations->appealForActor((string) $request['id'], $context);
             RuntimeWorkflowPolicy::assertAppeal((string) $appeal['state'], 'implemented');
             $ref = sanitize_text_field((string) $request->get_param('implementation_ref'));
-            if ($ref === '' || !(bool) $request->get_param('native_version_matches')) {
+            if ($ref === '' || !ApiInput::boolean($request->get_param('native_version_matches'), 'Native-version match flag', false)) {
                 throw new RuntimeException('Native implementation evidence is incomplete or drifted.');
             }
             return $this->operations->mutateAppeal((string) $request['id'], $context, RequestGuard::expectedVersion($request), ['state' => 'implemented','implementation_ref' => $ref], 'AppealImplemented', 'appeal_implementation', RequestGuard::idempotencyKey($request), ['implementation_ref' => $ref], $this->now());
@@ -870,7 +867,7 @@ final class ComprehensiveRestController
             if (trim((string) $appeal['implementation_ref']) === '') {
                 throw new RuntimeException('Appeal cannot close before native implementation reconciliation.');
             }
-            return $this->operations->mutateAppeal((string) $request['id'], $context, RequestGuard::expectedVersion($request), ['state' => 'closed'], 'AppealClosed', 'appeal_closure', RequestGuard::idempotencyKey($request), ['notice_sent' => (bool) $request->get_param('notice_sent')], $this->now());
+            return $this->operations->mutateAppeal((string) $request['id'], $context, RequestGuard::expectedVersion($request), ['state' => 'closed'], 'AppealClosed', 'appeal_closure', RequestGuard::idempotencyKey($request), ['notice_sent' => ApiInput::boolean($request->get_param('notice_sent'), 'Appeal notice flag', false)], $this->now());
         });
     }
 
@@ -1037,22 +1034,6 @@ final class ComprehensiveRestController
     private function now(): DateTimeImmutable { return new DateTimeImmutable('now', new DateTimeZone('UTC')); }
     private function caseId(\WP_REST_Request $request): SupportCaseId { return SupportCaseId::fromString((string) $request['id']); }
     private function limit(\WP_REST_Request $request): int { return max(1, min(100, (int) ($request->get_param('limit') ?: 50))); }
-
-    private function queueForCategory(string $category): string
-    {
-        return match ($category) {
-            'privacy_data_rights' => 'privacy_liaison',
-            'safety_abuse' => 'safety_liaison',
-            'verification', 'account_access' => 'identity_coordination',
-            'learning_billing', 'marketplace' => 'financial_coordination',
-            'clinic_appointment' => 'clinic_coordination',
-            'messages_calls' => 'communication_support',
-            'publishing' => 'publishing_support',
-            'media_pdf' => 'media_support',
-            'accessibility' => 'accessibility_support',
-            default => 'technical_support',
-        };
-    }
 
     /** @param callable():array<string,mixed> $callback */
     private function run(callable $callback, int $successStatus = 200): \WP_REST_Response|\WP_Error

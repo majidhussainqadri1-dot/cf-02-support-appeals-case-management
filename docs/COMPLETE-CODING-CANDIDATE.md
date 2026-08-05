@@ -1,4 +1,4 @@
-# CF-02 Forty-Round Corrective Coding Candidate — 1.0.0-rc.5
+# CF-02 Forty-Round Corrective Coding Candidate — 1.0.0-rc.6
 
 ## Governing result
 
@@ -18,17 +18,21 @@ The repository now contains the code-level implementation of the Definitive Mast
 
 ## Runtime identity
 
-- Plugin: `1.0.0-rc.5`
+- Plugin: `1.0.0-rc.6`
 - Schema: `1.3.0`
 - Plan: `1.0`
 - Contract: `1.1.0`
-- Branch: `agent/cf-02-foundation-c2-a`
-- Pull request: Draft PR #1
+- Branch: `agent/cf-02-three-plan-final-completion`
+- Pull request: a new Draft PR against `main`
 
 ## Review doctrine
 
-Every earlier phase retains two reviews. After the final runtime integration change, C2-I completed a comprehensive review/fix and a separate fresh adversarial review/fix. Regression suites cover actor spoofing, stale assertions, weak ETags, replay collisions, attachment bypass, terminal native-result changes, event SQL, retention overclaim, projection leakage and worker evidence.
+Every earlier phase retains two reviews. After the final release-governance correction, C2-L completed a comprehensive review/fix and a separate fresh adversarial review/fix in addition to all retained earlier reviews. Regression suites cover actor spoofing, stale assertions, weak ETags, replay collisions, attachment bypass, terminal native-result changes, event SQL, retention overclaim, projection leakage and worker evidence.
 
 ## Truthful acceptance boundary
 
-`1.0.0-rc.5` means corrective code candidate under forty review/fix cycles within the two plans. It does not mean Hostinger staging accepted, live deployed or operational. Real companion adapters, providers, named staff, browser/accessibility/security/load tests, production migration, backup/restore/rollback and Founder exact-artifact approval remain mandatory.
+`1.0.0-rc.6` means corrective code candidate under forty review/fix cycles within the three governing plans. It does not mean Hostinger staging accepted, live deployed or operational. Real companion adapters, providers, named staff, browser/accessibility/security/load tests, production migration, backup/restore/rollback and Founder exact-artifact approval remain mandatory.
+
+## C2-M fresh forty-round corrective cycle
+
+The RC6 source received a new forty-round review/fix cycle. The permanent regression is `tests/c2m-forty-fresh-review.php`; the review register is `docs/FORTY-ROUND-FRESH-REVIEW-C2M.md`; provider signature compatibility is governed by `docs/PROVIDER-SIGNATURE-CONTRACT.md`. This does not alter the pending Hostinger staging, live or operational gates.

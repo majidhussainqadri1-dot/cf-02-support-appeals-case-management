@@ -8,9 +8,9 @@ This repository is the canonical development home for support intake, ticket/cas
 
 - Planning identifier: `CF-02`
 - Governing plans: Master Plan v3.0, All-Chats Directive Register v2.1, CF-02 plan v1.0
-- Runtime candidate: `1.0.0-rc.5`
+- Runtime candidate: `1.0.0-rc.6`
 - Contract / schema: `1.1.0` / `1.3.0`
-- Development stage: **C2-K three-plan harmonized coded/package candidate**
+- Development stage: **C2-L three-plan final code-completion and release-governance candidate**
 - Runtime: fail-closed; Hostinger staging, real integrations and Founder exact-artifact acceptance pending
 
 No live-deployment or operational-completion claim is made by the repository, CI or package.
@@ -35,6 +35,8 @@ No live-deployment or operational-completion claim is made by the repository, CI
 - C2-H — load, resilience, restore, training and staged-rollout foundations
 - C2-I/C2-J — complete runtime integration and forty-round corrective verification
 - C2-K — three-plan harmonization, free-tier governance, due process, File 26 projection and accessible frontend
+- C2-L — manifest-owned release identity, complete machine traceability, documentation drift prevention and two independent review/fix rounds
+- C2-M — fresh forty-round review/fix cycle, canonical intake routing, strict REST booleans, provider-signature hardening, repair-audit integrity and secure-delivery validation
 
 ## Security notice
 

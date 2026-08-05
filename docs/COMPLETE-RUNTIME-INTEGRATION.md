@@ -4,9 +4,9 @@
 
 - Central constitution: `SSH-PMP-2026-v3.0`
 - CF-02 plan: `1.0 — Four-Round Reviewed and Corrected Final`
-- Plugin candidate: `1.0.0-rc.5`
+- Plugin candidate: `1.0.0-rc.6`
 - Schema: `1.3.0`
-- Public contract: `1.0.0`
+- Public contract: `1.1.0`
 
 This record covers code-level completion. Hostinger staging, real companion/provider acceptance, deployed security/accessibility/load evidence, production migration, restore/rollback and operational acceptance remain separate evidence states.
 
@@ -65,6 +65,7 @@ The exact-head CI must pass:
 - Composer validation and all PHP syntax;
 - C2-A through C2-H foundation + two review suites;
 - C2-I complete-runtime foundation + two review suites;
+- C2-L release-identity, machine traceability and two review suites;
 - release-engineering tests and public repository safety scan;
 - deterministic package rebuild and source/package parity;
 - fail-closed dormant lifecycle smoke;
@@ -75,8 +76,8 @@ The exact-head CI must pass:
 | State | Result |
 |---|---|
 | Specified | complete |
-| Coded | complete within the two governing plans |
-| Two fresh review/fix rounds after final coding | complete |
+| Coded | complete within the three governing plans |
+| Two fresh C2-L review/fix rounds after final coding | complete |
 | Packaged | generated only after exact-head workflows pass |
 | Automated-QA Green | established only by exact-head workflows |
 | Hostinger staging accepted | not yet |

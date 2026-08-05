@@ -120,6 +120,24 @@ jobs:
       - name: C2-K fresh adversarial review
         run: php -d zend.assertions=1 tests/c2k-review2.php
 
+      - name: C2-L release-governance completion tests
+        run: php -d zend.assertions=1 tests/c2l-release-governance.php
+
+      - name: C2-L first-review regressions
+        run: php -d zend.assertions=1 tests/c2l-review1.php
+
+      - name: C2-L fresh adversarial review
+        run: php -d zend.assertions=1 tests/c2l-review2.php
+
+      - name: C2-M fresh forty-round review and correction regressions
+        run: php -d zend.assertions=1 tests/c2m-forty-fresh-review.php
+
+      - name: Verify release identity
+        run: python3 build/verify_release_identity.py
+
+      - name: Verify three-plan traceability
+        run: python3 build/verify_traceability.py
+
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
 

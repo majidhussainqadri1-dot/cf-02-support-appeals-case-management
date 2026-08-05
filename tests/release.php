@@ -51,7 +51,7 @@ $test('release status remains truthful and external evidence gates remain explic
 
 $test('complete runtime integration and operational runbooks are present', static function () use ($root): void {
     foreach ([
-        'build/package.py','build/verify_package.py','build/security_scan.py',
+        'build/package.py','build/verify_package.py','build/security_scan.py','build/verify_release_identity.py','build/verify_traceability.py',
         'src/Contracts/SupportContractCatalog.php','src/Application/RuntimeWorkflowPolicy.php',
         'src/Infrastructure/WordPress/OperationsRepository.php','src/Infrastructure/WordPress/ComprehensiveRestController.php',
         'src/Infrastructure/WordPress/ProviderWebhookController.php','src/Infrastructure/WordPress/RuntimeWorker.php',
@@ -60,6 +60,7 @@ $test('complete runtime integration and operational runbooks are present', stati
         'assets/css/cf02-frontend.css','assets/js/cf02-frontend.js',
         'languages/cf-02-support-appeals-case-management-ur.mo',
         'docs/THREE-PLAN-HARMONIZATION.md','docs/CHANGE-CONTROL-C2K.md','docs/REVIEW-REGISTER-C2K.md',
+        'release/traceability.json','docs/CHANGE-CONTROL-C2L.md','docs/REVIEW-REGISTER-C2L.md',
     ] as $required) assert(is_file($root . '/' . $required), $required . ' is missing');
 });
 

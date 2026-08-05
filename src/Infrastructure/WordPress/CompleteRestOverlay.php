@@ -48,9 +48,9 @@ final class CompleteRestOverlay
     public function repairPermission(\WP_REST_Request $request):bool|\WP_Error
     {
         try{
-            $context=$this->context();$cap=strtoupper($request->get_method())==='POST'?'repair.execute':'repair.inspect';
-            if(!$context->hasAnyCapability($cap,'release.evidence.read'))throw new RuntimeException('Denied');
-            if(strtoupper($request->get_method())==='POST'&&!$context->hasCapability('repair.execute'))throw new RuntimeException('Denied');
+            $now=$this->now();$context=$this->context();$cap=strtoupper($request->get_method())==='POST'?'repair.execute':'repair.inspect';
+            if(!$context->validAt($now)||!$context->hasAnyCapability($cap,'release.evidence.read'))throw new RuntimeException('Denied');
+            if(strtoupper($request->get_method())==='POST'&&(!$context->hasCapability('repair.execute')||!$context->recentlyAuthenticated($now)))throw new RuntimeException('Denied');
             return true;
         }catch(Throwable){return new \WP_Error('cf02_not_found',__('Resource not found.','cf-02-support-appeals-case-management'),['status'=>404]);}
     }

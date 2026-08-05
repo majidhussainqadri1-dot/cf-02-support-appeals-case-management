@@ -8,7 +8,10 @@ use DateTimeImmutable;
 use DateTimeZone;
 use RuntimeException;
 use Sabri\CF02\Authorization\PrincipalContext;
+use Sabri\CF02\Configuration\CategoryRoutingPolicy;
+use Sabri\CF02\Contracts\SupportContractCatalog;
 use Sabri\CF02\Domain\SupportCaseId;
+use Sabri\CF02\Governance\ServiceEqualityPolicy;
 use Sabri\CF02\Security\DataCipher;
 use Sabri\CF02\Security\SensitiveContentDetector;
 use Throwable;
@@ -52,9 +55,9 @@ final class ProviderWebhookController
         return $this->run(function () use ($request): array {
             $this->verifySignature($request, 'inbound');
             $payload = $this->payload($request);
-            $sourceOwner = sanitize_text_field((string) ($payload['source_owner'] ?? ''));
-            $externalId = sanitize_text_field((string) ($payload['external_event_id'] ?? ''));
-            $senderRef = sanitize_text_field((string) ($payload['sender_ref'] ?? ''));
+            $sourceOwner = ApiInput::safeReference($payload['source_owner'] ?? '', 'Source owner', 128);
+            $externalId = ApiInput::safeReference($payload['external_event_id'] ?? '', 'External event ID', 191);
+            $senderRef = ApiInput::safeReference($payload['sender_ref'] ?? '', 'Sender reference', 191);
             $senderTrust = sanitize_key((string) ($payload['sender_trust'] ?? 'unverified'));
             if ($sourceOwner === '' || $externalId === '' || $senderRef === ''
                 || !in_array($senderTrust, ['verified','unverified','system'], true)) {
@@ -78,20 +81,19 @@ final class ProviderWebhookController
                 ? SupportCaseId::fromString($payload['case_id'])
                 : null;
             if ($caseId === null) {
-                $category = sanitize_key((string) ($payload['category'] ?? 'technical'));
-                if (!in_array($category, \Sabri\CF02\Contracts\SupportContractCatalog::categories(), true)) {
-                    throw new RuntimeException('Inbound category is invalid.');
-                }
+                $category = CategoryRoutingPolicy::normalize(sanitize_key((string) ($payload['category'] ?? 'technical')));
+                SupportContractCatalog::assertCategory($category);
+                $impact = sanitize_key((string) ($payload['impact'] ?? 'single_action'));
+                $urgency = sanitize_key((string) ($payload['urgency'] ?? 'normal'));
                 $caseResult = $this->intake->createOrReplay(
                     $requesterRef,
                     'provider_' . substr(hash('sha256', $sourceOwner . "\0" . $externalId), 0, 48),
                     [
                         'category' => $category,
-                        'priority' => strtoupper((string) ($payload['priority'] ?? 'P3')),
-                        'severity' => sanitize_key((string) ($payload['severity'] ?? 'normal')),
-                        'queue' => sanitize_key((string) ($payload['queue'] ?? 'technical_support')),
-                        'locale' => sanitize_text_field((string) ($payload['locale'] ?? 'ur-PK')),
-                        'subject' => sanitize_text_field((string) ($payload['subject'] ?? 'Inbound support request')),
+                        'priority' => ServiceEqualityPolicy::requesterPriority($impact, $urgency),
+                        'severity' => 'normal',
+                        'locale' => ApiInput::locale($payload['locale'] ?? null),
+                        'subject' => ApiInput::safeSingleLine($payload['subject'] ?? 'Inbound support request', 'Inbound subject', 191, true),
                     ],
                     $this->now()
                 );
@@ -212,7 +214,13 @@ final class ProviderWebhookController
             if (!is_array($delivery) || ($delivery['authorized'] ?? false) !== true) {
                 throw new RuntimeException('Secure attachment provider is unavailable.');
             }
-            return ['delivery' => array_intersect_key($delivery, array_flip(['authorized','expires_at','delivery_url','content_disposition']))];
+            $url=(string)($delivery['delivery_url']??'');$expires=isset($delivery['expires_at'])?strtotime((string)$delivery['expires_at']):false;
+            $disposition=(string)($delivery['content_disposition']??'attachment');
+            if($url===''||!str_starts_with(strtolower($url),'https://')||wp_http_validate_url($url)===false
+                ||$expires===false||$expires<=time()||$expires>time()+300||strlen($disposition)>191||strpbrk($disposition,"\r\n")!==false){
+                throw new RuntimeException('Secure attachment provider returned an unsafe delivery grant.');
+            }
+            return ['delivery'=>['authorized'=>true,'expires_at'=>(string)$delivery['expires_at'],'delivery_url'=>$url,'content_disposition'=>$disposition]];
         });
     }
 
@@ -233,7 +241,8 @@ final class ProviderWebhookController
         if (!is_string($key) || strlen($key) < 32) {
             throw new RuntimeException('Provider signing key is unavailable.');
         }
-        $expected = hash_hmac('sha256', $timestamp . '.' . $request->get_body(), $key);
+        $envelope = implode("\n", [$purpose, $keyId, strtoupper($request->get_method()), $request->get_route(), $timestamp, $request->get_body()]);
+        $expected = hash_hmac('sha256', $envelope, $key);
         if (!hash_equals($expected, $signature)) {
             throw new RuntimeException('Provider signature verification failed.');
         }
@@ -242,9 +251,13 @@ final class ProviderWebhookController
     /** @return array<string,mixed> */
     private function payload(\WP_REST_Request $request): array
     {
+        $raw=$request->get_body();
+        if(strlen($raw)<2||strlen($raw)>262144||!str_starts_with(ltrim($raw),'{')){
+            throw new RuntimeException('A bounded JSON object request body is required.');
+        }
         $payload = $request->get_json_params();
-        if (!is_array($payload)) {
-            throw new RuntimeException('A JSON request body is required.');
+        if (!is_array($payload) || array_is_list($payload)) {
+            throw new RuntimeException('A bounded JSON object request body is required.');
         }
         return $payload;
     }
@@ -266,8 +279,10 @@ final class ProviderWebhookController
         try {
             return new \WP_REST_Response($callback(), $status, ['Cache-Control' => 'no-store']);
         } catch (Throwable $error) {
-            return new \WP_Error('cf02_provider_request_rejected', $error instanceof RuntimeException ? $error->getMessage() : 'Provider request failed.', [
-                'status' => 422, 'trace_id' => RequestGuard::traceId(),
+            $trace=RequestGuard::traceId();
+            do_action('cf02_provider_request_failed',['trace_id'=>$trace,'error_class'=>$error::class,'error'=>$error]);
+            return new \WP_Error('cf02_provider_request_rejected', __('The signed provider request was rejected.', 'cf-02-support-appeals-case-management'), [
+                'status' => 422, 'trace_id' => $trace,
             ]);
         }
     }
