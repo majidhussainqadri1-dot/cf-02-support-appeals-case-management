@@ -1,0 +1,243 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Sabri\CF02\Infrastructure\WordPress;
+
+use InvalidArgumentException;
+
+final class Schema
+{
+    public const VERSION = '1.0.0';
+
+    /** @return array<string, string> table key => SQL */
+    public static function statements(string $prefix, string $charsetCollate): array
+    {
+        if (preg_match('/^[A-Za-z0-9_]+$/', $prefix) !== 1) {
+            throw new InvalidArgumentException('Invalid WordPress table prefix.');
+        }
+        $tables = [
+            'cases' => "CREATE TABLE {$prefix}cf02_cases (
+                id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                case_uuid char(41) NOT NULL,
+                requester_ref varchar(191) NOT NULL,
+                category varchar(64) NOT NULL,
+                priority char(2) NOT NULL,
+                severity varchar(32) NOT NULL,
+                state varchar(40) NOT NULL,
+                queue_key varchar(64) NOT NULL,
+                owner_ref varchar(191) NULL,
+                locale varchar(16) NOT NULL,
+                safe_subject varchar(191) NOT NULL,
+                record_version bigint(20) unsigned NOT NULL DEFAULT 1,
+                created_at datetime(6) NOT NULL,
+                updated_at datetime(6) NOT NULL,
+                closed_at datetime(6) NULL,
+                PRIMARY KEY (id),
+                UNIQUE KEY case_uuid (case_uuid),
+                KEY requester_state (requester_ref,state),
+                KEY queue_priority_state (queue_key,priority,state),
+                KEY updated_at (updated_at)
+            ) {$charsetCollate};",
+            'messages' => "CREATE TABLE {$prefix}cf02_messages (
+                id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                message_uuid varchar(64) NOT NULL,
+                case_uuid char(41) NOT NULL,
+                author_ref varchar(191) NOT NULL,
+                visibility varchar(24) NOT NULL,
+                channel varchar(24) NOT NULL,
+                body_ciphertext longtext NOT NULL,
+                body_hash char(64) NOT NULL,
+                record_version bigint(20) unsigned NOT NULL DEFAULT 1,
+                created_at datetime(6) NOT NULL,
+                edited_at datetime(6) NULL,
+                PRIMARY KEY (id),
+                UNIQUE KEY message_uuid (message_uuid),
+                KEY case_created (case_uuid,created_at)
+            ) {$charsetCollate};",
+            'attachments' => "CREATE TABLE {$prefix}cf02_attachments (
+                id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                attachment_uuid varchar(64) NOT NULL,
+                case_uuid char(41) NOT NULL,
+                provider_ref varchar(191) NULL,
+                sha256 char(64) NOT NULL,
+                mime_type varchar(127) NOT NULL,
+                purpose varchar(64) NOT NULL,
+                privacy_class char(2) NOT NULL,
+                state varchar(32) NOT NULL,
+                redacted_ref varchar(191) NULL,
+                expires_at datetime(6) NULL,
+                record_version bigint(20) unsigned NOT NULL DEFAULT 1,
+                created_at datetime(6) NOT NULL,
+                PRIMARY KEY (id),
+                UNIQUE KEY attachment_uuid (attachment_uuid),
+                KEY case_state (case_uuid,state),
+                KEY expires_at (expires_at)
+            ) {$charsetCollate};",
+            'assignments' => "CREATE TABLE {$prefix}cf02_assignments (
+                id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                case_uuid char(41) NOT NULL,
+                queue_key varchar(64) NOT NULL,
+                agent_ref varchar(191) NOT NULL,
+                role_key varchar(64) NOT NULL,
+                scopes_json text NOT NULL,
+                started_at datetime(6) NOT NULL,
+                ended_at datetime(6) NULL,
+                reason varchar(255) NOT NULL,
+                record_version bigint(20) unsigned NOT NULL DEFAULT 1,
+                PRIMARY KEY (id),
+                KEY case_active (case_uuid,ended_at),
+                KEY agent_active (agent_ref,ended_at)
+            ) {$charsetCollate};",
+            'sla_timers' => "CREATE TABLE {$prefix}cf02_sla_timers (
+                id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                case_uuid char(41) NOT NULL,
+                policy_id varchar(128) NOT NULL,
+                policy_version varchar(32) NOT NULL,
+                status varchar(40) NOT NULL,
+                first_response_deadline datetime(6) NOT NULL,
+                update_deadline datetime(6) NOT NULL,
+                resolution_deadline datetime(6) NOT NULL,
+                paused_at datetime(6) NULL,
+                pause_reason varchar(64) NULL,
+                evidence_ref varchar(191) NULL,
+                record_version bigint(20) unsigned NOT NULL DEFAULT 1,
+                PRIMARY KEY (id),
+                UNIQUE KEY case_uuid (case_uuid),
+                KEY status_resolution (status,resolution_deadline)
+            ) {$charsetCollate};",
+            'appeals' => "CREATE TABLE {$prefix}cf02_appeals (
+                id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                appeal_uuid varchar(64) NOT NULL,
+                case_uuid char(41) NOT NULL,
+                appellant_ref varchar(191) NOT NULL,
+                original_decision_ref varchar(191) NOT NULL,
+                dossier_hash char(64) NOT NULL,
+                reviewer_ref varchar(191) NULL,
+                state varchar(40) NOT NULL,
+                outcome varchar(32) NULL,
+                native_command_ref varchar(64) NULL,
+                implementation_ref varchar(191) NULL,
+                record_version bigint(20) unsigned NOT NULL DEFAULT 1,
+                submitted_at datetime(6) NOT NULL,
+                updated_at datetime(6) NOT NULL,
+                PRIMARY KEY (id),
+                UNIQUE KEY appeal_uuid (appeal_uuid),
+                KEY case_state (case_uuid,state),
+                KEY reviewer_state (reviewer_ref,state)
+            ) {$charsetCollate};",
+            'commands' => "CREATE TABLE {$prefix}cf02_commands (
+                id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                command_uuid varchar(64) NOT NULL,
+                case_uuid char(41) NOT NULL,
+                native_owner varchar(32) NOT NULL,
+                action_key varchar(64) NOT NULL,
+                object_ref varchar(191) NOT NULL,
+                expected_native_version bigint(20) unsigned NOT NULL,
+                idempotency_key varchar(128) NOT NULL,
+                payload_hash char(64) NOT NULL,
+                state varchar(32) NOT NULL,
+                attempts smallint unsigned NOT NULL DEFAULT 0,
+                next_attempt_at datetime(6) NULL,
+                outcome_ref varchar(191) NULL,
+                record_version bigint(20) unsigned NOT NULL DEFAULT 1,
+                created_at datetime(6) NOT NULL,
+                updated_at datetime(6) NOT NULL,
+                PRIMARY KEY (id),
+                UNIQUE KEY command_uuid (command_uuid),
+                UNIQUE KEY idempotency_key (idempotency_key),
+                KEY state_retry (state,next_attempt_at)
+            ) {$charsetCollate};",
+            'outbox' => "CREATE TABLE {$prefix}cf02_outbox (
+                id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                message_uuid varchar(64) NOT NULL,
+                case_uuid char(41) NOT NULL,
+                channel varchar(24) NOT NULL,
+                recipient_ref varchar(191) NOT NULL,
+                template_key varchar(64) NOT NULL,
+                payload_hash char(64) NOT NULL,
+                idempotency_key varchar(128) NOT NULL,
+                state varchar(24) NOT NULL,
+                attempts smallint unsigned NOT NULL DEFAULT 0,
+                next_attempt_at datetime(6) NULL,
+                provider_ref varchar(191) NULL,
+                created_at datetime(6) NOT NULL,
+                updated_at datetime(6) NOT NULL,
+                PRIMARY KEY (id),
+                UNIQUE KEY message_uuid (message_uuid),
+                UNIQUE KEY idempotency_key (idempotency_key),
+                KEY state_retry (state,next_attempt_at)
+            ) {$charsetCollate};",
+            'holds' => "CREATE TABLE {$prefix}cf02_holds (
+                id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                hold_uuid varchar(64) NOT NULL,
+                case_uuid char(41) NULL,
+                category varchar(64) NULL,
+                reason_code varchar(64) NOT NULL,
+                authority_ref varchar(191) NOT NULL,
+                state varchar(16) NOT NULL,
+                review_due_at datetime(6) NOT NULL,
+                placed_at datetime(6) NOT NULL,
+                released_at datetime(6) NULL,
+                record_version bigint(20) unsigned NOT NULL DEFAULT 1,
+                PRIMARY KEY (id),
+                UNIQUE KEY hold_uuid (hold_uuid),
+                KEY case_state (case_uuid,state),
+                KEY category_state (category,state),
+                KEY review_due (state,review_due_at)
+            ) {$charsetCollate};",
+            'configuration' => "CREATE TABLE {$prefix}cf02_configuration (
+                id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                config_key varchar(64) NOT NULL,
+                config_version bigint(20) unsigned NOT NULL,
+                status varchar(24) NOT NULL,
+                config_json longtext NOT NULL,
+                checksum char(64) NOT NULL,
+                approvals_json text NOT NULL,
+                created_by varchar(191) NOT NULL,
+                created_at datetime(6) NOT NULL,
+                PRIMARY KEY (id),
+                UNIQUE KEY config_version (config_key,config_version),
+                KEY config_status (config_key,status)
+            ) {$charsetCollate};",
+            'migration' => "CREATE TABLE {$prefix}cf02_migration (
+                id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                source_owner varchar(64) NOT NULL,
+                source_record_id varchar(191) NOT NULL,
+                source_version bigint(20) unsigned NOT NULL,
+                target_case_uuid char(41) NOT NULL,
+                source_hash char(64) NOT NULL,
+                target_hash char(64) NOT NULL,
+                status varchar(24) NOT NULL,
+                failure_code varchar(64) NULL,
+                recorded_at datetime(6) NOT NULL,
+                PRIMARY KEY (id),
+                UNIQUE KEY source_mapping (source_owner,source_record_id),
+                KEY target_case_uuid (target_case_uuid),
+                KEY status (status)
+            ) {$charsetCollate};",
+            'audit' => "CREATE TABLE {$prefix}cf02_audit (
+                id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                event_uuid varchar(64) NOT NULL,
+                object_type varchar(64) NOT NULL,
+                object_ref varchar(191) NOT NULL,
+                actor_ref varchar(191) NOT NULL,
+                purpose varchar(64) NOT NULL,
+                action_key varchar(64) NOT NULL,
+                result_code varchar(64) NOT NULL,
+                trace_id varchar(40) NOT NULL,
+                object_version bigint(20) unsigned NOT NULL,
+                context_hash char(64) NOT NULL,
+                previous_hash char(64) NULL,
+                event_hash char(64) NOT NULL,
+                occurred_at datetime(6) NOT NULL,
+                PRIMARY KEY (id),
+                UNIQUE KEY event_uuid (event_uuid),
+                KEY object_timeline (object_type,object_ref,occurred_at),
+                KEY trace_id (trace_id),
+                KEY occurred_at (occurred_at)
+            ) {$charsetCollate};",
+        ];
+        return $tables;
+    }
+}

@@ -1,0 +1,106 @@
+name: CF-02 Active Runtime Integration
+
+on:
+  push:
+    branches: [main, 'agent/**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PACKAGE_VERSION: 1.0.0-rc.5
+
+jobs:
+  runtime:
+    name: Activated exact-artifact schema routes intake replay repair and persistence
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: wordpress
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          extensions: mysqli, sodium, zip
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate exact source, build and verify package
+        run: |
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          curl -fsSL -o /tmp/wp-cli.phar https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+          python3 build/package.py --source-sha "$SOURCE_SHA"
+          python3 build/verify_package.py --source-sha "$SOURCE_SHA"
+          sha256sum "dist/cf-02-support-appeals-case-management-${PACKAGE_VERSION}.zip" | awk '{print $1}' > /tmp/cf02-package-sha
+      - name: Provision WordPress and governed adapters
+        run: |
+          rm -rf /tmp/cf02-runtime && mkdir -p /tmp/cf02-runtime
+          php /tmp/wp-cli.phar core download --path=/tmp/cf02-runtime --force
+          php /tmp/wp-cli.phar config create --path=/tmp/cf02-runtime --dbname=wordpress --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306 --skip-check
+          php /tmp/wp-cli.phar config set CF02_RUNTIME_ENABLED true --raw --path=/tmp/cf02-runtime
+          php /tmp/wp-cli.phar config set CF02_RUNTIME_ENVIRONMENT staging --path=/tmp/cf02-runtime
+          php /tmp/wp-cli.phar config set SMC_CONTRACT_VERSION '1.1.2' --path=/tmp/cf02-runtime
+          php /tmp/wp-cli.phar core install --path=/tmp/cf02-runtime --url=http://cf02.test --title='CF-02 Active Runtime' --admin_user=admin --admin_password='temporary-smoke-password' --admin_email=admin@example.test --skip-email
+          unzip -q "dist/cf-02-support-appeals-case-management-${PACKAGE_VERSION}.zip" -d /tmp/cf02-runtime/wp-content/plugins
+          mkdir -p /tmp/cf02-runtime/wp-content/mu-plugins
+          cat > /tmp/cf02-runtime/wp-content/mu-plugins/cf02-test-contracts.php <<'PHP'
+          <?php
+          function smc_membership_assertions(): array { return []; }
+          add_filter('cf02_exact_runtime_identity', static function(array $identity): array {
+              $value=get_option('cf02_test_exact_identity',[]);return is_array($value)?array_merge($identity,$value):$identity;
+          });
+          add_filter('cf02_dependency_contract_evidence', static function(array $contracts): array {
+              $now=gmdate(DATE_ATOM);
+              foreach (\Sabri\CF02\Contracts\RequiredCompanionContracts::definitions() as $key=>$definition) {
+                  if (!$definition['required']) { $contracts[$key]=['enabled'=>false]; continue; }
+                  $contracts[$key]=['ready'=>true,'enabled'=>true,'owner'=>$definition['owner'],'contract_version'=>'1.0.0','capabilities'=>[$definition['capability']],'health'=>'healthy','health_checked_at'=>$now];
+              }
+              return $contracts;
+          });
+          add_filter('cf02_file00_authorization_assertion', static function($default,int $userId,string $audience,string $now): array {
+              $roles=['user_reporter','support_agent','specialist_agent','team_lead','appeal_reviewer','privacy_security_clinical_liaison','auditor','support_manager'];$caps=[];
+              foreach($roles as $role){$caps=array_merge($caps,\Sabri\CF02\Contracts\SupportContractCatalog::capabilitiesForRole($role));}
+              $at=new DateTimeImmutable($now);
+              return ['verified'=>true,'assertion_id'=>'SMC-AUTH-RUNTIME-SMOKE-0001','audience'=>$audience,'actor_ref'=>'user:'.$userId,'roles'=>$roles,'capabilities'=>array_values(array_unique($caps)),'represented_requesters'=>[],'suspended'=>false,'recent_auth_at'=>$at->format(DATE_ATOM),'owner'=>'File 00','contract_version'=>'1.1.2','asserted_at'=>$at->format(DATE_ATOM),'expires_at'=>$at->modify('+5 minutes')->format(DATE_ATOM)];
+          },10,4);
+          add_filter('cf02_managed_keyring', static fn()=>['ready'=>true,'health'=>'healthy','audience'=>'cf02-support-appeals','runtime_version'=>CF02_VERSION,'active_key_id'=>'runtime-key-2026-08','keys'=>['runtime-key-2026-08'=>['material'=>str_repeat('K',64),'status'=>'active'],'runtime-key-2026-07'=>['material'=>str_repeat('R',64),'status'=>'retired']],'provider'=>'CI managed key fixture','rotation_reference'=>'CF02-KEYROT-CI-0001']);
+          add_filter('cf02_route_contract_receipt', static fn($unused,string $route,array $envelope)=>['accepted'=>true,'owner'=>'File 20','module_version'=>$envelope['module_version'],'schema_version'=>$envelope['schema_version'],'contract_version'=>$envelope['contract_version']],10,3);
+          add_filter('cf02_repair_approval_evidence', static fn($unused,string $ref,string $actor)=>['approved'=>true,'approval_ref'=>$ref,'actor_ref'=>$actor],10,3);
+          add_filter('cf02_publish_domain_event', static fn()=>['accepted'=>true]);
+          add_filter('cf02_file19_delivery_request', static fn($unused,array $request)=>['accepted'=>true,'provider_ref'=>'file19:'.$request['message_id']],10,2);
+          add_filter('cf02_dispatch_native_owner_command', static fn($unused,array $request)=>['state'=>'succeeded','outcome_ref'=>'native:'.$request['command_id'],'native_version'=>$request['expected_native_version']],10,2);
+          add_filter('cf02_attachment_quarantine_request', static fn()=>['accepted'=>true,'provider_ref'=>'storage:smoke','upload_url'=>'https://example.com/cf02/smoke','headers'=>[],'expires_at'=>gmdate(DATE_ATOM,time()+300)]);
+          add_filter('cf02_provider_signing_key', static fn()=>str_repeat('k',32));
+          PHP
+      - name: Record exact activation evidence and activate staging runtime
+        run: |
+          PACKAGE_SHA="$(cat /tmp/cf02-package-sha)"
+          SOURCE_SHA="$SOURCE_SHA" PACKAGE_SHA="$PACKAGE_SHA" php /tmp/wp-cli.phar eval '$now=gmdate(DATE_ATOM);$identity=["runtime_version"=>"1.0.0-rc.5","schema_version"=>"1.3.0","source_sha"=>getenv("SOURCE_SHA"),"package_sha256"=>getenv("PACKAGE_SHA")];update_option("cf02_test_exact_identity",$identity,false);update_option("cf02_founder_activation_approval",["approved"=>true,"plan_version"=>"1.0","change_control_id"=>"CF02-ACT-1001","approved_by"=>"founder","approved_at"=>$now,"environment"=>"staging"]+$identity,false);$base=["status"=>"accepted","evidence_id"=>"smoke-evidence","owner"=>"CI","artifact_ref"=>getenv("SOURCE_SHA"),"recorded_at"=>$now];$ops=[];foreach(["privacy_review","security_review","migration_plan","rollback_plan"] as $key){$ops[$key]=$base;}$ops["volume_trigger"]=$base+["measurement_window"=>"controlled runtime smoke","metric"=>"test cases","threshold"=>1,"observed_value"=>1,"triggered"=>true];$ops["staffing"]=$base+["coverage_hours"=>"controlled test window","queue_owners"=>["technical_support"=>"ci:operator"],"escalation_tree_approved"=>true,"emergency_diversion_approved"=>true,"privacy_training_complete"=>true,"quality_sampling_approved"=>true];$ops["zero_critical_high_defects"]=$base+["critical_open"=>0,"high_open"=>0];update_option("cf02_operational_activation_evidence",$ops,false);' --path=/tmp/cf02-runtime
+          php /tmp/wp-cli.phar plugin activate cf-02-support-appeals-case-management --path=/tmp/cf02-runtime
+          php /tmp/wp-cli.phar eval '$state=get_option("cf02_activation_state",[]);if(($state["status"]??null)!=="ready"){fwrite(STDERR,wp_json_encode($state)."\n");exit(1);}if(get_option("cf02_schema_version")!=="1.3.0"){exit(1);}' --path=/tmp/cf02-runtime
+      - name: Exercise runtime and governed repair
+        run: |
+          php /tmp/wp-cli.phar eval-file "$GITHUB_WORKSPACE/tests/wordpress-runtime-smoke.php" --path=/tmp/cf02-runtime
+          php /tmp/wp-cli.phar eval '$now=new DateTimeImmutable("now",new DateTimeZone("UTC"));$c=(new \Sabri\CF02\Authorization\WordPressPrincipalContextFactory())->current($now);$r=\Sabri\CF02\Infrastructure\WordPress\RepairService::repair($c,"CF02-REPAIR-CI-00001",$now);if(($r["status"]??null)!=="repaired"){fwrite(STDERR,wp_json_encode($r)."\n");exit(1);}' --user=1 --path=/tmp/cf02-runtime
+      - name: Prove schedulers and safe deactivation
+        run: |
+          php /tmp/wp-cli.phar eval 'foreach(["cf02_process_outbox","cf02_process_events","cf02_process_sla","cf02_process_retention","cf02_process_reconciliation","cf02_process_key_rotation"] as $hook){if(!wp_next_scheduled($hook)){fwrite(STDERR,"Missing schedule: $hook\n");exit(1);}}' --path=/tmp/cf02-runtime
+          php /tmp/wp-cli.phar plugin deactivate cf-02-support-appeals-case-management --path=/tmp/cf02-runtime
+          php /tmp/wp-cli.phar eval 'foreach(["cf02_process_outbox","cf02_process_events","cf02_process_sla","cf02_process_retention","cf02_process_reconciliation","cf02_process_key_rotation"] as $hook){if(wp_next_scheduled($hook)){fwrite(STDERR,"Schedule survived deactivation: $hook\n");exit(1);}}' --path=/tmp/cf02-runtime

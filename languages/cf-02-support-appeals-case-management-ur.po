@@ -1,0 +1,324 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: CF-02 Support, Appeals and Case Management 1.0.0-rc.5\n"
+"Report-Msgid-Bugs-To: https://github.com/majidhussainqadri1-dot/cf-02-support-appeals-case-management/issues\n"
+"POT-Creation-Date: 2026-08-05 20:20+0500\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: ur\n"
+"Language-Team: Urdu\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: CF-02 deterministic i18n builder\n"
+
+msgid "A secure modern browser is required for this action."
+msgstr "اس کارروائی کے لیے محفوظ جدید براؤزر درکار ہے۔"
+
+msgid "A valid File 00 session is required."
+msgstr "فائل 00 کا درست سیشن درکار ہے۔"
+
+msgid "Accessibility"
+msgstr "رسائی پذیری"
+
+msgid "Accessibility or language support"
+msgstr "رسائی پذیری یا زبان کی مدد"
+
+msgid "Account and Access"
+msgstr "اکاؤنٹ اور رسائی"
+
+msgid "An unexpected error occurred."
+msgstr "ایک غیر متوقع خرابی پیش آگئی۔"
+
+msgid "Appeal ID"
+msgstr "اپیل شناخت"
+
+msgid "Appeal submitted:"
+msgstr "اپیل جمع ہوگئی:"
+
+msgid "Appeals"
+msgstr "اپیلیں"
+
+msgid "Application shell and routes"
+msgstr "ایپلی کیشن شیل اور راستے"
+
+msgid "Attachment quarantined; scan pending."
+msgstr "منسلکہ قرنطینہ میں محفوظ ہے؛ اسکین باقی ہے۔"
+
+msgid "Authentication required for private actions"
+msgstr "نجی کارروائیوں کے لیے لاگ اِن ضروری ہے"
+
+msgid "Case accepted:"
+msgstr "کیس قبول ہوگیا:"
+
+msgid "Category"
+msgstr "زمرہ"
+
+msgid "Choose category"
+msgstr "زمرہ منتخب کریں"
+
+msgid "Clinic and Appointment"
+msgstr "کلینک اور اپائنٹمنٹ"
+
+msgid "Clinical safety owner"
+msgstr "طبی سلامتی کا حاکم نظام"
+
+msgid "Comment"
+msgstr "تبصرہ"
+
+msgid "Connection restored."
+msgstr "رابطہ بحال ہوگیا۔"
+
+msgid "Content or listing moderation"
+msgstr "مواد یا لسٹنگ کی نگرانی"
+
+msgid "Create support case"
+msgstr "سپورٹ کیس بنائیں"
+
+msgid "Decision reference"
+msgstr "فیصلے کا حوالہ"
+
+msgid "Description"
+msgstr "تفصیل"
+
+msgid "Donations, sponsorships and payments never change support priority, SLA, appeal eligibility or outcome."
+msgstr "عطیہ، کفالت یا ادائیگی کبھی سپورٹ کی ترجیح، SLA، اپیل کی اہلیت یا نتیجہ تبدیل نہیں کرتی۔"
+
+msgid "Essential task blocked"
+msgstr "ضروری کام رکا ہوا ہے"
+
+msgid "Evidence references"
+msgstr "شواہد کے حوالے"
+
+msgid "Feedback recorded."
+msgstr "رائے محفوظ ہوگئی۔"
+
+msgid "File"
+msgstr "فائل"
+
+msgid "Financial action"
+msgstr "مالی کارروائی"
+
+msgid "Grounds"
+msgstr "بنیادیں"
+
+msgid "I consent to minimum contextual diagnostics."
+msgstr "میں کم سے کم متعلقہ تشخیصی معلومات کے استعمال پر رضامند ہوں۔"
+
+msgid "I consent to this case-specific upload."
+msgstr "میں اس کیس سے مخصوص فائل اپلوڈ کرنے پر رضامند ہوں۔"
+
+msgid "Identity and account"
+msgstr "شناخت اور اکاؤنٹ"
+
+msgid "Immediate danger:"
+msgstr "فوری خطرہ:"
+
+msgid "Impact"
+msgstr "اثر"
+
+msgid "Institutional Governance and Due Process"
+msgstr "ادارہ جاتی نظم اور منصفانہ کارروائی"
+
+msgid "Issue type or subcategory"
+msgstr "مسئلے کی نوعیت یا ذیلی زمرہ"
+
+msgid "Learning Access"
+msgstr "تعلیمی رسائی"
+
+msgid "Load appeal"
+msgstr "اپیل کھولیں"
+
+msgid "Load more"
+msgstr "مزید دکھائیں"
+
+msgid "Loading…"
+msgstr "لوڈ ہو رہا ہے…"
+
+msgid "Many users"
+msgstr "متعدد صارفین"
+
+msgid "Marketplace"
+msgstr "مارکیٹ پلیس"
+
+msgid "Media and PDF"
+msgstr "میڈیا اور PDF"
+
+msgid "Membership"
+msgstr "رکنیت"
+
+msgid "Messages and Calls"
+msgstr "پیغامات اور کالز"
+
+msgid "Messages and reports"
+msgstr "پیغامات اور رپورٹس"
+
+msgid "My cases"
+msgstr "میرے کیس"
+
+msgid "Never submit passwords, OTPs, private keys, full payment-card data or unrelated clinical records. Native identity, payment, moderation, privacy-rights, security-incident and clinical decisions remain with their canonical owners."
+msgstr "پاس ورڈ، OTP، نجی کلید، مکمل ادائیگی کارڈ کی معلومات یا غیر متعلقہ طبی ریکارڈ کبھی جمع نہ کریں۔ شناخت، ادائیگی، نگرانی، رازداری کے حقوق، سلامتی کے واقعات اور طبی فیصلے اپنے حاکم نظاموں کے پاس رہتے ہیں۔"
+
+msgid "New case"
+msgstr "نیا کیس"
+
+msgid "No cases found."
+msgstr "کوئی کیس نہیں ملا۔"
+
+msgid "No linked platform object"
+msgstr "پلیٹ فارم کی کوئی چیز منسلک نہیں"
+
+msgid "Normal"
+msgstr "معمول"
+
+msgid "Notifications"
+msgstr "اطلاعات"
+
+msgid "Object reference"
+msgstr "چیز کا حوالہ"
+
+msgid "Object type"
+msgstr "چیز کی قسم"
+
+msgid "Object version"
+msgstr "چیز کا نسخہ"
+
+msgid "One action"
+msgstr "ایک کارروائی"
+
+msgid "Open"
+msgstr "کھولیں"
+
+msgid "Opt out"
+msgstr "شامل نہ کریں"
+
+msgid "Optional affected platform object"
+msgstr "متاثرہ پلیٹ فارم چیز — اختیاری"
+
+msgid "Optional feedback"
+msgstr "اختیاری رائے"
+
+msgid "Owner domain"
+msgstr "حاکم شعبہ"
+
+msgid "Policy version"
+msgstr "پالیسی کا نسخہ"
+
+msgid "Privacy"
+msgstr "رازداری"
+
+msgid "Privacy and Data Rights"
+msgstr "رازداری اور ڈیٹا کے حقوق"
+
+msgid "Privacy boundary"
+msgstr "رازداری کی حد"
+
+msgid "Public help is available without exposing private cases. Sign in for case or appeal actions."
+msgstr "نجی کیس ظاہر کیے بغیر عوامی مدد دستیاب ہے۔ کیس یا اپیل کی کارروائی کے لیے لاگ اِن کریں۔"
+
+msgid "Publishing"
+msgstr "اشاعت"
+
+msgid "Purpose"
+msgstr "مقصد"
+
+msgid "Quarantine upload failed."
+msgstr "قرنطینہ اپلوڈ ناکام ہوگیا۔"
+
+msgid "Rating"
+msgstr "درجہ"
+
+msgid "Refresh"
+msgstr "تازہ کریں"
+
+msgid "Reopen"
+msgstr "دوبارہ کھولیں"
+
+msgid "Reply"
+msgstr "جواب"
+
+msgid "Reply sent."
+msgstr "جواب بھیج دیا گیا۔"
+
+msgid "Requester"
+msgstr "درخواست کنندہ"
+
+msgid "Safety and Abuse"
+msgstr "سلامتی اور بدسلوکی"
+
+msgid "Search and ranking"
+msgstr "تلاش اور درجہ بندی"
+
+msgid "Secure attachment"
+msgstr "محفوظ منسلکہ"
+
+msgid "Security and privacy assurance"
+msgstr "سلامتی اور رازداری کی یقین دہانی"
+
+msgid "Send reply"
+msgstr "جواب بھیجیں"
+
+msgid "Status available."
+msgstr "حالت دستیاب ہے۔"
+
+msgid "Subject"
+msgstr "عنوان"
+
+msgid "Submit"
+msgstr "جمع کریں"
+
+msgid "Submit appeal"
+msgstr "اپیل جمع کریں"
+
+msgid "Submit case"
+msgstr "کیس جمع کریں"
+
+msgid "Support Team"
+msgstr "سپورٹ ٹیم"
+
+msgid "Support actions"
+msgstr "سپورٹ کی کارروائیاں"
+
+msgid "Support and Appeals"
+msgstr "سپورٹ اور اپیلیں"
+
+msgid "Technical Fault"
+msgstr "فنی خرابی"
+
+msgid "The original decision remains immutable; independent review and implementation confirmation are required."
+msgstr "اصل فیصلہ ناقابلِ تغیر محفوظ رہتا ہے؛ آزاد نظرِ ثانی اور نفاذ کی تصدیق ضروری ہے۔"
+
+msgid "The request failed."
+msgstr "درخواست ناکام ہوگئی۔"
+
+msgid "This is not an emergency or clinical queue. Use approved local emergency services. Support does not diagnose or prescribe."
+msgstr "یہ ہنگامی یا طبی قطار نہیں ہے۔ منظور شدہ مقامی ہنگامی خدمات سے رجوع کریں۔ سپورٹ تشخیص یا نسخہ نہیں دیتی۔"
+
+msgid "Time-sensitive"
+msgstr "وقت کی پابندی والا"
+
+msgid "Upload to quarantine"
+msgstr "قرنطینہ میں اپلوڈ کریں"
+
+msgid "Urgency"
+msgstr "فوریت"
+
+msgid "Using an appeal cannot reduce ranking, access, support quality or future eligibility."
+msgstr "اپیل استعمال کرنے سے درجہ بندی، رسائی، سپورٹ کے معیار یا آئندہ اہلیت میں کمی نہیں ہوسکتی۔"
+
+msgid "Verification"
+msgstr "تصدیق"
+
+msgid "Visual components"
+msgstr "بصری اجزاء"
+
+msgid "Withdraw"
+msgstr "واپس لیں"
+
+msgid "You are offline. Reconnect and retry."
+msgstr "آپ آف لائن ہیں۔ دوبارہ رابطہ قائم کرکے کوشش کریں۔"
+
+msgid "[Unavailable]"
+msgstr "[دستیاب نہیں]"
+
+msgid "accepted"
+msgstr "منظور شدہ"
