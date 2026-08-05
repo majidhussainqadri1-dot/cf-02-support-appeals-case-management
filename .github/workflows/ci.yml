@@ -129,6 +129,9 @@ jobs:
       - name: C2-L fresh adversarial review
         run: php -d zend.assertions=1 tests/c2l-review2.php
 
+      - name: C2-M fresh forty-round review and correction regressions
+        run: php -d zend.assertions=1 tests/c2m-forty-fresh-review.php
+
       - name: Verify release identity
         run: python3 build/verify_release_identity.py
 
