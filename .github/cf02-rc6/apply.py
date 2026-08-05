@@ -5,7 +5,6 @@ import base64
 import gzip
 import hashlib
 import json
-import shutil
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[2]
@@ -36,8 +35,4 @@ for relative, encoded_file in mapping.items():
         raise SystemExit(f"Unsafe payload path: {relative}")
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(base64.b64decode(encoded_file, validate=True))
-workflow = root / ".github" / "workflows" / "cf02-rc6-applicator.yml"
-if workflow.exists():
-    workflow.unlink()
-shutil.rmtree(payload_dir)
-print(f"Applied {len(mapping)} RC6 files and removed the one-time applicator")
+print(f"Applied {len(mapping)} RC6 files; connector cleanup follows after the source commit")
