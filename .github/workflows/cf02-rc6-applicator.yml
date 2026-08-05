@@ -1,0 +1,38 @@
+name: CF-02 RC6 One-Time Applicator
+
+on:
+  push:
+    branches:
+      - agent/cf-02-three-plan-final-completion
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]' && contains(github.event.head_commit.message, 'Install CF-02 RC6 applicator')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out corrective branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/cf-02-three-plan-final-completion
+          fetch-depth: 0
+
+      - name: Apply verified RC6 payload
+        run: python3 .github/cf02-rc6/apply.py
+
+      - name: Validate applied source before commit
+        run: |
+          python3 build/verify_release_identity.py
+          python3 build/verify_traceability.py
+          find . -path ./vendor -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Commit exact corrective source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && { echo "No changes applied"; exit 1; }
+          git commit -m "Complete CF-02 three-plan RC6 coding and two review-fix rounds"
+          git push origin HEAD:agent/cf-02-three-plan-final-completion
