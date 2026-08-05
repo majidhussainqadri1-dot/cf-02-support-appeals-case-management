@@ -2,7 +2,7 @@
 Contributors: majidhussainqadri1-dot
 Requires at least: 6.0
 Requires PHP: 8.1
-Stable tag: 1.0.0-rc.5
+Stable tag: 1.0.0-rc.6
 License: Proprietary
 Text Domain: cf-02-support-appeals-case-management
 
@@ -36,11 +36,11 @@ No. Default uninstall is non-destructive and preserves CF-02 records and configu
 
 = Is this package production accepted? =
 
-No. Version 1.0.0-rc.5 is a three-plan harmonized coded/package candidate with forty-round and two fresh C2-K review suites. Hostinger staging, real providers, browser/accessibility, security, load, restore, rollback and Founder acceptance remain required.
+No. Version 1.0.0-rc.6 is a three-plan harmonized coded/package candidate with forty-round, two C2-K reviews, and two fresh C2-L release-governance reviews. Hostinger staging, real providers, browser/accessibility, security, load, restore, rollback and Founder acceptance remain required.
 
 == Changelog ==
 
-= 1.0.0-rc.5 =
+= 1.0.0-rc.6 =
 * Harmonized the central plan v3.0, All-Chats directives v2.1 and CF-02 plan v1.0.
 * Added free learning-access taxonomy with a safe legacy alias and canonical category-to-queue routing.
 * Added donor/payment/sponsorship-neutral support priority and appeal enforcement.
@@ -60,7 +60,7 @@ No. Version 1.0.0-rc.5 is a three-plan harmonized coded/package candidate with f
 
 == Upgrade Notice ==
 
-= 1.0.0-rc.5 =
+= 1.0.0-rc.6 =
 Staging-only three-plan harmonized coded/package candidate.
 
 = 1.0.0-rc.2 =

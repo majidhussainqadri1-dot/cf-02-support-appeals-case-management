@@ -22,13 +22,13 @@ C2-D through C2-H established purpose authorization, commands/search/evidence, a
 |---|---|
 | Requested by | Founder instruction to complete coding in one pass against both governing plans |
 | Recorded at | 2026-08-04T04:15:00+05:00 |
-| Candidate | `1.0.0-rc.5`; schema `1.3.0`; contract `1.1.0` |
+| Candidate | `1.0.0-rc.6`; schema `1.3.0`; contract `1.1.0` |
 | Old state | complete domain/repository candidate, but limited real WordPress command/query exposure |
 | New state | complete plan-aligned WordPress runtime integration for 33 commands and 20 queries |
 | Ownership | CF-02 owns support/appeal orchestration; identity, messaging, moderation, payment, clinical, notification, shell, assurance and visual truth stay native |
 | Data impact | encrypted payloads, events, representatives, links, inbound receipts, tokens, merge history, incidents, metrics and note revisions |
 | Security/privacy | exact File 00 actor binding, strong ETag, signed providers, replay limits, encryption, minimized views and hold-aware retention |
-| Migration | idempotent schema 1.2 installation; Hostinger upgrade/dry-run remains mandatory |
+| Migration | idempotent schema 1.3 installation; Hostinger upgrade/dry-run remains mandatory |
 | Rollback | code/package rollback with preserved data; default uninstall remains non-destructive |
 | Review | C2-I Review 1 plus fresh adversarial Review 2, both with regression suites |
 | Approval status | code candidate authorized; merge, Hostinger staging, live activation and operational acceptance not authorized |
@@ -36,3 +36,15 @@ C2-D through C2-H established purpose authorization, commands/search/evidence, a
 ## Mandatory release boundary
 
 No automated or generic WordPress result substitutes for real companion/provider acceptance, production-like migration, browser/accessibility/security/load evidence, backup/restore/rollback rehearsal, observation window and Founder exact-artifact approval.
+
+## CF02-CCR-0006 — Three-plan final release-governance completion
+
+| Field | Value |
+|---|---|
+| Requested by | Founder instruction to complete CF-02 coding against all three governing plans |
+| Candidate | `1.0.0-rc.6`; schema `1.3.0`; contract `1.1.0` |
+| Defects corrected | stale RC2 runbooks, hard-coded workflow identity, missing machine RTM and missing documentation-drift regression |
+| Data impact | none |
+| Security/release effect | prevents wrong-artifact staging and false evidence promotion |
+| Review | C2-L Review 1 plus independent fresh adversarial Review 2 |
+| Approval status | Draft code candidate; staging/live/operational acceptance remains separate |

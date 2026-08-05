@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.0-rc.6 — Three-plan final code-completion and release-governance candidate
+
+- Corrected stale RC2/schema references in release and staging documentation.
+- Made `release/manifest.json` the single release identity source for every GitHub workflow.
+- Added `build/verify_release_identity.py` to fail CI on plugin/readme/docs/workflow identity drift.
+- Added `release/traceability.json` and `build/verify_traceability.py` covering all 34 CF-02 requirements plus central-plan and All-Chats invariants.
+- Added C2-L implementation, first-review and fresh adversarial review suites.
+- Preserved truthful separation between Coded/Packaged/Automated-QA and external Staging/Live/Operational gates.
+
 ## 1.0.0-rc.5 — Three-plan harmonization candidate
 
 - Reconciled the Definitive Master Plan v3.0, All-Chats Directive Register v2.1 and CF-02 plan v1.0.
@@ -69,7 +78,7 @@ All notable CF-02 repository changes are recorded here. Status words follow the 
 - Completed C2-A through C2-H domain/repository implementation and two review/fix rounds per phase.
 - Added fail-closed WordPress schema foundations.
 
-## 1.0.0-rc.4 — Forty-round corrective review candidate
+## Historical supplemental RC4 forty-round evidence
 - Removes permissive File 00 fallbacks and duplicate local authorization authority.
 - Adds exact-artifact, environment-aware activation, managed key lifecycle, opaque keyset cursors, governed repair, complete requester/admin surfaces and forty distinct review/fix regressions.
 - Remains staging-unaccepted, live-undeployed and non-operational until external gates pass.

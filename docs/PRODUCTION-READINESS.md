@@ -2,7 +2,7 @@
 
 ## Status boundary
 
-Runtime candidate: `1.0.0-rc.5`
+Runtime candidate: `1.0.0-rc.6`
 Plan: `1.0`
 Schema: `1.3.0`
 Contract: `1.1.0`
@@ -18,8 +18,8 @@ Each gate is independent: `not-started`, `in-progress`, `passed`, `failed`, `blo
 | Governing traceability | Central plan v3.0 + All-Chats v2.1 + CF02-FR-001…034 → code/tests | complete candidate |
 | Runtime command/query surface | 33 commands + 20 queries + both namespaces | complete candidate |
 | Authorization/ownership | File 00 assertion, native-owner keys, no direct companion writes | complete candidate |
-| Persistence/lifecycles | Schema 1.2, replay, events, attachments, SLA, appeals, holds, retention | complete candidate |
-| Two fresh coding reviews | C2-K Review 1 and fresh adversarial Review 2 | complete candidate |
+| Persistence/lifecycles | Schema 1.3, replay, events, attachments, SLA, appeals, holds, retention | complete candidate |
+| Two fresh coding reviews | C2-L Review 1 and fresh adversarial Review 2 | complete candidate |
 | Source identity | Exact branch/head/PR | automated on exact head |
 | Deterministic package | ZIP, manifest, SBOM, provenance, checksums, parity | automated on exact head |
 | Dormant lifecycle | clean install, fail-closed activation, reactivation, safe uninstall | automated on exact head |

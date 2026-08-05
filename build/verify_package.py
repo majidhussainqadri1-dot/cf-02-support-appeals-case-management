@@ -72,6 +72,7 @@ def main() -> int:
             "package_slug": slug,
             "plugin_version": version,
             "plan_version": str(CONFIG["plan_version"]),
+            "contract_version": str(CONFIG["contract_version"]),
             "database_schema_version": str(CONFIG["database_schema_version"]),
             "source_sha": args.source_sha,
             "release_status": str(CONFIG["release_status"]),
@@ -115,6 +116,47 @@ def main() -> int:
         fail("package checksum is absent from SHA256SUMS")
     if sha256(package.read_bytes()) != expected_checksum:
         fail("package checksum does not match SHA256SUMS")
+
+    sbom_path = DIST / f"{slug}-{version}.spdx.json"
+    provenance_path = DIST / f"{slug}-{version}.provenance.json"
+    for evidence in (sbom_path, provenance_path):
+        if not evidence.is_file():
+            fail(f"release evidence is missing: {evidence.name}")
+        expected = None
+        for line in checksums_path.read_text(encoding="utf-8").splitlines():
+            digest, _, name = line.partition("  ")
+            if name == evidence.name:
+                expected = digest
+                break
+        if expected is None or sha256(evidence.read_bytes()) != expected:
+            fail(f"release evidence checksum mismatch: {evidence.name}")
+
+    sbom = json.loads(sbom_path.read_text(encoding="utf-8"))
+    if sbom.get("spdxVersion") != "SPDX-2.3":
+        fail("SBOM is not SPDX 2.3")
+    packages = sbom.get("packages") or []
+    if len(packages) != 1 or packages[0].get("versionInfo") != version:
+        fail("SBOM package version differs from release manifest")
+
+    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    subjects = provenance.get("subject") or []
+    if len(subjects) != 1 or subjects[0].get("name") != package.name or subjects[0].get("digest", {}).get("sha256") != expected_checksum:
+        fail("provenance subject does not bind the verified package")
+    definition = provenance.get("predicate", {}).get("buildDefinition", {})
+    parameters = definition.get("externalParameters", {})
+    expected_parameters = {
+        "plugin_version": version,
+        "plan_version": str(CONFIG["plan_version"]),
+        "schema_version": str(CONFIG["database_schema_version"]),
+        "contract_version": str(CONFIG["contract_version"]),
+        "release_status": str(CONFIG["release_status"]),
+    }
+    for key, expected in expected_parameters.items():
+        if parameters.get(key) != expected:
+            fail(f"provenance parameter mismatch: {key}")
+    dependencies = definition.get("resolvedDependencies") or []
+    if len(dependencies) != 1 or dependencies[0].get("digest", {}).get("sha1") != args.source_sha:
+        fail("provenance source SHA differs from the verified source")
 
     print(json.dumps({
         "verified": True,

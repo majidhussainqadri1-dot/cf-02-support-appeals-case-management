@@ -2,7 +2,7 @@
 
 ## Status constitution
 
-- **Coded-reviewed**: executable implementation plus C2-I foundation, two prior reviews and the forty-round corrective suite.
+- **Coded-reviewed**: executable implementation plus C2-I foundation, forty-round corrective suite, C2-K harmonization and two C2-L release-governance reviews.
 - **Runtime-integrated**: WordPress schema, REST command/query, worker, route or surface code exists.
 - **External evidence pending**: real provider/companion/staging/operations proof remains separate.
 
@@ -59,7 +59,7 @@
 
 ## Truthful implementation status
 
-- Source state: corrective `1.0.0-rc.5`, schema `1.3.0`.
+- Source state: corrective `1.0.0-rc.6`, schema `1.3.0`.
 - Automated status: must be taken from the exact-head GitHub workflows; local passes alone are not staging acceptance.
 - External state: real companion/provider, Hostinger staging, browser/accessibility, independent security, load, restore, rollback, observation and Founder exact-artifact approval remain pending.
 
@@ -72,3 +72,7 @@
 | `CHAT-QA-001` — post-GitHub harmonization and iterative review | C2-K change record, Review 1, fresh adversarial Review 2, full regression/CI/package gates | Coded-reviewed; platform-wide final harmonization remains future cross-repository gate |
 | Doctor ranking complaint/appeal boundary | conditional File 26 contract and `PrivacySafeOutcomeProjection`; no appeal-use or donor signal | Coded-reviewed; real File 26 contract pending |
 | Green, RTL, icon and accessibility rule | external CSS/JS, platform green token fallback, logical properties, SVG icons, 44px controls, keyboard/reduced-motion/forced-colors states | Coded-reviewed; real browser/device acceptance pending |
+
+## Machine-verifiable evidence
+
+`release/traceability.json` contains the exact ordered CF02-FR-001 through CF02-FR-034 set plus central-plan and All-Chats directives. `build/verify_traceability.py` fails CI if any evidence path is absent, any ID is missing/duplicated, or external staging evidence is represented as passed.

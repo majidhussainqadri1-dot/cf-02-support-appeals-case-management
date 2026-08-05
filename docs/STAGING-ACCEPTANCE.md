@@ -2,7 +2,7 @@
 
 ## Entry conditions
 
-- Exact `1.0.0-rc.2` package checksum is recorded.
+- Exact `1.0.0-rc.6` package checksum, source SHA, schema `1.3.0`, contract `1.1.0` and manifest identity are recorded and mutually consistent.
 - Sanitized production-like backup and isolated restore location exist.
 - Required companion/provider versions are inventoried.
 - Runtime remains fail-closed until the activation evidence set is complete.
@@ -17,8 +17,8 @@
 | PHP version/extensions | pending |
 | Database/version/charset | pending |
 | Cache/CDN/object storage | pending |
-| Candidate commit | pending |
-| Candidate ZIP SHA-256 | pending |
+| Candidate commit | pending — must equal the RC6 artifact provenance source SHA |
+| Candidate ZIP SHA-256 | pending — must match RC6 `SHA256SUMS` |
 | Backup ID and restore proof | pending |
 | Test window | pending |
 
