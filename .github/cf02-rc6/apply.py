@@ -13,9 +13,6 @@ parts = sorted(payload_dir.glob("part*.b64"))
 if len(parts) != 6:
     raise SystemExit("RC6 payload must contain exactly six parts")
 chunks = [part.read_text(encoding="ascii").strip() for part in parts]
-# The first transport chunk is 10,000 characters and the second begins at
-# offset 8,000. Remove the deliberate 2,000-character overlap, then append
-# the remaining contiguous chunks (offsets 24,000 onward).
 encoded = chunks[0] + chunks[1][2000:] + "".join(chunks[2:])
 if len(encoded) != 81944:
     raise SystemExit(f"RC6 payload length is invalid: {len(encoded)}")
@@ -29,10 +26,18 @@ except Exception as exc:
     raise SystemExit(f"Cannot decode RC6 payload: {exc}")
 if not isinstance(mapping, dict) or len(mapping) != 31:
     raise SystemExit("RC6 payload file count is invalid")
+applied = 0
 for relative, encoded_file in mapping.items():
+    # GitHub Apps cannot modify workflow definitions through a workflow token.
+    # Those four authenticated connector updates follow this source commit.
+    if relative.startswith(".github/workflows/"):
+        continue
     target = (root / relative).resolve()
     if root.resolve() not in target.parents:
         raise SystemExit(f"Unsafe payload path: {relative}")
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(base64.b64decode(encoded_file, validate=True))
-print(f"Applied {len(mapping)} RC6 files; connector cleanup follows after the source commit")
+    applied += 1
+if applied != 27:
+    raise SystemExit(f"Unexpected applied file count: {applied}")
+print("Applied 27 RC6 source files; four workflow files follow through the authenticated connector")
