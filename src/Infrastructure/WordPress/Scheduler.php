@@ -12,6 +12,7 @@ final class Scheduler
     public const HOOK_RETENTION = 'cf02_process_retention';
     public const HOOK_RECONCILIATION = 'cf02_process_reconciliation';
     public const HOOK_KEY_ROTATION = 'cf02_process_key_rotation';
+    public const HOOK_SUPPORT_PARITY = 'cf02_support_parity_monthly';
 
     public static function register(?RuntimeWorker $worker = null): void
     {
@@ -37,6 +38,7 @@ final class Scheduler
         if (!wp_next_scheduled(self::HOOK_RETENTION)) {
             wp_schedule_event(time() + 300, 'daily', self::HOOK_RETENTION);
         }
+        self::scheduleNextParityAudit();
 
         if ($worker instanceof RuntimeWorker) {
             add_action(self::HOOK_OUTBOX, static function () use ($worker): void {
@@ -64,13 +66,17 @@ final class Scheduler
                 do_action('cf02_retention_worker_completed', $result);
             });
         }
+        add_action(self::HOOK_SUPPORT_PARITY, static function (): void {
+            MonthlyParityAuditRunner::run();
+            self::scheduleNextParityAudit(true);
+        });
     }
 
     /** @return array<string,mixed> */
     public static function inspection(): array
     {
         $hooks = [];
-        foreach ([self::HOOK_OUTBOX, self::HOOK_EVENTS, self::HOOK_RECONCILIATION, self::HOOK_SLA, self::HOOK_KEY_ROTATION, self::HOOK_RETENTION] as $hook) {
+        foreach ([self::HOOK_OUTBOX, self::HOOK_EVENTS, self::HOOK_RECONCILIATION, self::HOOK_SLA, self::HOOK_KEY_ROTATION, self::HOOK_RETENTION, self::HOOK_SUPPORT_PARITY] as $hook) {
             $next = wp_next_scheduled($hook);
             $hooks[$hook] = ['scheduled' => $next !== false, 'next_at' => $next === false ? null : gmdate(DATE_ATOM, (int) $next)];
         }
@@ -84,8 +90,20 @@ final class Scheduler
 
     public static function unschedule(): void
     {
-        foreach ([self::HOOK_OUTBOX, self::HOOK_EVENTS, self::HOOK_RECONCILIATION, self::HOOK_SLA, self::HOOK_KEY_ROTATION, self::HOOK_RETENTION] as $hook) {
+        foreach ([self::HOOK_OUTBOX, self::HOOK_EVENTS, self::HOOK_RECONCILIATION, self::HOOK_SLA, self::HOOK_KEY_ROTATION, self::HOOK_RETENTION, self::HOOK_SUPPORT_PARITY] as $hook) {
             wp_clear_scheduled_hook($hook);
         }
+    }
+
+    private static function scheduleNextParityAudit(bool $replace = false): void
+    {
+        if ($replace) {
+            wp_clear_scheduled_hook(self::HOOK_SUPPORT_PARITY);
+        } elseif (wp_next_scheduled(self::HOOK_SUPPORT_PARITY)) {
+            return;
+        }
+        $now = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+        $next = $now->modify('first day of next month')->setTime(2, 0, 0);
+        wp_schedule_single_event($next->getTimestamp(), self::HOOK_SUPPORT_PARITY);
     }
 }
