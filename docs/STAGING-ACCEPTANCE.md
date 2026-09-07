@@ -2,10 +2,11 @@
 
 ## Entry conditions
 
-- Exact `1.0.0-rc.2` package checksum is recorded.
+- Exact `1.0.0-rc.6` package checksum is recorded.
+- Exact repository commit and package manifest/SBOM/provenance are recorded.
 - Sanitized production-like backup and isolated restore location exist.
 - Required companion/provider versions are inventoried.
-- Runtime remains fail-closed until the activation evidence set is complete.
+- Runtime remains fail-closed until activation evidence is complete.
 - Named tester roles and emergency rollback authority are available.
 
 ## Environment record
@@ -30,23 +31,21 @@
 - [ ] Activation records pending state and remains dormant without gates.
 - [ ] Concurrent activation/installer lock cannot create drift or duplicate schema.
 - [ ] Deactivate/reactivate is idempotent.
-- [ ] Supported upgrade preserves records, versions, holds and audit truth.
+- [ ] Supported upgrade from an accepted prior package/schema preserves records, versions, holds and audit truth.
 - [ ] Default uninstall clears workers but preserves canonical data.
 - [ ] Repair is bounded, previewed, authorized and non-destructive to companion owners.
 
-### Roles and case journeys
+### Core case/appeal journeys
 
-Test: Founder, Administrator, Support Agent, Specialist Agent, Team Lead, Appeal Reviewer, liaison, auditor, ordinary user, guardian/representative, pending, suspended and unauthorized actors.
-
-- [ ] Intake creates one traceable case under replay/concurrency.
-- [ ] Changed payload under one idempotency key fails.
-- [ ] Assignment obeys queue, language, skill, clearance and capacity.
-- [ ] SLA pause/resume requires typed evidence and chronology.
-- [ ] Internal/restricted notes never appear in requester projections.
-- [ ] Attachments remain quarantined until exact scan/hash/MIME evidence passes.
-- [ ] Resolution, closure and reopening obey governed policy.
-- [ ] Appeal standing, timeliness, independence, dossier and native implementation reconcile.
-- [ ] Native-owner failure/retry/dead-letter/compensation remains observable.
+- [ ] CF02-NJ-01 technical case end to end.
+- [ ] CF02-NJ-02 account-access escalation through native owner.
+- [ ] CF02-NJ-03 independent moderation appeal and native implementation.
+- [ ] CF02-NJ-04 privacy case with minimum disclosure/hold/rights path.
+- [ ] CF02-NJ-05 emergency diversion without ordinary SLA/false promise.
+- [ ] CF02-NJ-06 provider/queue outage, backlog recovery, duplicate suppression and SLA correction.
+- [ ] Safe guest pre-intake creates no case before authenticated step-up and sensitive categories are denied.
+- [ ] File 19 outcome-delivery failure cannot become false resolved/auto-closed state.
+- [ ] Monthly donor/non-donor parity audit consumes aggregate cohorts only and blocks unexplained material variance.
 
 ### Security and privacy
 
@@ -73,17 +72,9 @@ Test: Founder, Administrator, Support Agent, Specialist Agent, Team Lead, Appeal
 - [ ] Provider timeout/outage yields explicit degraded state and safe retry.
 - [ ] Cache/cron delay does not grant authority or hide breach evidence.
 - [ ] Restore meets approved RTO/RPO and replays deletion/hold obligations.
-- [ ] Rollback preserves post-cutover data according to the rehearsal plan.
+- [ ] Rollback preserves post-cutover data according to rehearsal plan.
 - [ ] Alerts contain actionable metadata without sensitive content.
 
 ## Exit gate
 
-Staging is accepted only when:
-
-1. every mandatory checkbox has evidence;
-2. two fresh review/fix rounds are complete against the deployed candidate;
-3. known critical/high defects are zero;
-4. medium/low residual risks are explicit, bounded and approved;
-5. backup/restore and rollback rehearsals pass;
-6. exact package/commit evidence is unchanged;
-7. Founder approval names the exact version, SHA and package checksum.
+Staging is accepted only when every mandatory checkbox has evidence; two fresh review/fix rounds are complete against the deployed candidate; known Critical/High defects are zero; residual risk is explicit/approved; backup/restore and rollback rehearsals pass; exact package/commit evidence remains unchanged; and Founder approval names the exact version, SHA and package checksum.
