@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sabri\CF02\Infrastructure\WordPress;
 
+use Sabri\CF02\Intake\GuestContinuationToken;
 use Sabri\CF02\Search\CursorCodec;
 use Sabri\CF02\Security\DataCipher;
 
@@ -34,6 +35,8 @@ final class Runtime
             $cases = new CaseRepository();
             (new ComprehensiveRestController($cases, $operations, $cipher))->registerRoutes();
             (new ProviderWebhookController($cases, $operations, $cipher))->registerRoutes();
+            $guestKey = hash('sha256', wp_salt('auth') . '|cf02-guest-continuation-v1', true);
+            (new GuestIntakeController($cases, $operations, $cipher, new GuestContinuationToken($guestKey)))->registerRoutes();
         });
 
         add_filter('wp_robots', static function (array $robots): array {
