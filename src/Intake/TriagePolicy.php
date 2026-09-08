@@ -22,7 +22,7 @@ final class TriagePolicy
         ServiceEqualityPolicy::assertNoPrivilegeSignals($fields);
         $category = SupportTaxonomy::defaults()[$request->categoryKey()];
 
-        $harm = strtolower(trim((string) ($fields['harm_level'] ?? ''));
+        $harm = strtolower(trim((string) ($fields['harm_level'] ?? '')));
         if ($harm !== '' && !in_array($harm, ['none', 'low', 'medium', 'high', 'critical'], true)) {
             throw new InvalidArgumentException('Harm level is invalid.');
         }
