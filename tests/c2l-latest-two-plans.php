@@ -20,7 +20,7 @@ use Sabri\CF02\Resolution\ResolutionPolicy;
 use Sabri\CF02\Domain\CaseState;
 use Sabri\CF02\Safety\EmergencyRunbookRegistry;
 
-$failures=[];$test=static function(string $n,callable $c)use(&$failures):void{try{$c();fwrite(STDOUT,"PASS {$n}\n");}catch(Throwable $e){$failures[]=$n.': '.$e->getMessage();fwrite(STDERR,"FAIL {$n}: {$e->getMessage()."\n";} }};
+$failures=[];$test=static function(string $n,callable $c)use(&$failures):void{try{$c();fwrite(STDOUT,"PASS {$n}\n");}catch(Throwable $e){$failures[]=$n.': '.$e->getMessage();fwrite(STDERR,"FAIL {$n}: {$e->getMessage()}\n");}};
 $root=dirname(__DIR__);
 
 $test('CEN-01 routing consumes severity harm deadline competence and rejects privilege signals',static function():void{
