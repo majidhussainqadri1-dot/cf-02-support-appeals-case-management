@@ -11,7 +11,7 @@ permissions:
 
 env:
   SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  PACKAGE_VERSION: 1.0.0-rc.5
+  PACKAGE_VERSION: 1.0.0-rc.6
 
 jobs:
   runtime:
@@ -92,7 +92,7 @@ jobs:
       - name: Record exact activation evidence and activate staging runtime
         run: |
           PACKAGE_SHA="$(cat /tmp/cf02-package-sha)"
-          SOURCE_SHA="$SOURCE_SHA" PACKAGE_SHA="$PACKAGE_SHA" php /tmp/wp-cli.phar eval '$now=gmdate(DATE_ATOM);$identity=["runtime_version"=>"1.0.0-rc.5","schema_version"=>"1.3.0","source_sha"=>getenv("SOURCE_SHA"),"package_sha256"=>getenv("PACKAGE_SHA")];update_option("cf02_test_exact_identity",$identity,false);update_option("cf02_founder_activation_approval",["approved"=>true,"plan_version"=>"1.0","change_control_id"=>"CF02-ACT-1001","approved_by"=>"founder","approved_at"=>$now,"environment"=>"staging"]+$identity,false);$base=["status"=>"accepted","evidence_id"=>"smoke-evidence","owner"=>"CI","artifact_ref"=>getenv("SOURCE_SHA"),"recorded_at"=>$now];$ops=[];foreach(["privacy_review","security_review","migration_plan","rollback_plan"] as $key){$ops[$key]=$base;}$ops["volume_trigger"]=$base+["measurement_window"=>"controlled runtime smoke","metric"=>"test cases","threshold"=>1,"observed_value"=>1,"triggered"=>true];$ops["staffing"]=$base+["coverage_hours"=>"controlled test window","queue_owners"=>["technical_support"=>"ci:operator"],"escalation_tree_approved"=>true,"emergency_diversion_approved"=>true,"privacy_training_complete"=>true,"quality_sampling_approved"=>true];$ops["zero_critical_high_defects"]=$base+["critical_open"=>0,"high_open"=>0];update_option("cf02_operational_activation_evidence",$ops,false);' --path=/tmp/cf02-runtime
+          SOURCE_SHA="$SOURCE_SHA" PACKAGE_SHA="$PACKAGE_SHA" php /tmp/wp-cli.phar eval '$now=gmdate(DATE_ATOM);$identity=["runtime_version"=>"1.0.0-rc.6","schema_version"=>"1.3.0","source_sha"=>getenv("SOURCE_SHA"),"package_sha256"=>getenv("PACKAGE_SHA")];update_option("cf02_test_exact_identity",$identity,false);update_option("cf02_founder_activation_approval",["approved"=>true,"plan_version"=>"1.0","change_control_id"=>"CF02-ACT-1001","approved_by"=>"founder","approved_at"=>$now,"environment"=>"staging"]+$identity,false);$base=["status"=>"accepted","evidence_id"=>"smoke-evidence","owner"=>"CI","artifact_ref"=>getenv("SOURCE_SHA"),"recorded_at"=>$now];$ops=[];foreach(["privacy_review","security_review","migration_plan","rollback_plan"] as $key){$ops[$key]=$base;}$ops["volume_trigger"]=$base+["measurement_window"=>"controlled runtime smoke","metric"=>"test cases","threshold"=>1,"observed_value"=>1,"triggered"=>true];$ops["staffing"]=$base+["coverage_hours"=>"controlled test window","queue_owners"=>["technical_support"=>"ci:operator"],"escalation_tree_approved"=>true,"emergency_diversion_approved"=>true,"privacy_training_complete"=>true,"quality_sampling_approved"=>true];$ops["zero_critical_high_defects"]=$base+["critical_open"=>0,"high_open"=>0];update_option("cf02_operational_activation_evidence",$ops,false);' --path=/tmp/cf02-runtime
           php /tmp/wp-cli.phar plugin activate cf-02-support-appeals-case-management --path=/tmp/cf02-runtime
           php /tmp/wp-cli.phar eval '$state=get_option("cf02_activation_state",[]);if(($state["status"]??null)!=="ready"){fwrite(STDERR,wp_json_encode($state)."\n");exit(1);}if(get_option("cf02_schema_version")!=="1.3.0"){exit(1);}' --path=/tmp/cf02-runtime
       - name: Exercise runtime and governed repair
