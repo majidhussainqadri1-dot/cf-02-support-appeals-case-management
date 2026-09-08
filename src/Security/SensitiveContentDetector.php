@@ -10,9 +10,12 @@ final class SensitiveContentDetector
     public static function warnings(string $value): array
     {
         $patterns = [
-            'password' => '/\b(?:password|passwd)\s*[:=]\s*\S+/iu',
-            'otp' => '/\b(?:otp|one[- ]time (?:code|password)|verification code)\s*[:=]\s*\d{4,8}\b/iu',
-            'card_security_code' => '/\b(?:cvv|cvc|security code)\s*[:=]\s*\d{3,4}\b/iu',
+            // Accept the common "label: secret", "label=secret" and "label secret"
+            // forms while requiring a credential-shaped value so ordinary prose such
+            // as "password reset" does not become a false positive.
+            'password' => '/\b(?:password|passwd)(?:\s*[:=]\s*|\s+)(?=\S{6,})(?=\S*(?:\d|[^\p{L}\p{N}]))\S+/iu',
+            'otp' => '/\b(?:otp|one[- ]time (?:code|password)|verification code)(?:\s*[:=]\s*|\s+)\d{4,8}\b/iu',
+            'card_security_code' => '/\b(?:cvv|cvc|security code)(?:\s*[:=]\s*|\s+)\d{3,4}\b/iu',
             'private_key' => '/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/u',
         ];
 
