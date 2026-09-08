@@ -120,6 +120,15 @@ jobs:
       - name: C2-K fresh adversarial review
         run: php -d zend.assertions=1 tests/c2k-review2.php
 
+      - name: C2-L latest-two-plans completion
+        run: php -d zend.assertions=1 tests/c2l-latest-two-plans.php
+
+      - name: C2-L first corrective review regressions
+        run: php -d zend.assertions=1 tests/c2l-review1.php
+
+      - name: C2-L fresh adversarial second review
+        run: php -d zend.assertions=1 tests/c2l-review2.php
+
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
 

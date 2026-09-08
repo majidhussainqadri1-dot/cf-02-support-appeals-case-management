@@ -43,7 +43,7 @@ $test('default uninstall is non destructive and clears every scheduler hook', st
 });
 
 $test('release status remains truthful and external evidence gates remain explicit', static function () use ($manifest): void {
-    assert($manifest['release_status'] === 'three-plan-harmonized-candidate-not-staging-accepted');
+    assert($manifest['release_status'] === 'latest-two-plans-coded-candidate-not-staging-accepted');
     $gates = $manifest['external_acceptance_gates'] ?? [];
     assert(is_array($gates) && count($gates) >= 8);
     foreach (['hostinger-staging-install-upgrade-migration', 'backup-restore-and-rollback-rehearsal', 'founder-exact-artifact-approval'] as $gate) assert(in_array($gate, $gates, true));
@@ -60,6 +60,7 @@ $test('complete runtime integration and operational runbooks are present', stati
         'assets/css/cf02-frontend.css','assets/js/cf02-frontend.js',
         'languages/cf-02-support-appeals-case-management-ur.mo',
         'docs/THREE-PLAN-HARMONIZATION.md','docs/CHANGE-CONTROL-C2K.md','docs/REVIEW-REGISTER-C2K.md',
+        'docs/CHANGE-CONTROL-C2L.md','docs/REVIEW-REGISTER-C2L.md',
     ] as $required) assert(is_file($root . '/' . $required), $required . ' is missing');
 });
 

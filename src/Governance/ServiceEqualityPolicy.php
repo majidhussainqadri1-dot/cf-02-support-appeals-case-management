@@ -9,8 +9,8 @@ use InvalidArgumentException;
 /**
  * Enforces the single-free-tier and donation non-privilege law.
  *
- * Donation, sponsorship or paid-promotion facts are not valid support-priority,
- * SLA, reviewer-assignment, appeal-eligibility or quality signals.
+ * Donation, sponsorship, paid promotion, popularity or ranking facts are not
+ * valid support-priority, SLA, assignment, review, appeal or quality signals.
  */
 final class ServiceEqualityPolicy
 {
@@ -23,6 +23,13 @@ final class ServiceEqualityPolicy
         'paid_promotion',
         'payment_tier',
         'founder_favoritism',
+        'popularity',
+        'popularity_score',
+        'rank',
+        'ranking_signal',
+        'reach',
+        'badge',
+        'support_priority_override',
     ];
 
     /** @param array<string,mixed> $context */

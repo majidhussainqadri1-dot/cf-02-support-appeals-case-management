@@ -17,10 +17,14 @@ final class ReviewerAssignmentPolicy
         string $originalDecisionActor,
         string $requiredCompetence,
         bool $sensitive,
-        array $reviewers
+        array $reviewers,
+        ?string $originalDecisionUnit = null
     ): array {
         if (trim($originalDecisionId) === '' || trim($originalDecisionActor) === '' || trim($requiredCompetence) === '') {
             throw new InvalidArgumentException('Reviewer assignment requires original decision, actor and competence.');
+        }
+        if ($originalDecisionUnit !== null && preg_match('/^[A-Za-z0-9][A-Za-z0-9_.:@-]{1,63}$/', $originalDecisionUnit) !== 1) {
+            throw new InvalidArgumentException('Original decision organization unit is invalid.');
         }
         $eligible = [];
         foreach ($reviewers as $reviewer) {
@@ -31,6 +35,7 @@ final class ReviewerAssignmentPolicy
                 || !$reviewer->hasCompetence($requiredCompetence)
                 || $reviewer->wasInvolved($originalDecisionId)
                 || $reviewer->conflictsWith($originalDecisionActor)
+                || ($originalDecisionUnit !== null && hash_equals($reviewer->organizationUnit(), $originalDecisionUnit))
                 || ($sensitive && !$reviewer->sensitiveClearance())) {
                 continue;
             }
@@ -40,13 +45,13 @@ final class ReviewerAssignmentPolicy
         if ($eligible === []) {
             return [
                 'reviewer_reference' => null,
-                'reasons' => ['No available independent reviewer satisfies competence, conflict and clearance requirements.'],
+                'reasons' => ['No available reviewer satisfies competence, prior-involvement, conflict, organizational-separation and clearance requirements.'],
                 'eligible_count' => 0,
             ];
         }
         return [
             'reviewer_reference' => $eligible[0]->reviewerReference(),
-            'reasons' => ['Selected reviewer is independent, competent, available and appropriately cleared.'],
+            'reasons' => ['Selected reviewer is organizationally independent, competent, available, conflict-free and appropriately cleared.'],
             'eligible_count' => count($eligible),
         ];
     }

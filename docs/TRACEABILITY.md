@@ -2,9 +2,11 @@
 
 ## Status constitution
 
-- **Coded-reviewed**: executable implementation plus C2-I foundation, two prior reviews and the forty-round corrective suite.
-- **Runtime-integrated**: WordPress schema, REST command/query, worker, route or surface code exists.
-- **External evidence pending**: real provider/companion/staging/operations proof remains separate.
+- **Coded-reviewed**: executable implementation plus regression evidence exists in repository source.
+- **Runtime-integrated**: WordPress schema, REST/worker/route/surface wiring exists.
+- **External evidence pending**: real companion/provider/staging/operations proof remains a separate gate.
+
+## CF02-FR-001…034 baseline
 
 | ID | Runtime evidence | Status |
 |---|---|---|
@@ -43,32 +45,58 @@
 | CF02-FR-033 | marked suggestion boundaries; no autonomous final/native/clinical/safety action | Coded-reviewed |
 | CF02-FR-034 | approved schedule, hold-aware purge, provider reconciliation and evidence retention | Runtime-integrated |
 
+## Latest rewritten CF-02 plan — complementary CEN requirements
+
+| ID | Design / code / evidence | Test |
+|---|---|---|
+| CF02-CEN-01 | `ServiceEqualityPolicy`, `TriagePolicy::decideAt`, `AssignmentRouter`: severity/harm/deadline/competence routing; donor/popularity/ranking signals rejected | `tests/c2l-latest-two-plans.php`, Review 1 |
+| CF02-CEN-02 | `OperationsRepository::linkObject`: canonical owner/type/ref/version/privacy class plus projection hash; no copied projection body persisted | C2-L trace test + existing runtime tests |
+| CF02-CEN-03 | `AdverseDecisionNotice`: reason, policy/version, evidence summary, remedy, appeal route/deadline, immutable notice hash | C2-L implementation test |
+| CF02-CEN-04 | `ReviewerProfile.organizationUnit` + `ReviewerAssignmentPolicy`: prior involvement, actor conflict and same-unit separation | C2-L + Review 1 |
+| CF02-CEN-05 | `EmergencyRunbookRegistry`: distinct clinical red flag, imminent harm, account takeover, child safety, privacy breach and financial fraud boundaries; public-safe metadata only | C2-L + Review 1 |
+| CF02-CEN-06 | `AccessContext` + `PurposeBoundAccessPolicy`: expiring assertion, case/queue assignment, purpose/field class, sensitive approval and recent-auth checks | existing C2-D suites + C2-L trace |
+| CF02-CEN-07 | SLA timer/event runtime + explicit transition law + governed resolution; no silent state broadening | existing C2-C/C2-I suites + C2-L review |
+| CF02-CEN-08 | `GuestIntakePolicy`, encrypted `GuestContinuationToken`, `GuestIntakeController`: low-sensitivity anonymous pre-intake only, authenticated step-up before case creation/sensitive disclosure | C2-L + Review 1 |
+| CF02-CEN-09 | `OutcomeDeliveryGate` integrated into `ResolutionPolicy`: failed/dead-letter outcome delivery blocks false final resolution/auto-close | C2-L + Review 1 |
+| CF02-CEN-10 | `SupportParityAudit`, `MonthlyParityAuditRunner`, calendar-month scheduler: aggregate-only privacy-thresholded donor/non-donor support parity; material variance emits release blocker | C2-L + Review 1 |
+
+## Native CF-02 journeys
+
+| ID | Repository evidence |
+|---|---|
+| CF02-NJ-01 | intake replay/dedupe → triage/SLA → assignment → messages → resolution/reopen |
+| CF02-NJ-02 | account-safe support category → native identity command/reconciliation; ordinary ticket rejects secrets |
+| CF02-NJ-03 | appeal eligibility → independent reviewer → dossier/decision → native owner implementation reconciliation |
+| CF02-NJ-04 | privacy-specialist purpose-bound access, holds, export/retention and audit paths |
+| CF02-NJ-05 | emergency classification/diversion; ordinary SLA/auto-close disabled for emergency runbook types |
+| CF02-NJ-06 | durable outbox/commands, replay suppression, SLA correction, dead-letter visibility and recovery |
+
+## Platform acceptance journeys consumed by CF-02
+
+`AJ-09`, `AJ-10`, `AJ-18`, `AJ-20`, `AJ-24`, `AJ-25`, `AJ-34`, `AJ-35`, `AJ-36`, `AJ-38`, `AJ-39`, and `AJ-40` are integration acceptance gates. CF-02 provides its owned support/appeal/security/privacy/degraded-state boundaries, but a platform-wide pass requires the relevant native owners and staging evidence and is therefore **external evidence pending**, not fabricated by this repository.
+
+## Central CV catalogue ownership
+
+The CF-02 plan imports 56 Central CV requirements as owner/consumer obligations. The repository preserves native owner boundaries rather than copying those owners. C2-L closes the CF-02-owned gaps most directly associated with `CV-281` Support Center, `CV-280` two-review law, `CV-283` migration truth, `CV-284` vendor/dependency resilience, `CV-285` runbooks/on-call, and the shared security/privacy/accessibility/release requirements. Cross-repository CV journeys remain integration gates where CF-02 is a consumer rather than canonical owner.
+
 ## Central-plan invariants
 
 | Invariant | Code evidence |
 |---|---|
 | One canonical owner | native-owner allowlist; commands only; no companion table writes |
-| File 00 identity authority | exact actor-bound assertion factory; no WP-role inference |
-| File 20 shell owner | route contracts and shortcodes; no second global shell |
-| File 19 transport owner | durable outbox requests; no transport truth claim |
-| File 24 assurance boundary | dependency evidence; native controls remain in CF-02 |
-| Public/private law | public help, authenticated actions, private no-store/noindex routes |
-| Security/privacy | encryption, signatures, replay, strong ETag, purpose access, minimization |
-| Forty corrective review/fix rounds | `docs/FORTY-ROUND-REVIEW-REGISTER.md`, `tests/c2j-forty-review.php` |
-| Truthful completion | release gate still requires external evidence |
+| File 00 identity authority | actor-bound assertion factory; no WordPress-role inference as canonical authority |
+| File 20 shell owner | route contracts/shortcodes; no second global shell |
+| File 19 transport owner | durable outbox requests; no transport truth claim; delivery failure does not become false resolution |
+| File 24 assurance boundary | dependency evidence; native CF-02 controls remain enforceable |
+| Public/private law | public help and safe guest pre-intake; authenticated sensitive actions; private no-store/noindex routes |
+| Security/privacy | encryption, signatures, replay controls, strong versions, purpose access and minimization |
+| Free-core/donor parity | privilege signal rejection plus monthly aggregate parity audit |
+| Two fresh reviews | C2-L implementation + Review 1 + fresh adversarial Review 2 are permanent regression gates |
+| Truthful completion | staging/live/operational remain separate external statuses |
 
-## Truthful implementation status
+## Truthful candidate status
 
-- Source state: corrective `1.0.0-rc.5`, schema `1.3.0`.
-- Automated status: must be taken from the exact-head GitHub workflows; local passes alone are not staging acceptance.
-- External state: real companion/provider, Hostinger staging, browser/accessibility, independent security, load, restore, rollback, observation and Founder exact-artifact approval remain pending.
-
-## All-Chats v2.1 directive traceability
-
-| Directive | Runtime evidence | Status |
-|---|---|---|
-| `CHAT-BIZ-022` — single free tier and donor non-privilege | `learning_access` taxonomy, legacy alias, `ServiceEqualityPolicy`, REST boundary rejection, C2-K parity tests | Coded-reviewed |
-| `CHAT-GOV-023` — Islamic institutional governance and due process | specialist governance category, `InstitutionalDueProcessPolicy`, native implementation verification and appeal safeguards | Coded-reviewed; native institutional owner integration pending |
-| `CHAT-QA-001` — post-GitHub harmonization and iterative review | C2-K change record, Review 1, fresh adversarial Review 2, full regression/CI/package gates | Coded-reviewed; platform-wide final harmonization remains future cross-repository gate |
-| Doctor ranking complaint/appeal boundary | conditional File 26 contract and `PrivacySafeOutcomeProjection`; no appeal-use or donor signal | Coded-reviewed; real File 26 contract pending |
-| Green, RTL, icon and accessibility rule | external CSS/JS, platform green token fallback, logical properties, SVG icons, 44px controls, keyboard/reduced-motion/forced-colors states | Coded-reviewed; real browser/device acceptance pending |
+- Runtime candidate: `1.0.0-rc.6`.
+- Schema: `1.3.0`; contract: `1.1.0`; plan: `1.0`.
+- Automated status must be taken only from exact-head workflow evidence after the final C2-L commit.
+- Hostinger staging, real companion/provider contracts, browser/device/accessibility, independent security, load/soak, migration rehearsal, restore/rollback, staffing, observation and Founder exact-artifact acceptance remain separate gates.
