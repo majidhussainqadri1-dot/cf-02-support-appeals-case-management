@@ -20,7 +20,7 @@ use Sabri\CF02\Resolution\ResolutionPolicy;
 use Sabri\CF02\Domain\CaseState;
 use Sabri\CF02\Safety\EmergencyRunbookRegistry;
 
-$failures=[];$test=static function(string $n,callable $c)use(&$failures):void{try{$c();fwrite(STDOUT,"PASS {$n}\n");}catch(Throwable $e){$failures[]=$n.': '.$e->getMessage();fwrite(STDERR,"FAIL {$n}: {$e->getMessage()}\n");}};
+$failures=[];$test=static function(string $n,callable $c)use(&$failures):void{try{$c();fwrite(STDOUT,"PASS {$n}\n");}catch(Throwable $e){$failures[]=$n.': '.$e->getMessage();fwrite(STDERR,"FAIL {$n}: {$e->getMessage()."\n";} }};
 $root=dirname(__DIR__);
 
 $test('CEN-01 routing consumes severity harm deadline competence and rejects privilege signals',static function():void{
@@ -34,8 +34,8 @@ $test('CEN-01 routing consumes severity harm deadline competence and rejects pri
 
 $test('CEN-02 linked-domain runtime persists typed reference/version plus projection hash only',static function()use($root):void{
     $source=file_get_contents($root.'/src/Infrastructure/WordPress/OperationsRepository.php');
-    assert(str_contains($source,"'projection_hash' => $projectionHash"));
-    assert(str_contains($source,"'object_version' => $objectVersion"));
+    assert(str_contains($source,"'projection_hash' => \$projectionHash"));
+    assert(str_contains($source,"'object_version' => \$objectVersion"));
     assert(!str_contains($source,"'projection_json'"));
 });
 
