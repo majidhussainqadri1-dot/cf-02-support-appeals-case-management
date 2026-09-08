@@ -35,102 +35,75 @@ jobs:
 
       - name: C2-A activation and governance tests
         run: php -d zend.assertions=1 tests/run.php
-
       - name: C2-B intake, case, attachment and resolution tests
         run: php -d zend.assertions=1 tests/c2b.php
-
       - name: C2-B first-review regression tests
         run: php -d zend.assertions=1 tests/c2b-review1.php
-
       - name: C2-B second-review adversarial tests
         run: php -d zend.assertions=1 tests/c2b-review2.php
-
       - name: C2-C assignment SLA escalation and incident tests
         run: php -d zend.assertions=1 tests/c2c.php
-
       - name: C2-C first-review regression tests
         run: php -d zend.assertions=1 tests/c2c-review1.php
-
       - name: C2-C second-review adversarial tests
         run: php -d zend.assertions=1 tests/c2c-review2.php
-
       - name: C2-D authorization command search evidence tests
         run: php -d zend.assertions=1 tests/c2d.php
-
       - name: C2-D first-review regressions
         run: php -d zend.assertions=1 tests/c2d-review1.php
-
       - name: C2-D second-review adversarial tests
         run: php -d zend.assertions=1 tests/c2d-review2.php
-
       - name: C2-E appeal fairness tests
         run: php -d zend.assertions=1 tests/c2e.php
-
       - name: C2-E first-review regressions
         run: php -d zend.assertions=1 tests/c2e-review1.php
-
       - name: C2-E second-review adversarial tests
         run: php -d zend.assertions=1 tests/c2e-review2.php
-
       - name: C2-F quality knowledge automation resilience tests
         run: php -d zend.assertions=1 tests/c2f.php
-
       - name: C2-F first-review regressions
         run: php -d zend.assertions=1 tests/c2f-review1.php
-
       - name: C2-F second-review adversarial tests
         run: php -d zend.assertions=1 tests/c2f-review2.php
-
       - name: C2-G migration and cutover tests
         run: php -d zend.assertions=1 tests/c2g.php
-
       - name: C2-G first-review regressions
         run: php -d zend.assertions=1 tests/c2g-review1.php
-
       - name: C2-G second-review adversarial tests
         run: php -d zend.assertions=1 tests/c2g-review2.php
-
       - name: C2-H schema resilience recovery release tests
         run: php -d zend.assertions=1 tests/c2h.php
-
       - name: C2-H first-review regressions
         run: php -d zend.assertions=1 tests/c2h-review1.php
-
       - name: C2-H second-review adversarial tests
         run: php -d zend.assertions=1 tests/c2h-review2.php
-
       - name: C2-I complete runtime integration tests
         run: php -d zend.assertions=1 tests/c2i.php
-
       - name: C2-I first-review regressions
         run: php -d zend.assertions=1 tests/c2i-review1.php
-
       - name: C2-I second-review adversarial tests
         run: php -d zend.assertions=1 tests/c2i-review2.php
-
       - name: Forty-round corrective review regressions
         run: php -d zend.assertions=1 tests/c2j-forty-review.php
-
       - name: C2-K three-plan harmonization tests
         run: php -d zend.assertions=1 tests/c2k-three-plan-harmonization.php
-
       - name: C2-K first-review regressions
         run: php -d zend.assertions=1 tests/c2k-review1.php
-
       - name: C2-K fresh adversarial review
         run: php -d zend.assertions=1 tests/c2k-review2.php
-
       - name: C2-L latest-two-plans completion
         run: php -d zend.assertions=1 tests/c2l-latest-two-plans.php
-
       - name: C2-L first corrective review regressions
         run: php -d zend.assertions=1 tests/c2l-review1.php
-
       - name: C2-L fresh adversarial second review
         run: php -d zend.assertions=1 tests/c2l-review2.php
-
+      - name: C2-M Future24 implementation
+        run: php -d zend.assertions=1 tests/c2m-future24.php
+      - name: C2-M Future24 corrective review 1
+        run: php -d zend.assertions=1 tests/c2m-review1.php
+      - name: C2-M Future24 fresh adversarial review 2
+        run: php -d zend.assertions=1 tests/c2m-review2.php
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
-
       - name: Public repository safety scan
         run: python3 build/security_scan.py
