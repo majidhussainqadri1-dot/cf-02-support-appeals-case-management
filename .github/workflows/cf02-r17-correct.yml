@@ -1,0 +1,108 @@
+name: CF-02 Round 17 Corrective Review
+
+on:
+  push:
+    branches: ['review/cf02-40-round-2026-09-14']
+
+permissions:
+  contents: write
+
+jobs:
+  correct:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: review/cf02-40-round-2026-09-14
+          fetch-depth: 0
+      - name: Apply frozen Round 17 correction
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/Infrastructure/WordPress/ProviderWebhookController.php')
+          s=p.read_text()
+          s=s.replace("            $this->verifySignature($request, 'inbound');\n", "            $keyId = $this->verifySignature($request, 'inbound');\n", 1)
+          needle="""            if ($sourceOwner === '' || $externalId === '' || $senderRef === ''
+                || !in_array($senderTrust, ['verified','unverified','system'], true)) {
+                throw new RuntimeException('Inbound adapter metadata is incomplete.');
+            }
+"""
+          repl=needle+"            $this->assertProviderOwner($keyId, $sourceOwner, 'inbound');\n"
+          assert needle in s
+          s=s.replace(needle,repl,1)
+          s=s.replace("            $this->verifySignature($request, 'native_result');\n", "            $keyId = $this->verifySignature($request, 'native_result');\n", 1)
+          needle2="""            \\Sabri\\CF02\\Contracts\\SupportContractCatalog::assertNativeOwnerKey($owner);
+            $command = $this->operations->command($commandId);
+"""
+          repl2="""            \\Sabri\\CF02\\Contracts\\SupportContractCatalog::assertNativeOwnerKey($owner);
+            $this->assertProviderOwner($keyId, $owner, 'native_result');
+            $command = $this->operations->command($commandId);
+"""
+          assert needle2 in s
+          s=s.replace(needle2,repl2,1)
+          s=s.replace("    private function verifySignature(\\WP_REST_Request $request, string $purpose): void\n", "    private function verifySignature(\\WP_REST_Request $request, string $purpose): string\n", 1)
+          needle3="""        if (!hash_equals($expected, $signature)) {
+            throw new RuntimeException('Provider signature verification failed.');
+        }
+    }
+
+    /** @return array<string,mixed> */
+"""
+          repl3="""        if (!hash_equals($expected, $signature)) {
+            throw new RuntimeException('Provider signature verification failed.');
+        }
+        return $keyId;
+    }
+
+    private function assertProviderOwner(string $keyId, string $owner, string $purpose): void
+    {
+        /** @var mixed $authorized */
+        $authorized = apply_filters('cf02_provider_key_authorizes_owner', false, $keyId, $owner, $purpose);
+        if ($authorized !== true) {
+            throw new RuntimeException('Provider signing identity is not authorized for the claimed owner.');
+        }
+    }
+
+    /** @return array<string,mixed> */
+"""
+          assert needle3 in s
+          s=s.replace(needle3,repl3,1)
+          p.write_text(s)
+
+          t=Path('tests/c2n-fresh40.php')
+          x=t.read_text()
+          marker="\nif($failures!==[]){fwrite(STDERR,implode(\"\\n\",$failures).\"\\n\");exit(1);}fwrite(STDOUT,\"CF-02 fresh 40-round regression register passed through round 16.\\n\");"
+          assert marker in x
+          add=r'''
+
+$test(17,'provider signing keys are explicitly bound to claimed inbound/native owner identities',static function()use($read):void{
+    $source=$read('src/Infrastructure/WordPress/ProviderWebhookController.php');
+    assert(str_contains($source, "cf02_provider_key_authorizes_owner"));
+    assert(str_contains($source, "assertProviderOwner($keyId, $sourceOwner, 'inbound')"));
+    assert(str_contains($source, "assertProviderOwner($keyId, $owner, 'native_result')"));
+    assert(str_contains($source, 'Provider signing identity is not authorized for the claimed owner.'));
+});
+
+if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 fresh 40-round regression register passed through round 17.\n");'''
+          x=x.replace(marker,add)
+          t.write_text(x)
+          PY
+          git diff --check
+      - name: Regression and security validation
+        run: |
+          set -euo pipefail
+          find . -name '*.php' -not -path './vendor/*' -not -path './.git/*' -print0 | xargs -0 -n1 php -l >/tmp/php-lint.txt
+          php -d zend.assertions=1 tests/c2n-fresh40.php
+          composer test
+          python3 build/security_scan.py
+          git diff --check
+      - name: Commit corrected Round 17
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/cf02-r17-correct.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'Review round 17: bind provider keys to canonical owners'
+          git push origin HEAD:review/cf02-40-round-2026-09-14
