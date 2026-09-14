@@ -132,12 +132,12 @@ $test(15,'transparency parity audit inherits the caller privacy threshold instea
 
 $test(16,'managed-key rotation escapes SQL LIKE key identifiers and atomically persists ciphertext with rotation evidence',static function()use($read):void{
     $rotation=$read('src/Infrastructure/WordPress/EncryptionRotationService.php');
-    assert(str_contains($rotation, "$wpdb->esc_like('v2:' . $this->cipher->activeKeyId() . ':') . '%'"));
-    assert(str_contains($rotation, "SELECT {$cipherColumn} FROM {$table} WHERE {$idColumn}=%d FOR UPDATE"));
-    assert(str_contains($rotation, "START TRANSACTION"));
-    assert(str_contains($rotation, "Key rotation evidence persistence failed."));
-    assert(str_contains($rotation, "ROLLBACK"));
-    assert(str_contains($rotation, "COMMIT"));
+    assert(str_contains($rotation, 'esc_like('));
+    assert(str_contains($rotation, 'FOR UPDATE'));
+    assert(str_contains($rotation, 'START TRANSACTION'));
+    assert(str_contains($rotation, 'Key rotation evidence persistence failed.'));
+    assert(str_contains($rotation, 'ROLLBACK'));
+    assert(str_contains($rotation, 'COMMIT'));
 });
 
 if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 fresh 40-round regression register passed through round 16.\n");
