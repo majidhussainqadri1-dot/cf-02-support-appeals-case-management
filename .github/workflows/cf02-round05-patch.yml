@@ -1,12 +1,9 @@
 name: CF-02 Round 05 Bounded Patch
-
 on:
   push:
     branches: ['review/cf02-40-round-2026-09-14']
-
 permissions:
   contents: write
-
 jobs:
   patch:
     runs-on: ubuntu-latest
@@ -26,60 +23,24 @@ jobs:
           s=p.read_text()
           old="if (in_array((string) $case['state'], ['closed'], true)) {\n            throw new RuntimeException('Closed cases cannot receive messages before governed reopen.');\n        }"
           new="if (in_array((string) $case['state'], ['closed', 'withdrawn'], true)) {\n            throw new RuntimeException('Closed or withdrawn cases cannot receive messages before governed reopen.');\n        }"
-          if s.count(old) != 1:
-              raise SystemExit(f'Round 05 message target count={s.count(old)}; refusing patch')
+          if s.count(old) != 1: raise SystemExit(f'Round05 message target count={s.count(old)}')
           s=s.replace(old,new,1)
           pos=s.index('public function createAttachment(')
           tail=s[pos:]
           old2="$this->caseForActor($caseId, $context);\n        if ($size < 1 || $size > 25 * 1024 * 1024"
           new2="$case = $this->caseForActor($caseId, $context);\n        if (in_array((string) $case['state'], ['closed', 'withdrawn'], true)) {\n            throw new RuntimeException('Closed or withdrawn cases cannot receive attachments before governed reopen.');\n        }\n        if ($size < 1 || $size > 25 * 1024 * 1024"
-          if tail.count(old2) != 1:
-              raise SystemExit(f'Round 05 attachment target count={tail.count(old2)}; refusing patch')
-          tail=tail.replace(old2,new2,1)
-          p.write_text(s[:pos]+tail)
-
+          if tail.count(old2) != 1: raise SystemExit(f'Round05 attachment target count={tail.count(old2)}')
+          p.write_text(s[:pos]+tail.replace(old2,new2,1))
           p=Path('tests/c2n-fresh40.php')
           s=p.read_text(); marker='\nif($failures!==[])'
-          test="""
-$test(5,'closed and withdrawn cases reject new messages and attachments until governed reopen',static function()use($read):void{
-    $source=$read('src/Infrastructure/WordPress/OperationsRepository.php');
-    assert(str_contains($source, 'Closed or withdrawn cases cannot receive messages before governed reopen.'));
-    assert(str_contains($source, 'Closed or withdrawn cases cannot receive attachments before governed reopen.'));
-});
-"""
-          if marker not in s or 'closed and withdrawn cases reject' in s:
-              raise SystemExit('Round 05 regression insertion precondition failed')
-          s=s.replace(marker,test+marker,1).replace('passed through round 04.','passed through round 05.')
-          p.write_text(s)
-
+          test="\n$test(5,'closed and withdrawn cases reject new messages and attachments until governed reopen',static function()use($read):void{\n    $source=$read('src/Infrastructure/WordPress/OperationsRepository.php');\n    assert(str_contains($source, 'Closed or withdrawn cases cannot receive messages before governed reopen.'));\n    assert(str_contains($source, 'Closed or withdrawn cases cannot receive attachments before governed reopen.'));\n});\n"
+          if marker not in s or 'closed and withdrawn cases reject' in s: raise SystemExit('Round05 test precondition failed')
+          p.write_text(s.replace(marker,test+marker,1).replace('passed through round 04.','passed through round 05.'))
           p=Path('docs/FORTY-ROUND-REVIEW-2026-09-14.md')
           s=p.read_text()
-          if '## Round 05 —' in s:
-              raise SystemExit('Round 05 ledger already present')
-          s += """
-
-## Round 05 — Case lifecycle, terminal-state content mutation and optimistic-concurrency audit
-
-### Frozen defect ledger
-
-1. **Withdrawn-case reply contradiction** — the authoritative reply-options projection marked `withdrawn` cases as non-replyable, but `OperationsRepository::appendMessage()` blocked only `closed`. A capable caller could therefore append a requester-facing or internal message after withdrawal without first completing the governed `withdrawn -> reopened` transition.
-2. **Terminal-case attachment contradiction** — the same reply-options projection marked both `closed` and `withdrawn` cases as non-attachable, while `OperationsRepository::createAttachment()` performed actor authorization but no case-state guard. A capable caller could create new attachment metadata/quarantine work on a terminal case without governed reopen.
-
-The remainder of the case-state audit found optimistic case mutations version-bound (`record_version = expectedVersion`), explicit governed transition checks on triage/wait/resolve/close/reopen/withdraw, and stale mutations fail closed.
-
-### Correction after ledger freeze
-
-- `appendMessage()` now rejects both `closed` and `withdrawn` cases until governed reopen.
-- `createAttachment()` now applies the same terminal-state boundary before any attachment metadata is persisted.
-- Permanent regression coverage was added to `tests/c2n-fresh40.php`.
-
-### Evidence state
-
-- Local PHP syntax and fresh-round regression are required before commit.
-- Exact-head automated QA is required before Round 06 begins.
-- Staging/Live: not evaluated by this repository review.
-"""
-          p.write_text(s)
+          if '## Round 05 —' in s: raise SystemExit('Round05 ledger already present')
+          add="\n\n## Round 05 — Case lifecycle, terminal-state content mutation and optimistic-concurrency audit\n\n### Frozen defect ledger\n\n1. **Withdrawn-case reply contradiction** — reply-options marked `withdrawn` non-replyable, but `appendMessage()` blocked only `closed`, allowing a capable caller to append after withdrawal without governed reopen.\n2. **Terminal-case attachment contradiction** — reply-options marked `closed` and `withdrawn` non-attachable, but `createAttachment()` had no case-state guard, allowing attachment work on terminal cases without governed reopen.\n\nThe remainder of this audit found optimistic case mutations version-bound and governed transition checks present on lifecycle mutations.\n\n### Correction after ledger freeze\n\n- `appendMessage()` rejects both `closed` and `withdrawn` until governed reopen.\n- `createAttachment()` applies the same terminal-state boundary.\n- Permanent regression coverage added to `tests/c2n-fresh40.php`.\n\n### Evidence state\n\n- Local regression required before commit.\n- Exact-head automated QA required before Round 06.\n- Staging/Live: not evaluated by this repository review.\n"
+          p.write_text(s+add)
           PY
       - name: Local regression
         run: |
