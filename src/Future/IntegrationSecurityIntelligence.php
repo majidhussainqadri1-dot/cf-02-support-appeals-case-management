@@ -18,7 +18,7 @@ final class IntegrationSecurityIntelligence
     public function issueSecureDeepLink(string $purpose,string $opaqueReference,string $relativePath,DateTimeImmutable $now,int $ttlSeconds=600): array
     {
         if (!in_array($purpose,['case_receipt','case_status','appeal','support_handoff'],true) || preg_match('/^[A-Za-z0-9_-]{12,128}$/',$opaqueReference)!==1 || $ttlSeconds<60 || $ttlSeconds>3600) throw new InvalidArgumentException('Secure deep-link request is invalid.');
-        if (!str_starts_with($relativePath,'/') || str_starts_with($relativePath,'//') || preg_match('#^[a-z]+://#i',$relativePath)===1) throw new InvalidArgumentException('Only local relative destinations are permitted.');
+        if (!$this->isSafeRelativePath($relativePath)) throw new InvalidArgumentException('Only canonical local relative destinations are permitted.');
         $expires=$now->getTimestamp()+$ttlSeconds;
         $payload=$purpose.'|'.$opaqueReference.'|'.$relativePath.'|'.$expires;
         $sig=rtrim(strtr(base64_encode(hash_hmac('sha256',$payload,$this->signingKey,true)),'+/','-_'),'=');
@@ -30,7 +30,7 @@ final class IntegrationSecurityIntelligence
         $parts=explode('.',$token);
         if (count($parts)!==4 || $parts[0]!=='CF02DL1' || !ctype_digit($parts[1]) || (int)$parts[1]<$now->getTimestamp()) return false;
         [$prefix,$expires,$reference,$sig]=$parts;
-        if (!str_starts_with($relativePath,'/') || str_starts_with($relativePath,'//')) return false;
+        if (!$this->isSafeRelativePath($relativePath)) return false;
         $payload=$purpose.'|'.$reference.'|'.$relativePath.'|'.$expires;
         $expected=rtrim(strtr(base64_encode(hash_hmac('sha256',$payload,$this->signingKey,true)),'+/','-_'),'=');
         return hash_equals($expected,$sig);
@@ -46,5 +46,15 @@ final class IntegrationSecurityIntelligence
         $canonical=$clientId.'|'.implode(',',array_values(array_unique($scopes))).'|'.$idempotencyKey.'|'.$nonce.'|'.$issuedAt->getTimestamp().'|'.$bodyHash;
         $signature=hash_hmac('sha256',$canonical,$this->signingKey);
         return ['feature_id'=>'CF02-FUT-022','client_id'=>$clientId,'scopes'=>array_values(array_unique($scopes)),'idempotency_key'=>$idempotencyKey,'nonce'=>$nonce,'issued_at'=>$issuedAt->format(DATE_ATOM),'body_sha256'=>$bodyHash,'webhook_signature'=>$signature,'signature_algorithm'=>'HMAC-SHA256','replay_protection_required'=>true,'secret_rotation_required'=>true];
+    }
+
+    private function isSafeRelativePath(string $relativePath): bool
+    {
+        if ($relativePath==='' || strlen($relativePath)>2048 || !str_starts_with($relativePath,'/') || str_starts_with($relativePath,'//')) return false;
+        if (preg_match('/[\\x00-\\x1F\\x7F\\\\]/',$relativePath)===1) return false;
+        // Reject encoded path separators/scheme delimiters and encoded percent signs so
+        // downstream decoding cannot turn a signed local path into a network-path URL.
+        if (preg_match('/%(?:2f|5c|3a|25)/i',$relativePath)===1) return false;
+        return preg_match('#^[a-z]+://#i',$relativePath)!==1;
     }
 }

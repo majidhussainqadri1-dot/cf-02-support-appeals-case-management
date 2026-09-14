@@ -48,12 +48,15 @@ final class EvidenceChannelIntelligence
     public function resumableUpload(string $uploadId,int $expectedSize,array $chunks,?string $finalSha256,bool $scanPassed): array
     {
         if (trim($uploadId)==='' || $expectedSize<1) throw new InvalidArgumentException('Resumable upload ID and expected size are required.');
-        $size=0;$expectedIndex=0;$seen=[];
+        $size=0;$expectedIndex=0;
         foreach ($chunks as $chunk) {
             $index=$chunk['index'] ?? null;$hash=$chunk['sha256'] ?? null;$chunkSize=$chunk['size'] ?? null;
             if (!is_int($index)||$index!==$expectedIndex||!is_string($hash)||preg_match('/^[a-f0-9]{64}$/',$hash)!==1||!is_int($chunkSize)||$chunkSize<1) throw new InvalidArgumentException('Malformed or non-contiguous upload chunk.');
-            if (isset($seen[$hash])) throw new InvalidArgumentException('Duplicate chunk hash detected.');
-            $seen[$hash]=true;$size+=$chunkSize;++$expectedIndex;
+            // Equal chunk content is valid (for example repeated zero-filled ranges). Replay
+            // protection is provided by the required contiguous chunk index, not hash uniqueness.
+            $size+=$chunkSize;
+            if ($size>$expectedSize) throw new InvalidArgumentException('Received chunk bytes exceed the declared upload size.');
+            ++$expectedIndex;
         }
         $complete=$size===$expectedSize && $finalSha256!==null && preg_match('/^[a-f0-9]{64}$/',$finalSha256)===1;
         return ['feature_id'=>'CF02-FUT-014','upload_id'=>$uploadId,'received_size'=>$size,'expected_size'=>$expectedSize,'chunk_count'=>count($chunks),'complete'=>$complete,'scan_passed'=>$scanPassed,'evidence_accessible'=>$complete && $scanPassed,'final_sha256'=>$finalSha256];
