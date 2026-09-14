@@ -383,6 +383,9 @@ final class OperationsRepository
         if (!in_array($reason, ['waiting_user','waiting_provider','legal_hold'], true) || trim($evidenceRef) === '') {
             throw new RuntimeException('SLA pause reason or evidence is invalid.');
         }
+        if (!$this->hasRequesterVisibleStaffResponse($caseId)) {
+            throw new RuntimeException('SLA pause is prohibited before a requester-visible staff response.');
+        }
         $row = $this->row($this->wpdb->prepare("SELECT record_version,status FROM {$this->tables['sla']} WHERE case_uuid=%s LIMIT 1", $caseId->value()));
         if ($row === null || !in_array((string) $row['status'], ['running','at_risk'], true)) {
             throw new RuntimeException('SLA timer is not eligible for pause.');
@@ -412,7 +415,8 @@ final class OperationsRepository
         $seconds = max(0, $at->getTimestamp() - $pausedAt->getTimestamp());
         $shift = static fn (string $value): string => (new DateTimeImmutable($value, new DateTimeZone('UTC')))->modify('+' . $seconds . ' seconds')->format('Y-m-d H:i:s.u');
         $updated = $this->wpdb->update($this->tables['sla'], [
-            'status' => 'running', 'first_response_deadline' => $shift((string) $row['first_response_deadline']),
+            'status' => 'running',
+            // A pause can begin only after first response, so that already-satisfied deadline must never move.
             'update_deadline' => $shift((string) $row['update_deadline']),
             'resolution_deadline' => $shift((string) $row['resolution_deadline']),
             'paused_at' => null, 'pause_reason' => null, 'evidence_ref' => $evidenceRef,
@@ -427,16 +431,49 @@ final class OperationsRepository
     /** @return list<array<string,mixed>> */
     public function dueSla(int $limit): array
     {
+        $firstResponseRecorded = "EXISTS (
+            SELECT 1 FROM {$this->tables['messages']} mfr
+            WHERE mfr.case_uuid=s.case_uuid AND mfr.visibility='requester'
+              AND mfr.author_ref<>c.requester_ref
+              AND NOT EXISTS (
+                  SELECT 1 FROM {$this->tables['representatives']} rfr
+                  WHERE rfr.requester_ref=c.requester_ref AND rfr.representative_ref=mfr.author_ref
+                    AND rfr.verified_at<=mfr.created_at AND rfr.expires_at>mfr.created_at
+                    AND (rfr.revoked_at IS NULL OR rfr.revoked_at>mfr.created_at)
+              )
+        )";
         return $this->rows($this->wpdb->prepare(
-            "SELECT s.*,c.state,c.priority,c.owner_ref,c.requester_ref FROM {$this->tables['sla']} s
+            "SELECT s.*,c.state,c.priority,c.owner_ref,c.requester_ref,
+                    CASE WHEN {$firstResponseRecorded} THEN 1 ELSE 0 END AS first_response_recorded
+             FROM {$this->tables['sla']} s
              JOIN {$this->tables['cases']} c ON c.case_uuid=s.case_uuid
              WHERE s.status IN ('running','at_risk') AND c.state NOT IN ('resolved','closed','withdrawn')
-             AND (s.first_response_deadline<=DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 30 MINUTE)
+             AND ((NOT {$firstResponseRecorded} AND s.first_response_deadline<=DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 30 MINUTE))
                   OR s.update_deadline<=DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 30 MINUTE)
                   OR s.resolution_deadline<=DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 30 MINUTE))
-             ORDER BY LEAST(s.first_response_deadline,s.update_deadline,s.resolution_deadline) ASC LIMIT %d",
+             ORDER BY LEAST(
+                 CASE WHEN {$firstResponseRecorded} THEN '9999-12-31 23:59:59.999999' ELSE s.first_response_deadline END,
+                 s.update_deadline,s.resolution_deadline
+             ) ASC LIMIT %d",
             max(1, min(250, $limit))
         ));
+    }
+
+    private function hasRequesterVisibleStaffResponse(SupportCaseId $caseId): bool
+    {
+        $count = $this->value($this->wpdb->prepare(
+            "SELECT COUNT(*) FROM {$this->tables['messages']} m
+             JOIN {$this->tables['cases']} c ON c.case_uuid=m.case_uuid
+             WHERE m.case_uuid=%s AND m.visibility='requester' AND m.author_ref<>c.requester_ref
+               AND NOT EXISTS (
+                   SELECT 1 FROM {$this->tables['representatives']} r
+                   WHERE r.requester_ref=c.requester_ref AND r.representative_ref=m.author_ref
+                     AND r.verified_at<=m.created_at AND r.expires_at>m.created_at
+                     AND (r.revoked_at IS NULL OR r.revoked_at>m.created_at)
+               )",
+            $caseId->value()
+        ));
+        return (int) $count > 0;
     }
 
     public function markSlaStatus(string $caseId, string $status, DateTimeImmutable $at): int

@@ -148,4 +148,14 @@ $test(17,'provider signing keys are explicitly bound to claimed inbound/native o
     assert(str_contains($source, 'Provider signing identity is not authorized for the claimed owner.'));
 });
 
-if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 fresh 40-round regression register passed through round 17.\n");
+
+$test(20,'runtime SLA cannot pause before first response or keep treating a satisfied first-response deadline as due',static function()use($read):void{
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    $worker=$read('src/Infrastructure/WordPress/RuntimeWorker.php');
+    assert(str_contains($repo, 'SLA pause is prohibited before a requester-visible staff response.'));
+    assert(str_contains($repo, 'first_response_recorded'));
+    assert(str_contains($repo, "NOT EXISTS ("));
+    assert(str_contains($worker, "first_response_recorded"));
+});
+
+if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 fresh 40-round regression register passed through round 20.\n");

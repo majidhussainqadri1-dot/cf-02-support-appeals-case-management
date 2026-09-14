@@ -158,11 +158,12 @@ final class RuntimeWorker
         foreach ($this->repository->dueSla($limit) as $timer) {
             ++$processed;
             $now = $this->now();
-            $deadlines = [
-                new DateTimeImmutable((string) $timer['first_response_deadline'], new DateTimeZone('UTC')),
-                new DateTimeImmutable((string) $timer['update_deadline'], new DateTimeZone('UTC')),
-                new DateTimeImmutable((string) $timer['resolution_deadline'], new DateTimeZone('UTC')),
-            ];
+            $deadlines = [];
+            if ((int) ($timer['first_response_recorded'] ?? 0) !== 1) {
+                $deadlines[] = new DateTimeImmutable((string) $timer['first_response_deadline'], new DateTimeZone('UTC'));
+            }
+            $deadlines[] = new DateTimeImmutable((string) $timer['update_deadline'], new DateTimeZone('UTC'));
+            $deadlines[] = new DateTimeImmutable((string) $timer['resolution_deadline'], new DateTimeZone('UTC'));
             $earliest = min(array_map(static fn (DateTimeImmutable $date): int => $date->getTimestamp(), $deadlines));
             $status = $earliest <= $now->getTimestamp() ? 'breached' : 'at_risk';
             $version = $this->repository->markSlaStatus((string) $timer['case_uuid'], $status, $now);
