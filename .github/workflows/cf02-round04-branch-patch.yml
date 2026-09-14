@@ -17,43 +17,30 @@ jobs:
           ref: review/cf02-40-round-2026-09-14
           fetch-depth: 0
       - name: Verify expected pre-fix head lineage
-        run: |
-          git merge-base --is-ancestor 3a15904c3f0118ad3258ad0f3a678c3253a41db3 HEAD
+        run: git merge-base --is-ancestor 3a15904c3f0118ad3258ad0f3a678c3253a41db3 HEAD
       - name: Apply frozen Round 04 field-authorization correction
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('src/Infrastructure/WordPress/OperationsRepository.php')
           s=p.read_text()
-          old="""        $attachments = $this->rows($this->wpdb->prepare(
-              \"SELECT attachment_uuid,sha256,mime_type,purpose,privacy_class,state,redacted_ref,expires_at,record_version,created_at
-               FROM {$this->tables['attachments']} WHERE case_uuid=%s ORDER BY id ASC LIMIT 250\",
-              $caseId->value()
-          ));
-          if (!$staff) {
+          anchor="""        if (!$staff) {
+              $attachments = array_values(array_map(static function (array $row): array {
           """
-          new="""        $attachments = $this->rows($this->wpdb->prepare(
-              \"SELECT attachment_uuid,sha256,mime_type,purpose,privacy_class,state,redacted_ref,expires_at,record_version,created_at
-               FROM {$this->tables['attachments']} WHERE case_uuid=%s ORDER BY id ASC LIMIT 250\",
-              $caseId->value()
-          ));
-          if ($staff && (!$context->hasCapability('case.sensitive.read')
+          sensitive="""        if ($staff && (!$context->hasCapability('case.sensitive.read')
               || !$context->recentlyAuthenticated(new DateTimeImmutable('now', new DateTimeZone('UTC'))))) {
               $attachments = array_values(array_filter(
                   $attachments,
                   static fn (array $row): bool => !in_array((string) $row['privacy_class'], ['C4','C5'], true)
               ));
           }
-          if (!$staff) {
           """
-          if old not in s:
-              raise SystemExit('Round 04 target block not found exactly; refusing patch')
-          s=s.replace(old,new,1)
-          p.write_text(s)
+          if anchor not in s or "recentlyAuthenticated(new DateTimeImmutable('now'" in s:
+              raise SystemExit('Round 04 target precondition failed; refusing patch')
+          p.write_text(s.replace(anchor,sensitive+anchor,1))
 
           p=Path('tests/c2n-fresh40.php')
-          s=p.read_text()
-          marker='\nif($failures!==[])'
+          s=p.read_text(); marker='\nif($failures!==[])'
           test="""
           $test(4,'ordinary assigned staff cannot receive C4/C5 attachment metadata without sensitive capability and recent step-up',static function()use($read):void{
               $source=$read('src/Infrastructure/WordPress/OperationsRepository.php');
