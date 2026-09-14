@@ -140,4 +140,12 @@ $test(16,'managed-key rotation escapes SQL LIKE key identifiers and atomically p
     assert(str_contains($rotation, 'COMMIT'));
 });
 
-if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 fresh 40-round regression register passed through round 16.\n");
+$test(17,'provider signing keys are explicitly bound to claimed inbound/native owner identities',static function()use($read):void{
+    $source=$read('src/Infrastructure/WordPress/ProviderWebhookController.php');
+    assert(str_contains($source, 'cf02_provider_key_authorizes_owner'));
+    assert(str_contains($source, "assertProviderOwner($keyId, $sourceOwner, 'inbound')"));
+    assert(str_contains($source, "assertProviderOwner($keyId, $owner, 'native_result')"));
+    assert(str_contains($source, 'Provider signing identity is not authorized for the claimed owner.'));
+});
+
+if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 fresh 40-round regression register passed through round 17.\n");
