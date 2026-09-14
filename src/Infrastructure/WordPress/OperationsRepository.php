@@ -1304,7 +1304,9 @@ final class OperationsRepository
             $idempotencyKey
         ));
         if ($existing !== null) {
-            if (!hash_equals((string) $existing['payload_hash'], $payloadHash)
+            if (!hash_equals((string) $existing['case_uuid'], $caseId->value())
+                || !hash_equals((string) $existing['template_key'], $templateKey)
+                || !hash_equals((string) $existing['payload_hash'], $payloadHash)
                 || !hash_equals((string) $existing['recipient_ref'], $recipientRef)
                 || !hash_equals((string) $existing['channel'], $channel)) {
                 throw new RuntimeException('Delivery idempotency collision.');

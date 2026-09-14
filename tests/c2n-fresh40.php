@@ -168,4 +168,12 @@ $test(21,'appeal remand remains assigned-reviewer-only and implementation confir
     assert(!str_contains($controller, "native_version_matches"));
 });
 
-if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 fresh 40-round regression register passed through round 21.\n");
+
+$test(22,'delivery idempotency binds case and template as well as recipient channel and payload',static function()use($read):void{
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    assert(str_contains($repo, "existing['case_uuid']"));
+    assert(str_contains($repo, "existing['template_key']"));
+    assert(str_contains($repo, "Delivery idempotency collision."));
+});
+
+if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 fresh 40-round regression register passed through round 22.\n");
