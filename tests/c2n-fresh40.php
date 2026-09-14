@@ -158,4 +158,14 @@ $test(20,'runtime SLA cannot pause before first response or keep treating a sati
     assert(str_contains($worker, "first_response_recorded"));
 });
 
-if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 fresh 40-round regression register passed through round 20.\n");
+
+$test(21,'appeal remand remains assigned-reviewer-only and implementation confirmation requires server-side authoritative verification',static function()use($read):void{
+    $controller=$read('src/Infrastructure/WordPress/ComprehensiveRestController.php');
+    assert(str_contains($controller, 'Only the independently assigned reviewer may remand the appeal.'));
+    assert(str_contains($controller, 'A reasoned remand decision is required.'));
+    assert(str_contains($controller, "cf02_verify_appeal_implementation"));
+    assert(str_contains($controller, "verification['verified']"));
+    assert(!str_contains($controller, "native_version_matches"));
+});
+
+if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 fresh 40-round regression register passed through round 21.\n");

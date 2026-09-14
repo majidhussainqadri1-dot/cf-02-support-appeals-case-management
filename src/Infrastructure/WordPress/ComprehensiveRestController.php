@@ -892,10 +892,26 @@ final class ComprehensiveRestController
             $appeal = $this->operations->appealForActor((string) $request['id'], $context);
             RuntimeWorkflowPolicy::assertAppeal((string) $appeal['state'], 'implemented');
             $ref = sanitize_text_field((string) $request->get_param('implementation_ref'));
-            if ($ref === '' || !(bool) $request->get_param('native_version_matches')) {
+            if ($ref === '') {
                 throw new RuntimeException('Native implementation evidence is incomplete or drifted.');
             }
-            return $this->operations->mutateAppeal((string) $request['id'], $context, RequestGuard::expectedVersion($request), ['state' => 'implemented','implementation_ref' => $ref], 'AppealImplemented', 'appeal_implementation', RequestGuard::idempotencyKey($request), ['implementation_ref' => $ref], $this->now());
+            /** @var mixed $verification */
+            $verification = apply_filters('cf02_verify_appeal_implementation', null, [
+                'appeal_id' => (string) $appeal['appeal_uuid'],
+                'case_id' => (string) $appeal['case_uuid'],
+                'native_command_ref' => is_string($appeal['native_command_ref'] ?? null) ? (string) $appeal['native_command_ref'] : null,
+                'requested_implementation_ref' => $ref,
+                'actor_ref' => $context->actorReference(),
+            ]);
+            if (!is_array($verification) || ($verification['verified'] ?? false) !== true
+                || !is_string($verification['implementation_ref'] ?? null)
+                || !hash_equals($ref, (string) $verification['implementation_ref'])) {
+                throw new RuntimeException('Native implementation evidence is incomplete or drifted.');
+            }
+            return $this->operations->mutateAppeal((string) $request['id'], $context, RequestGuard::expectedVersion($request), ['state' => 'implemented','implementation_ref' => $ref], 'AppealImplemented', 'appeal_implementation', RequestGuard::idempotencyKey($request), [
+                'implementation_ref' => $ref,
+                'verification_ref' => sanitize_text_field((string) ($verification['verification_ref'] ?? '')),
+            ], $this->now());
         });
     }
 
@@ -905,8 +921,16 @@ final class ComprehensiveRestController
             $context = $this->context();
             RequestGuard::requireCapability($context, $this->now(), 'appeal.decision');
             $appeal = $this->operations->appealForActor((string) $request['id'], $context);
+            if (!is_string($appeal['reviewer_ref'] ?? null) || trim((string) $appeal['reviewer_ref']) === ''
+                || !hash_equals((string) $appeal['reviewer_ref'], $context->actorReference())) {
+                throw new RuntimeException('Only the independently assigned reviewer may remand the appeal.');
+            }
             RuntimeWorkflowPolicy::assertAppeal((string) $appeal['state'], 'under_review');
-            return $this->operations->mutateAppeal((string) $request['id'], $context, RequestGuard::expectedVersion($request), ['state' => 'under_review','outcome' => 'remand'], 'AppealDecided', 'appeal_remand', RequestGuard::idempotencyKey($request), ['reason' => sanitize_textarea_field((string) $request->get_param('reason'))], $this->now());
+            $reason = sanitize_textarea_field((string) $request->get_param('reason'));
+            if ($reason === '') {
+                throw new RuntimeException('A reasoned remand decision is required.');
+            }
+            return $this->operations->mutateAppeal((string) $request['id'], $context, RequestGuard::expectedVersion($request), ['state' => 'under_review','outcome' => 'remand'], 'AppealDecided', 'appeal_remand', RequestGuard::idempotencyKey($request), ['reason' => $reason], $this->now());
         });
     }
 
