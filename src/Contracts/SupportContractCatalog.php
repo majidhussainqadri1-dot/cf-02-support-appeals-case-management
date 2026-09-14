@@ -40,7 +40,7 @@ final class SupportContractCatalog
     private const EVENTS = [
         'SupportCaseCreated', 'SupportCaseTriaged', 'SupportCaseAssigned', 'SupportCaseEscalated',
         'SupportUserReplied', 'SupportAgentReplied', 'SupportCaseWaiting', 'SupportCaseResolved', 'SupportCaseReopened',
-        'SupportSlaAtRisk', 'SupportSlaBreached', 'SupportMajorIncidentLinked',
+        'SupportSlaAtRisk', 'SupportSlaBreached', 'SupportSlaPaused', 'SupportSlaResumed', 'SupportMajorIncidentLinked',
         'AppealSubmitted', 'AppealAccepted', 'AppealRejected', 'AppealReviewerAssigned',
         'AppealDecided', 'AppealImplementationRequested', 'AppealImplemented', 'AppealClosed',
         'SupportAttachmentQuarantined', 'SupportAttachmentAvailable', 'SupportAttachmentRejected', 'SupportAttachmentRedacted', 'SupportSensitiveDataDetected',

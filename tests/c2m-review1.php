@@ -39,17 +39,24 @@ $test('Review1 co-browsing refuses remote control credential capture and unsafe 
     $expectInvalid(static fn()=> $svc->coBrowsingSession('S',true,['input[name=otp]'],$now,$exp));
 });
 
+$test('Review1 resumable upload accepts repeated content chunks and rejects byte overflow',static function()use($expectInvalid):void{
+    $svc=new EvidenceChannelIntelligence();$same=str_repeat('1',64);
+    $out=$svc->resumableUpload('UP-repeat',10,[['index'=>0,'sha256'=>$same,'size'=>5],['index'=>1,'sha256'=>$same,'size'=>5]],str_repeat('2',64),true);
+    assert($out['complete']===true);assert($out['evidence_accessible']===true);assert($out['chunk_count']===2);
+    $expectInvalid(static fn()=> $svc->resumableUpload('UP-over',10,[['index'=>0,'sha256'=>$same,'size'=>11]],str_repeat('2',64),true));
+});
+
 $test('Review1 public status rejects case identity and PWA refuses sensitive offline cache',static function()use($expectInvalid):void{
     $svc=new ContinuityExperienceIntelligence();
     $expectInvalid(static fn()=> $svc->publicStatus(['incident_id'=>'I','service_key'=>'support','status'=>'open','public_summary'=>'Delay','next_update_at'=>'soon','case_id'=>'CASE-1']));
     foreach(['C4','C5'] as $class){$out=$svc->lowBandwidthDraft('sensitive',$class,false);assert($out['offline_cache_allowed']===false);}
 });
 
-$test('Review1 secure links reject absolute/open-redirect paths and expire',static function()use($expectInvalid):void{
+$test('Review1 secure links reject absolute encoded and backslash open-redirect paths and expire',static function()use($expectInvalid):void{
     $svc=new IntegrationSecurityIntelligence(str_repeat('K',32));$now=new DateTimeImmutable('2026-09-08T00:00:00+00:00');
-    $expectInvalid(static fn()=> $svc->issueSecureDeepLink('case_status','OpaqueRef_12345','https://evil.example/x',$now));
-    $expectInvalid(static fn()=> $svc->issueSecureDeepLink('case_status','OpaqueRef_12345','//evil.example/x',$now));
-    $out=$svc->issueSecureDeepLink('case_status','OpaqueRef_12345','/support/case',$now,60);assert(!$svc->verifySecureDeepLink('case_status','/support/case',$out['token'],$now->modify('+61 seconds')));
+    foreach(['https://evil.example/x','//evil.example/x','/%2F%2Fevil.example/x','/%252F%252Fevil.example/x','/\\evil.example/x'] as $unsafe){$expectInvalid(static fn()=> $svc->issueSecureDeepLink('case_status','OpaqueRef_12345',$unsafe,$now));}
+    $out=$svc->issueSecureDeepLink('case_status','OpaqueRef_12345','/support/cases/view',$now,60);assert(!$svc->verifySecureDeepLink('case_status','/support/cases/view',$out['token'],$now->modify('+61 seconds')));
+    assert(!$svc->verifySecureDeepLink('case_status','/%2F%2Fevil.example/x',$out['token'],$now));
 });
 
 $test('Review1 institutional API rejects unknown scopes and short signing keys',static function()use($expectInvalid):void{
