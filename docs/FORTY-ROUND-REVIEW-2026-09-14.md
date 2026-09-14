@@ -19,6 +19,24 @@
 
 ### Evidence state
 
-- Source correction: prepared in this round commit.
-- Exact-head CI: pending at the moment this register entry is created; the next review round must not start until the corrected exact head is green.
+- Corrected exact head: `c6dfab906f59e1321c3320d3ac03be44646b6289`.
+- Exact-head CF-02 CI run `34839114872`: **SUCCESS**.
+- Staging/Live: not evaluated by this repository review.
+
+## Round 02 — Public API/provider error-disclosure and authorization-boundary audit
+
+### Frozen defect ledger
+
+1. **Provider endpoint internal error disclosure** — `ProviderWebhookController::run()` returned the message of any `RuntimeException` directly from public/signed provider endpoints. The messages include internal state and validation detail such as signing-key availability, command existence/state, provider availability, replay reasons, and adapter validation details. This contradicted the existing public-safe error taxonomy used by the canonical REST controller and the CF-02 API constitution requiring safe messages plus trace IDs.
+
+### Correction after ledger freeze
+
+- Provider endpoint failures now return one generic public-safe localized message and trace ID.
+- Full exception evidence is emitted only to the private `cf02_provider_request_failed` diagnostic hook with trace ID and error class.
+- A new permanent `tests/c2n-fresh40.php` regression register is introduced and wired into Composer and PHP 8.1–8.4 CI. It retains regressions from Round 01 and adds the Round 02 provider-disclosure gate.
+
+### Evidence state
+
+- Source correction: prepared in the Round 02 commit.
+- Exact-head CI: pending at the moment this entry is created; Round 03 must not start until the corrected exact head is green.
 - Staging/Live: not evaluated by this repository review.
