@@ -1,13 +1,49 @@
 name: CF-02 Round 06-15 Corrective Commit
 
 on:
-  workflow_dispatch:
+  push:
+    branches: ['review/cf02-40-round-2026-09-14']
 
 permissions:
   contents: write
 
 jobs:
-  staged:
+  apply:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
-      - run: echo 'Exact corrective patch staging in progress; no repository mutation.'
+      - uses: actions/checkout@v4
+        with:
+          ref: review/cf02-40-round-2026-09-14
+          fetch-depth: 0
+      - name: Verify bounded staging state
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 41214718e559c05539c0d6b0a44df03442a3e1fc HEAD
+          unexpected="$(git diff --name-only 41214718e559c05539c0d6b0a44df03442a3e1fc..HEAD | grep -Ev '^\.github/(review0615/part[0-7]|workflows/cf02-round06-15-apply\.yml)$' || true)"
+          test -z "$unexpected"
+          test "$(find .github/review0615 -maxdepth 1 -type f -name 'part*' | wc -l)" -eq 8
+      - name: Apply frozen Round 06-15 corrective patch
+        run: |
+          set -euo pipefail
+          cat .github/review0615/part* | base64 -d > /tmp/cf02-round06-15.patch
+          patch -p1 --forward < /tmp/cf02-round06-15.patch
+          rm -rf .github/review0615
+          git rm .github/workflows/cf02-round06-15-apply.yml
+          git diff --check
+      - name: Regression and repository safety
+        run: |
+          set -euo pipefail
+          find . -name '*.php' -not -path './vendor/*' -not -path './.git/*' -print0 | xargs -0 -n1 php -l >/tmp/php-lint.txt
+          php -d zend.assertions=1 tests/c2n-fresh40.php
+          composer test
+          python3 build/security_scan.py
+          git diff --check
+      - name: Commit and push reviewed corrections
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'Review rounds 06-15: correct frozen defect ledgers'
+          git push origin HEAD:review/cf02-40-round-2026-09-14
