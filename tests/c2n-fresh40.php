@@ -143,8 +143,8 @@ $test(16,'managed-key rotation escapes SQL LIKE key identifiers and atomically p
 $test(17,'provider signing keys are explicitly bound to claimed inbound/native owner identities',static function()use($read):void{
     $source=$read('src/Infrastructure/WordPress/ProviderWebhookController.php');
     assert(str_contains($source, 'cf02_provider_key_authorizes_owner'));
-    assert(str_contains($source, "assertProviderOwner($keyId, $sourceOwner, 'inbound')"));
-    assert(str_contains($source, "assertProviderOwner($keyId, $owner, 'native_result')"));
+    assert(str_contains($source, 'assertProviderOwner($keyId, $sourceOwner, \'inbound\')'));
+    assert(str_contains($source, 'assertProviderOwner($keyId, $owner, \'native_result\')'));
     assert(str_contains($source, 'Provider signing identity is not authorized for the claimed owner.'));
 });
 
