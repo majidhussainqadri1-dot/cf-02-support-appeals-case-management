@@ -232,8 +232,8 @@ final class OperationsRepository
         DateTimeImmutable $at
     ): string {
         $case = $this->caseForActor($caseId, $context);
-        if (in_array((string) $case['state'], ['closed'], true)) {
-            throw new RuntimeException('Closed cases cannot receive messages before governed reopen.');
+        if (in_array((string) $case['state'], ['closed', 'withdrawn'], true)) {
+            throw new RuntimeException('Closed or withdrawn cases cannot receive messages before governed reopen.');
         }
         if (!in_array($visibility, ['requester', 'internal', 'restricted'], true)
             || !in_array($channel, ['web', 'email', 'chat', 'system'], true)
@@ -467,7 +467,10 @@ final class OperationsRepository
         string $idempotencyKey,
         DateTimeImmutable $at
     ): array {
-        $this->caseForActor($caseId, $context);
+        $case = $this->caseForActor($caseId, $context);
+        if (in_array((string) $case['state'], ['closed', 'withdrawn'], true)) {
+            throw new RuntimeException('Closed or withdrawn cases cannot receive attachments before governed reopen.');
+        }
         if ($size < 1 || $size > 25 * 1024 * 1024 || preg_match('/^[a-f0-9]{64}$/', $sha256) !== 1
             || preg_match('/^[a-z0-9.+-]+\/[a-z0-9.+-]+$/i', $mimeType) !== 1
             || !in_array($privacyClass, ['C1','C2','C3','C4','C5'], true)

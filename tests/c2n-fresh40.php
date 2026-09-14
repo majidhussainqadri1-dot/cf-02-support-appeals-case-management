@@ -31,4 +31,10 @@ $test(4,'ordinary assigned staff cannot receive C4/C5 attachment metadata withou
     assert(str_contains($source, '!in_array((string) $row[\'privacy_class\'], [\'C4\',\'C5\'], true)'));
 });
 
-if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 fresh 40-round regression register passed through round 04.\n");
+$test(5,'closed and withdrawn cases reject new messages and attachments until governed reopen',static function()use($read):void{
+    $source=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    assert(str_contains($source, 'Closed or withdrawn cases cannot receive messages before governed reopen.'));
+    assert(str_contains($source, 'Closed or withdrawn cases cannot receive attachments before governed reopen.'));
+});
+
+if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 fresh 40-round regression register passed through round 05.\n");

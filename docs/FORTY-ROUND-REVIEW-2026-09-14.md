@@ -74,3 +74,25 @@ No correction was required.
 - Source correction applied after the Round 04 ledger freeze.
 - Exact-head automated QA required before Round 05 begins.
 - Staging/Live: not evaluated by this repository review.
+
+
+## Round 05 — Case lifecycle, terminal-state content mutation and optimistic-concurrency audit
+
+### Frozen defect ledger
+
+1. **Withdrawn-case reply contradiction** — reply-options marked `withdrawn` non-replyable, but `appendMessage()` blocked only `closed`, allowing a capable caller to append after withdrawal without governed reopen.
+2. **Terminal-case attachment contradiction** — reply-options marked `closed` and `withdrawn` non-attachable, but `createAttachment()` had no case-state guard, allowing attachment work on terminal cases without governed reopen.
+
+The remainder of this audit found optimistic case mutations version-bound and governed transition checks present on lifecycle mutations.
+
+### Correction after ledger freeze
+
+- `appendMessage()` rejects both `closed` and `withdrawn` until governed reopen.
+- `createAttachment()` applies the same terminal-state boundary.
+- Permanent regression coverage added to `tests/c2n-fresh40.php`.
+
+### Evidence state
+
+- Local regression required before commit.
+- Exact-head automated QA required before Round 06.
+- Staging/Live: not evaluated by this repository review.
