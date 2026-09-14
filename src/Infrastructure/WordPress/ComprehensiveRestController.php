@@ -14,6 +14,7 @@ use Sabri\CF02\Contracts\SupportContractCatalog;
 use Sabri\CF02\Domain\SupportCaseId;
 use Sabri\CF02\Security\DataCipher;
 use Sabri\CF02\Security\SensitiveContentDetector;
+use Sabri\CF02\Safety\EmergencyRunbookRegistry;
 use Throwable;
 
 /** Complete plan-v1.0 REST command/query surface with a compatibility namespace. */
@@ -179,9 +180,22 @@ final class ComprehensiveRestController
             if (strlen($description) > 20000 || ($description !== '' && SensitiveContentDetector::containsProhibitedSecret($description))) {
                 throw new RuntimeException('The case description is too long or contains prohibited secret data.');
             }
-            $safety = strtolower($subject . ' ' . (string) $request->get_param('description'));
-            if (preg_match('/\b(suicide|kill myself|heart attack|unconscious|severe bleeding|emergency|خودکشی|دل کا دورہ|بے ہوش|شدید خون)\b/u', $safety) === 1) {
-                throw new RuntimeException('Immediate danger is not an ordinary support ticket. Use approved local emergency services now.');
+            $safety = $subject . "\n" . (string) $request->get_param('description');
+            $runbookType = EmergencyRunbookRegistry::classifyText($safety);
+            if ($runbookType !== null) {
+                $runbook = EmergencyRunbookRegistry::forType($runbookType);
+                do_action('cf02_emergency_diversion', [
+                    'runbook_type' => $runbookType,
+                    'owner_domain' => $runbook['owner'],
+                    'mode' => $runbook['mode'],
+                    'actor_ref' => $context->actorReference(),
+                    'trace_id' => RequestGuard::traceId(),
+                ]);
+                throw new PublicApiException(
+                    'cf02_emergency_diversion_' . $runbookType,
+                    __('This report requires the dedicated emergency or safety route and cannot be accepted as an ordinary support case.', 'cf-02-support-appeals-case-management'),
+                    422
+                );
             }
             $locale = sanitize_text_field((string) ($request->get_param('locale') ?: 'ur-PK'));
             if (preg_match('/^[a-z]{2}(?:-[A-Z]{2})?$/', $locale) !== 1) {
@@ -225,13 +239,31 @@ final class ComprehensiveRestController
             }
             $object = $request->get_param('affected_object');
             if (is_array($object) && !empty($object['owner']) && !empty($object['type']) && !empty($object['ref']) && !empty($object['version'])) {
-                SupportContractCatalog::assertNativeOwnerKey(sanitize_key((string) $object['owner']));
-                $safeProjection = isset($object['safe_projection']) && is_array($object['safe_projection']) ? $object['safe_projection'] : [];
+                $ownerKey = sanitize_key((string) $object['owner']);
+                $objectType = sanitize_key((string) $object['type']);
+                $objectRef = sanitize_text_field((string) $object['ref']);
+                $objectVersion = sanitize_text_field((string) $object['version']);
+                SupportContractCatalog::assertNativeOwnerKey($ownerKey);
+                $authorization = apply_filters('cf02_authorize_native_object_link', null, [
+                    'owner_key' => $ownerKey,
+                    'object_type' => $objectType,
+                    'object_ref' => $objectRef,
+                    'object_version' => $objectVersion,
+                    'actor_ref' => $context->actorReference(),
+                    'case_ref' => $caseId->value(),
+                ]);
+                if (!is_array($authorization) || ($authorization['authorized'] ?? false) !== true
+                    || !is_string($authorization['verified_version'] ?? null)
+                    || !hash_equals($objectVersion, (string) $authorization['verified_version'])) {
+                    throw new RuntimeException('The affected object could not be authorized by its canonical owner.');
+                }
+                $privacyClass = strtoupper((string) ($authorization['privacy_class'] ?? ($object['privacy_class'] ?? 'C2')));
+                $safeProjection = isset($authorization['safe_projection']) && is_array($authorization['safe_projection'])
+                    ? $authorization['safe_projection'] : [];
                 $this->operations->linkObject(
-                    $caseId, $context, sanitize_key((string) $object['owner']), sanitize_key((string) $object['type']),
-                    sanitize_text_field((string) $object['ref']), sanitize_text_field((string) $object['version']),
-                    strtoupper(sanitize_text_field((string) ($object['privacy_class'] ?? 'C2'))), $safeProjection,
-                    $key . ':linked-object:' . substr(hash('sha256', (string) $object['owner'] . "\0" . (string) $object['ref']), 0, 24), $this->now()
+                    $caseId, $context, $ownerKey, $objectType, $objectRef, $objectVersion,
+                    $privacyClass, $safeProjection,
+                    $key . ':linked-object:' . substr(hash('sha256', $ownerKey . "\0" . $objectRef), 0, 24), $this->now()
                 );
             }
             $receiptPayload = [
@@ -321,9 +353,16 @@ final class ComprehensiveRestController
                 $this->cipher->encrypt($body), hash('sha256', $body),
                 $key, $purpose ?: 'case_reply', $this->now()
             );
-            $this->operations->resumeSla($caseId, 'message:' . $id, $this->now());
+            $case = $this->operations->caseForActor($caseId, $context);
+            $isRequesterActor = hash_equals((string) $case['requester_ref'], $context->actorReference())
+                || $context->represents((string) $case['requester_ref']);
+            if ($visibility === 'requester' && $isRequesterActor
+                && $this->operations->resumeSla($caseId, 'message:' . $id, $this->now(), 'waiting_user')) {
+                $this->operations->appendEvent('case', $caseId->value(), 'SupportSlaResumed', $context, 'sla_resume',
+                    $key . ':sla-resume', ['reason' => 'requester_response', 'evidence_ref' => 'message:' . $id],
+                    (int) $case['record_version'], $this->now());
+            }
             if ($visibility === 'requester') {
-                $case = $this->operations->caseForActor($caseId, $context);
                 $recipient = hash_equals((string) $case['requester_ref'], $context->actorReference())
                     ? (string) ($case['owner_ref'] ?? '') : (string) $case['requester_ref'];
                 if ($recipient !== '') {
@@ -572,6 +611,9 @@ final class ComprehensiveRestController
                 'sla_wait', $key, ['reason' => $reason, 'waiting_for' => $waitingFor], $this->now()
             );
             $this->operations->pauseSla($caseId, $to, 'event:' . $key, $this->now());
+            $this->operations->appendEvent('case', $caseId->value(), 'SupportSlaPaused', $context, 'sla_wait',
+                $key . ':sla-pause', ['reason' => $to, 'evidence_ref' => 'event:' . $key],
+                (int) $mutated['record_version'], $this->now());
             return $mutated;
         });
     }
@@ -660,13 +702,17 @@ final class ComprehensiveRestController
             RequestGuard::requireCapability($context, $this->now(), 'case.assigned.resolve','queue.manage');
             $case = $this->operations->caseForActor($this->caseId($request), $context);
             RuntimeWorkflowPolicy::assertCase((string) $case['state'], 'closed');
-            if (!(bool) $request->get_param('user_confirmed') && !(bool) $request->get_param('eligible_auto_close_notice_sent')) {
-                throw new RuntimeException('Closure requires user confirmation or an eligible noticed auto-close policy.');
+            $userConfirmed = (bool) $request->get_param('user_confirmed');
+            if (!$userConfirmed) {
+                $deliveryStatus = $this->operations->outcomeDeliveryStatus($this->caseId($request));
+                if ($deliveryStatus !== 'sent') {
+                    throw new RuntimeException('Automatic closure requires confirmed outcome-notification delivery.');
+                }
             }
             return $this->operations->mutateCase(
                 $this->caseId($request), $context, RequestGuard::expectedVersion($request), ['state' => 'closed', 'closed_at' => $this->now()->format('Y-m-d H:i:s.u')],
                 'CloseCase', 'SupportCaseClosed', RequestGuard::purpose($request, true), RequestGuard::idempotencyKey($request),
-                ['user_confirmed' => (bool) $request->get_param('user_confirmed')], $this->now()
+                ['user_confirmed' => $userConfirmed, 'outcome_delivery_status' => $userConfirmed ? 'confirmed_by_user' : 'sent'], $this->now()
             );
         });
     }
@@ -817,6 +863,10 @@ final class ComprehensiveRestController
             $context = $this->context();
             RequestGuard::requireCapability($context, $this->now(), 'appeal.decision');
             $appeal = $this->operations->appealForActor((string) $request['id'], $context);
+            if (!is_string($appeal['reviewer_ref'] ?? null) || trim((string) $appeal['reviewer_ref']) === ''
+                || !hash_equals((string) $appeal['reviewer_ref'], $context->actorReference())) {
+                throw new RuntimeException('Only the independently assigned reviewer may record the appeal decision.');
+            }
             RuntimeWorkflowPolicy::assertAppeal((string) $appeal['state'], 'decided');
             $outcome = sanitize_key((string) $request->get_param('outcome'));
             if (!in_array($outcome, ['uphold','modify','overturn','remand','withdraw'], true)

@@ -396,11 +396,14 @@ final class OperationsRepository
         }
     }
 
-    public function resumeSla(SupportCaseId $caseId, string $evidenceRef, DateTimeImmutable $at): void
+    public function resumeSla(SupportCaseId $caseId, string $evidenceRef, DateTimeImmutable $at, ?string $expectedPauseReason = null): bool
     {
         $row = $this->row($this->wpdb->prepare("SELECT * FROM {$this->tables['sla']} WHERE case_uuid=%s LIMIT 1", $caseId->value()));
         if ($row === null || (string) $row['status'] !== 'paused') {
-            return;
+            return false;
+        }
+        if ($expectedPauseReason !== null && !hash_equals((string) $row['pause_reason'], $expectedPauseReason)) {
+            return false;
         }
         if (trim($evidenceRef) === '' || $row['paused_at'] === null) {
             throw new RuntimeException('SLA resume evidence is invalid.');
@@ -418,6 +421,7 @@ final class OperationsRepository
         if ($updated !== 1) {
             throw new RuntimeException('SLA resume conflicted.');
         }
+        return true;
     }
 
     /** @return list<array<string,mixed>> */
@@ -876,15 +880,31 @@ final class OperationsRepository
         if (trim($action) === '' || trim($objectRef) === '' || $expectedNativeVersion < 1) {
             throw new RuntimeException('Native-owner command metadata is invalid.');
         }
+        $authorization = apply_filters('cf02_authorize_native_owner_command', null, [
+            'case_ref' => $caseId->value(),
+            'actor_ref' => $context->actorReference(),
+            'native_owner' => $nativeOwner,
+            'action' => $action,
+            'object_ref' => $objectRef,
+            'expected_native_version' => $expectedNativeVersion,
+            'purpose' => $purpose,
+        ]);
+        if (!is_array($authorization) || ($authorization['authorized'] ?? false) !== true
+            || !is_int($authorization['verified_native_version'] ?? null)
+            || (int) $authorization['verified_native_version'] < $expectedNativeVersion) {
+            throw new RuntimeException('Native-owner command is not authorized by the canonical owner.');
+        }
         $payloadHash = hash('sha256', $this->json($payload));
         $existing = $this->row($this->wpdb->prepare(
             "SELECT * FROM {$this->tables['commands']} WHERE idempotency_key=%s LIMIT 1",
             $idempotencyKey
         ));
         if ($existing !== null) {
-            if (!hash_equals((string) $existing['native_owner'], $nativeOwner)
+            if (!hash_equals((string) $existing['case_uuid'], $caseId->value())
+                || !hash_equals((string) $existing['native_owner'], $nativeOwner)
                 || !hash_equals((string) $existing['action_key'], $action)
                 || !hash_equals((string) $existing['object_ref'], $objectRef)
+                || (int) $existing['expected_native_version'] !== $expectedNativeVersion
                 || !hash_equals((string) $existing['payload_hash'], $payloadHash)) {
                 throw new RuntimeException('Native command idempotency collision.');
             }
@@ -1127,6 +1147,12 @@ final class OperationsRepository
         if ($activeHolds > 0) {
             throw new RuntimeException('Active legal or appeal hold blocks purge.');
         }
+        $unresolvedAppeals = (int) $this->value($this->wpdb->prepare(
+            "SELECT COUNT(*) FROM {$this->tables['appeals']} WHERE case_uuid=%s AND state<>'closed'", $caseId
+        ));
+        if ($unresolvedAppeals > 0) {
+            throw new RuntimeException('Open or unresolved appeal blocks purge until appeal closure.');
+        }
         if (($providerResults['all_targets_reconciled'] ?? false) !== true) {
             throw new RuntimeException('Provider/cache/search deletion reconciliation is incomplete.');
         }
@@ -1270,6 +1296,39 @@ final class OperationsRepository
         return $messageId;
     }
 
+
+    public function outcomeDeliveryStatus(SupportCaseId $caseId): string
+    {
+        $row = $this->row($this->wpdb->prepare(
+            "SELECT state FROM {$this->tables['outbox']} WHERE case_uuid=%s AND template_key=%s ORDER BY id DESC LIMIT 1",
+            $caseId->value(), 'support_case_resolved'
+        ));
+        return is_array($row) && isset($row['state']) ? (string) $row['state'] : 'missing';
+    }
+
+    public function recoverOutcomeDeliveryFailure(string $caseId, string $messageId, DateTimeImmutable $at): bool
+    {
+        $row = $this->row($this->wpdb->prepare(
+            "SELECT state,record_version FROM {$this->tables['cases']} WHERE case_uuid=%s LIMIT 1",
+            $caseId
+        ));
+        if ($row === null || (string) $row['state'] !== 'resolved') {
+            return false;
+        }
+        $version = (int) $row['record_version'];
+        $updated = $this->wpdb->update($this->tables['cases'], [
+            'state' => 'reopened', 'closed_at' => null, 'record_version' => $version + 1,
+            'updated_at' => $this->mysqlTime($at),
+        ], ['case_uuid' => $caseId, 'state' => 'resolved', 'record_version' => $version]);
+        if ($updated !== 1) {
+            throw new RuntimeException('Outcome-delivery recovery conflicted.');
+        }
+        $this->appendWorkerEvent('case', $caseId, 'SupportCaseReopened', [
+            'reason' => 'outcome_delivery_failure', 'delivery_ref' => $messageId,
+        ], $version + 1, $at);
+        return true;
+    }
+
     /** @return list<array<string,mixed>> */
     public function pendingOutbox(int $limit): array
     {
@@ -1297,13 +1356,21 @@ final class OperationsRepository
     /** @return array{token:string,expires_at:string} */
     public function issueAttachmentToken(string $attachmentId, SupportCaseId $caseId, PrincipalContext $context, string $purpose, DateTimeImmutable $at): array
     {
-        $this->caseForActor($caseId, $context);
+        $case = $this->caseForActor($caseId, $context);
         $attachment = $this->row($this->wpdb->prepare(
-            "SELECT attachment_uuid,case_uuid,state,expires_at FROM {$this->tables['attachments']} WHERE attachment_uuid=%s AND case_uuid=%s LIMIT 1",
+            "SELECT attachment_uuid,case_uuid,state,expires_at,privacy_class FROM {$this->tables['attachments']} WHERE attachment_uuid=%s AND case_uuid=%s LIMIT 1",
             $attachmentId, $caseId->value()
         ));
-        if ($attachment === null || !in_array((string) $attachment['state'], ['available','redacted'], true)) {
+        if ($attachment === null || !in_array((string) $attachment['state'], ['available','redacted'], true)
+            || $attachment['expires_at'] === null
+            || new DateTimeImmutable((string) $attachment['expires_at'], new DateTimeZone('UTC')) <= $at) {
             throw new RuntimeException('Attachment is not available.');
+        }
+        $staff = !hash_equals((string) $case['requester_ref'], $context->actorReference())
+            && !$context->represents((string) $case['requester_ref']);
+        if ($staff && in_array((string) $attachment['privacy_class'], ['C4','C5'], true)
+            && (!$context->hasCapability('case.sensitive.read') || !$context->recentlyAuthenticated($at))) {
+            throw new RuntimeException('Sensitive attachment access requires scoped capability and recent authentication.');
         }
         $expires = $at->modify('+5 minutes');
         $token = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
@@ -1325,7 +1392,8 @@ final class OperationsRepository
         $row = $this->row($this->wpdb->prepare(
             "SELECT t.*,a.provider_ref,a.redacted_ref,a.state,a.case_uuid FROM {$this->tables['tokens']} t
              JOIN {$this->tables['attachments']} a ON a.attachment_uuid=t.attachment_uuid
-             WHERE t.token_hash=%s AND t.used_at IS NULL AND t.expires_at>UTC_TIMESTAMP(6) LIMIT 1",
+             WHERE t.token_hash=%s AND t.used_at IS NULL AND t.expires_at>UTC_TIMESTAMP(6)
+             AND a.expires_at IS NOT NULL AND a.expires_at>UTC_TIMESTAMP(6) LIMIT 1",
             $hash
         ));
         if ($row === null || !in_array((string) $row['state'], ['available','redacted'], true)) {
@@ -1551,6 +1619,13 @@ final class OperationsRepository
                  FROM {$this->tables['case_links']} WHERE case_uuid=%s AND state='active' ORDER BY id ASC",
                 $caseId->value()
             ));
+            if (!$context->hasCapability('case.sensitive.read')
+                || !$context->recentlyAuthenticated(new DateTimeImmutable('now', new DateTimeZone('UTC')))) {
+                $result['links'] = array_values(array_filter(
+                    $result['links'],
+                    static fn (array $row): bool => !in_array((string) $row['privacy_class'], ['C4','C5'], true)
+                ));
+            }
             $result['holds'] = $this->rows($this->wpdb->prepare(
                 "SELECT hold_uuid,reason_code,authority_ref,state,review_due_at,placed_at,released_at,record_version
                  FROM {$this->tables['holds']} WHERE case_uuid=%s ORDER BY id ASC",
@@ -1760,17 +1835,26 @@ final class OperationsRepository
         $appeal = $this->appealForActor($appealId, $context);
         /** @var mixed $facts */
         $facts = apply_filters('cf02_appeal_reviewer_facts', null, $reviewerRef, $appealId, (string) $appeal['original_decision_ref']);
-        $available = is_array($facts) && is_string($facts['contract_version'] ?? null) && $facts['contract_version'] !== '';
+        $available = is_array($facts)
+            && is_string($facts['contract_version'] ?? null) && $facts['contract_version'] !== ''
+            && is_string($facts['original_decision_actor'] ?? null) && trim((string) $facts['original_decision_actor']) !== ''
+            && is_string($facts['reviewer_unit'] ?? null) && trim((string) $facts['reviewer_unit']) !== ''
+            && is_string($facts['original_decision_unit'] ?? null) && trim((string) $facts['original_decision_unit']) !== '';
+        $sameDecisionActor = $available && hash_equals((string) $facts['original_decision_actor'], $reviewerRef);
+        $sameDecisionUnit = $available && hash_equals((string) $facts['original_decision_unit'], (string) $facts['reviewer_unit']);
         return [
             'appeal_id' => $appealId,
             'reviewer_ref' => $reviewerRef,
             'self_review' => hash_equals((string) $appeal['appellant_ref'], $reviewerRef),
+            'same_original_decision_actor' => $sameDecisionActor,
+            'same_original_decision_unit' => $sameDecisionUnit,
             'prior_involvement' => $available ? (bool) ($facts['prior_involvement'] ?? true) : true,
             'conflicted' => $available ? (bool) ($facts['conflicted'] ?? true) : true,
             'competent' => $available && (bool) ($facts['competent'] ?? false),
             'available' => $available && (bool) ($facts['available'] ?? false),
             'facts_contract_available' => $available,
             'eligible' => $available && !hash_equals((string) $appeal['appellant_ref'], $reviewerRef)
+                && !$sameDecisionActor && !$sameDecisionUnit
                 && ($facts['prior_involvement'] ?? true) === false && ($facts['conflicted'] ?? true) === false
                 && ($facts['competent'] ?? false) === true && ($facts['available'] ?? false) === true,
         ];
@@ -1796,11 +1880,21 @@ final class OperationsRepository
     /** @return list<array<string,mixed>> */
     public function linkedDomainProjection(SupportCaseId $caseId, PrincipalContext $context): array
     {
-        $this->caseForActor($caseId, $context);
-        return $this->rows($this->wpdb->prepare(
+        $case = $this->caseForActor($caseId, $context);
+        $rows = $this->rows($this->wpdb->prepare(
             "SELECT link_uuid,owner_key,object_type,object_ref,object_version,privacy_class,projection_hash,state,updated_at FROM {$this->tables['case_links']} WHERE case_uuid=%s AND state='active' ORDER BY id ASC",
             $caseId->value()
         ));
+        $staff = !hash_equals((string) $case['requester_ref'], $context->actorReference())
+            && !$context->represents((string) $case['requester_ref']);
+        if ($staff && (!$context->hasCapability('case.sensitive.read')
+            || !$context->recentlyAuthenticated(new DateTimeImmutable('now', new DateTimeZone('UTC'))))) {
+            $rows = array_values(array_filter(
+                $rows,
+                static fn (array $row): bool => !in_array((string) $row['privacy_class'], ['C4','C5'], true)
+            ));
+        }
+        return $rows;
     }
 
     /** @return array<string,mixed> */

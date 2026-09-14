@@ -30,7 +30,7 @@ final class OperationsTransparencyIntelligence
         $allowed=['case_count','first_response_seconds_p50','resolution_seconds_p50','reopen_rate','appeal_overturn_rate','accessibility_completion_rate','major_incident_count'];
         $public=[];
         foreach ($allowed as $key) if (array_key_exists($key,$serviceMetrics)) $public[$key]=$serviceMetrics[$key];
-        $parity=(new SupportParityAudit())->evaluate($period,$donorCohort,$nonDonorCohort);
+        $parity=(new SupportParityAudit())->evaluate($period,$donorCohort,$nonDonorCohort,$privacyThreshold);
         return ['feature_id'=>'CF02-FUT-024','period'=>$period,'status'=>'published-aggregate','metrics'=>$public,'support_parity_status'=>$parity['status'],'privacy_threshold'=>$privacyThreshold,'individual_staff_scoring'=>false,'low_volume_identity_disclosure'=>false];
     }
 }
