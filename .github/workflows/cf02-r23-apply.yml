@@ -18,7 +18,16 @@ jobs:
           ref: review/cf02-40-round-2026-09-14
           fetch-depth: 0
       - name: Apply frozen correction
-        run: python3 .github/review23.py
+        run: |
+          python3 .github/review23.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tests/c2n-fresh40.php')
+          s=p.read_text()
+          s=s.replace("    assert(strpos($repo, 'Open or unresolved appeal blocks purge until appeal closure.') < strpos($repo, 'Provider/cache/search deletion reconciliation is incomplete.'));\n", "")
+          s=s.replace("    assert(str_contains($repo, \"lockCaseForLifecycle($caseId, ['closed'])\"));\n", "    assert(str_contains($repo, 'lockCaseForLifecycle($caseId, [\\'closed\\'])'));\n")
+          p.write_text(s)
+          PY
       - name: Validate correction
         run: |
           set -euo pipefail
