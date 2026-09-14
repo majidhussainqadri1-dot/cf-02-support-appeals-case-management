@@ -50,7 +50,7 @@ final class ProviderWebhookController
     public function inbound(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
         return $this->run(function () use ($request): array {
-            $this->verifySignature($request, 'inbound');
+            $keyId = $this->verifySignature($request, 'inbound');
             $payload = $this->payload($request);
             $sourceOwner = sanitize_text_field((string) ($payload['source_owner'] ?? ''));
             $externalId = sanitize_text_field((string) ($payload['external_event_id'] ?? ''));
@@ -60,6 +60,7 @@ final class ProviderWebhookController
                 || !in_array($senderTrust, ['verified','unverified','system'], true)) {
                 throw new RuntimeException('Inbound adapter metadata is incomplete.');
             }
+            $this->assertProviderOwner($keyId, $sourceOwner, 'inbound');
             $body = trim((string) ($payload['body'] ?? ''));
             if ($body === '' || strlen($body) > 20000 || SensitiveContentDetector::containsProhibitedSecret($body)) {
                 throw new RuntimeException('Inbound message is empty, too long or contains prohibited secrets.');
@@ -150,11 +151,12 @@ final class ProviderWebhookController
     public function nativeResult(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
         return $this->run(function () use ($request): array {
-            $this->verifySignature($request, 'native_result');
+            $keyId = $this->verifySignature($request, 'native_result');
             $payload = $this->payload($request);
             $commandId = sanitize_text_field((string) ($payload['command_id'] ?? ''));
             $owner = sanitize_key((string) $request['owner']);
             \Sabri\CF02\Contracts\SupportContractCatalog::assertNativeOwnerKey($owner);
+            $this->assertProviderOwner($keyId, $owner, 'native_result');
             $command = $this->operations->command($commandId);
             if ($command === null || !hash_equals((string) $command['native_owner'], $owner)) {
                 throw new RuntimeException('Native command was not found.');
@@ -216,7 +218,7 @@ final class ProviderWebhookController
         });
     }
 
-    private function verifySignature(\WP_REST_Request $request, string $purpose): void
+    private function verifySignature(\WP_REST_Request $request, string $purpose): string
     {
         $timestamp = trim((string) $request->get_header('X-CF02-Timestamp'));
         $signature = strtolower(trim((string) $request->get_header('X-CF02-Signature')));
@@ -236,6 +238,16 @@ final class ProviderWebhookController
         $expected = hash_hmac('sha256', $timestamp . '.' . $request->get_body(), $key);
         if (!hash_equals($expected, $signature)) {
             throw new RuntimeException('Provider signature verification failed.');
+        }
+        return $keyId;
+    }
+
+    private function assertProviderOwner(string $keyId, string $owner, string $purpose): void
+    {
+        /** @var mixed $authorized */
+        $authorized = apply_filters('cf02_provider_key_authorizes_owner', false, $keyId, $owner, $purpose);
+        if ($authorized !== true) {
+            throw new RuntimeException('Provider signing identity is not authorized for the claimed owner.');
         }
     }
 
