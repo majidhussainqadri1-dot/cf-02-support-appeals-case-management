@@ -32,28 +32,29 @@ jobs:
           marker="$context->hasCapability('case.sensitive.read')"
           if marker in segment:
               raise SystemExit('Round 04 source correction already present; refusing duplicate patch')
-          sensitive="""        if ($staff && (!$context->hasCapability('case.sensitive.read')
-              || !$context->recentlyAuthenticated(new DateTimeImmutable('now', new DateTimeZone('UTC'))))) {
-              $attachments = array_values(array_filter(
-                  $attachments,
-                  static fn (array $row): bool => !in_array((string) $row['privacy_class'], ['C4','C5'], true)
-              ));
-          }
-"""
+          sensitive=(
+              "        if ($staff && (!$context->hasCapability('case.sensitive.read')\n"
+              "            || !$context->recentlyAuthenticated(new DateTimeImmutable('now', new DateTimeZone('UTC'))))) {\n"
+              "            $attachments = array_values(array_filter(\n"
+              "                $attachments,\n"
+              "                static fn (array $row): bool => !in_array((string) $row['privacy_class'], ['C4','C5'], true)\n"
+              "            ));\n"
+              "        }\n"
+          )
           p.write_text(s[:requester_pos]+sensitive+s[requester_pos:])
 
           p=Path('tests/c2n-fresh40.php')
           s=p.read_text(); marker='\nif($failures!==[])'
           if marker not in s or 'ordinary assigned staff cannot receive C4/C5' in s:
               raise SystemExit('Round 04 test insertion precondition failed')
-          test="""
-          $test(4,'ordinary assigned staff cannot receive C4/C5 attachment metadata without sensitive capability and recent step-up',static function()use($read):void{
-              $source=$read('src/Infrastructure/WordPress/OperationsRepository.php');
-              assert(str_contains($source, '$context->hasCapability(\\'case.sensitive.read\\')'));
-              assert(str_contains($source, '$context->recentlyAuthenticated(new DateTimeImmutable(\\'now\\', new DateTimeZone(\\'UTC\\')))'));
-              assert(str_contains($source, '!in_array((string) $row[\\'privacy_class\\'], [\\'C4\\',\\'C5\\'], true)'));
-          });
-          """
+          test=(
+              "\n$test(4,'ordinary assigned staff cannot receive C4/C5 attachment metadata without sensitive capability and recent step-up',static function()use($read):void{\n"
+              "    $source=$read('src/Infrastructure/WordPress/OperationsRepository.php');\n"
+              "    assert(str_contains($source, '$context->hasCapability(\\'case.sensitive.read\\')'));\n"
+              "    assert(str_contains($source, '$context->recentlyAuthenticated(new DateTimeImmutable(\\'now\\', new DateTimeZone(\\'UTC\\')))'));\n"
+              "    assert(str_contains($source, '!in_array((string) $row[\\'privacy_class\\'], [\\'C4\\',\\'C5\\'], true)'));\n"
+              "});\n"
+          )
           s=s.replace(marker,test+marker,1)
           s=s.replace('CF-02 fresh 40-round regression register passed through round 02.','CF-02 fresh 40-round regression register passed through round 04.')
           p.write_text(s)
@@ -62,41 +63,21 @@ jobs:
           s=p.read_text()
           if '## Round 03 —' in s:
               raise SystemExit('Round 03/04 register already present; refusing duplicate patch')
-          add="""
-
-          ## Round 03 — Signed provider replay and one-time attachment-delivery audit
-
-          ### Frozen defect ledger
-
-          No new defect was proven. Inbound adapters bind source owner + external event ID + payload hash; scan/redaction callbacks are state-checked and event-idempotent; native terminal results reject changed replay; attachment bearer tokens are random, short-lived and atomically marked used before secure delivery. Existing exact-head evidence from Round 02 remained green because Round 03 made no runtime-code change.
-
-          ### Correction after ledger freeze
-
-          No correction was required.
-
-          ### Evidence state
-
-          - Existing corrected source remained unchanged.
-          - Staging/Live: not evaluated by this repository review.
-
-          ## Round 04 — Staff field-level attachment authorization audit
-
-          ### Frozen defect ledger
-
-          1. **C4/C5 attachment metadata overexposure** — `OperationsRepository::caseProjection()` correctly hid restricted message visibility from ordinary assigned staff, but returned every attachment row to any assigned staff actor. That exposed sensitive attachment existence/purpose/classification and associated metadata even when the actor lacked `case.sensitive.read` and recent step-up authentication. This contradicted the CF-02 purpose-bound C4/C5 access law and CEN-06 minimum/JIT sensitive-access rule.
-
-          ### Correction after ledger freeze
-
-          - Staff projections now remove all C4/C5 attachment rows unless the principal has explicit `case.sensitive.read` **and** recent authentication.
-          - Requester behavior remains unchanged and no raw attachment binary/provider payload is introduced.
-          - Permanent regression coverage is added to `tests/c2n-fresh40.php`.
-
-          ### Evidence state
-
-          - Source correction applied after the Round 04 ledger freeze.
-          - Exact-head automated QA required before Round 05 begins.
-          - Staging/Live: not evaluated by this repository review.
-          """
+          add=(
+              "\n\n## Round 03 — Signed provider replay and one-time attachment-delivery audit\n\n"
+              "### Frozen defect ledger\n\n"
+              "No new defect was proven. Inbound adapters bind source owner + external event ID + payload hash; scan/redaction callbacks are state-checked and event-idempotent; native terminal results reject changed replay; attachment bearer tokens are random, short-lived and atomically marked used before secure delivery. Existing exact-head evidence from Round 02 remained green because Round 03 made no runtime-code change.\n\n"
+              "### Correction after ledger freeze\n\nNo correction was required.\n\n"
+              "### Evidence state\n\n- Existing corrected source remained unchanged.\n- Staging/Live: not evaluated by this repository review.\n\n"
+              "## Round 04 — Staff field-level attachment authorization audit\n\n"
+              "### Frozen defect ledger\n\n"
+              "1. **C4/C5 attachment metadata overexposure** — `OperationsRepository::caseProjection()` correctly hid restricted message visibility from ordinary assigned staff, but returned every attachment row to any assigned staff actor. That exposed sensitive attachment existence/purpose/classification and associated metadata even when the actor lacked `case.sensitive.read` and recent step-up authentication. This contradicted the CF-02 purpose-bound C4/C5 access law and CEN-06 minimum/JIT sensitive-access rule.\n\n"
+              "### Correction after ledger freeze\n\n"
+              "- Staff projections now remove all C4/C5 attachment rows unless the principal has explicit `case.sensitive.read` **and** recent authentication.\n"
+              "- Requester behavior remains unchanged and no raw attachment binary/provider payload is introduced.\n"
+              "- Permanent regression coverage is added to `tests/c2n-fresh40.php`.\n\n"
+              "### Evidence state\n\n- Source correction applied after the Round 04 ledger freeze.\n- Exact-head automated QA required before Round 05 begins.\n- Staging/Live: not evaluated by this repository review.\n"
+          )
           p.write_text(s+add)
           PY
       - name: Local regression before commit
