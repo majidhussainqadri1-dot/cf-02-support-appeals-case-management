@@ -1,0 +1,39 @@
+name: CF-02 Round 21 Corrective Review
+
+on:
+  push:
+    branches:
+      - review/cf02-40-round-2026-09-14
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: review/cf02-40-round-2026-09-14
+          fetch-depth: 0
+      - name: Apply frozen correction
+        run: python3 .github/review21.py
+      - name: Validate correction
+        run: |
+          set -euo pipefail
+          git diff --check
+          find . -name '*.php' -not -path './vendor/*' -not -path './.git/*' -print0 | xargs -0 -n1 php -l >/tmp/php-lint.txt
+          php -d zend.assertions=1 tests/c2n-fresh40.php
+          composer test
+          python3 build/security_scan.py
+      - name: Commit correction
+        run: |
+          set -euo pipefail
+          rm .github/review21.py
+          git rm .github/workflows/cf02-r21-apply.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'Review round 21: enforce appeal remand and implementation authority'
+          git push origin HEAD:review/cf02-40-round-2026-09-14
