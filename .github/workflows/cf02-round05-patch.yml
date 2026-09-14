@@ -1,0 +1,115 @@
+name: CF-02 Round 05 Bounded Patch
+
+on:
+  push:
+    branches: ['review/cf02-40-round-2026-09-14']
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: review/cf02-40-round-2026-09-14
+          fetch-depth: 0
+      - name: Verify round 04 exact-head ancestor
+        run: git merge-base --is-ancestor e7432313cdd7e2e0fa7ca661325a16832320dd94 HEAD
+      - name: Apply frozen Round 05 corrections and regression
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/Infrastructure/WordPress/OperationsRepository.php')
+          s=p.read_text()
+          old="""        $case = $this->caseForActor($caseId, $context);
+          if (in_array((string) $case['state'], ['closed'], true)) {
+              throw new RuntimeException('Closed cases cannot receive messages before governed reopen.');
+          }
+          """
+          new="""        $case = $this->caseForActor($caseId, $context);
+          if (in_array((string) $case['state'], ['closed', 'withdrawn'], true)) {
+              throw new RuntimeException('Closed or withdrawn cases cannot receive messages before governed reopen.');
+          }
+          """
+          if old not in s:
+              raise SystemExit('Round 05 message-state target not found exactly')
+          s=s.replace(old,new,1)
+          pos=s.index('public function createAttachment(')
+          tail=s[pos:]
+          old2="""    ): array {
+              $this->caseForActor($caseId, $context);
+              if ($size < 1 || $size > 25 * 1024 * 1024 || preg_match('/^[a-f0-9]{64}$/', $sha256) !== 1
+          """
+          new2="""    ): array {
+              $case = $this->caseForActor($caseId, $context);
+              if (in_array((string) $case['state'], ['closed', 'withdrawn'], true)) {
+                  throw new RuntimeException('Closed or withdrawn cases cannot receive attachments before governed reopen.');
+              }
+              if ($size < 1 || $size > 25 * 1024 * 1024 || preg_match('/^[a-f0-9]{64}$/', $sha256) !== 1
+          """
+          if old2 not in tail:
+              raise SystemExit('Round 05 attachment-state target not found exactly')
+          tail=tail.replace(old2,new2,1)
+          p.write_text(s[:pos]+tail)
+
+          p=Path('tests/c2n-fresh40.php')
+          s=p.read_text(); marker='\nif($failures!==[])'
+          test="""
+          $test(5,'closed and withdrawn cases reject new messages and attachments until governed reopen',static function()use($read):void{
+              $source=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+              assert(str_contains($source, 'in_array((string) $case[\\'state\\'], [\\'closed\\', \\'withdrawn\\'], true)'));
+              assert(str_contains($source, 'Closed or withdrawn cases cannot receive messages before governed reopen.'));
+              assert(str_contains($source, 'Closed or withdrawn cases cannot receive attachments before governed reopen.'));
+          });
+          """
+          if marker not in s or 'closed and withdrawn cases reject' in s:
+              raise SystemExit('Round 05 regression insertion precondition failed')
+          s=s.replace(marker,test+marker,1).replace('passed through round 04.','passed through round 05.')
+          p.write_text(s)
+
+          p=Path('docs/FORTY-ROUND-REVIEW-2026-09-14.md')
+          s=p.read_text()
+          if '## Round 05 —' in s:
+              raise SystemExit('Round 05 ledger already present')
+          s += """
+
+          ## Round 05 — Case lifecycle, terminal-state content mutation and optimistic-concurrency audit
+
+          ### Frozen defect ledger
+
+          1. **Withdrawn-case reply contradiction** — the authoritative reply-options projection marked `withdrawn` cases as non-replyable, but `OperationsRepository::appendMessage()` blocked only `closed`. A capable caller could therefore append a requester-facing or internal message after withdrawal without first completing the governed `withdrawn -> reopened` transition.
+          2. **Terminal-case attachment contradiction** — the same reply-options projection marked both `closed` and `withdrawn` cases as non-attachable, while `OperationsRepository::createAttachment()` performed actor authorization but no case-state guard. A capable caller could create new attachment metadata/quarantine work on a terminal case without governed reopen.
+
+          The remainder of the case-state audit found optimistic case mutations version-bound (`record_version = expectedVersion`), explicit governed transition checks on triage/wait/resolve/close/reopen/withdraw, and stale mutations fail closed.
+
+          ### Correction after ledger freeze
+
+          - `appendMessage()` now rejects both `closed` and `withdrawn` cases until governed reopen.
+          - `createAttachment()` now applies the same terminal-state boundary before any attachment metadata is persisted.
+          - Permanent regression coverage was added to `tests/c2n-fresh40.php`.
+
+          ### Evidence state
+
+          - Local PHP syntax and fresh-round regression are required before commit.
+          - Exact-head automated QA is required before Round 06 begins.
+          - Staging/Live: not evaluated by this repository review.
+          """
+          p.write_text(s)
+          PY
+      - name: Local regression
+        run: |
+          php -l src/Infrastructure/WordPress/OperationsRepository.php
+          php -l tests/c2n-fresh40.php
+          php -d zend.assertions=1 tests/c2n-fresh40.php
+          python3 build/security_scan.py
+          git diff --check
+      - name: Commit correction
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/Infrastructure/WordPress/OperationsRepository.php tests/c2n-fresh40.php docs/FORTY-ROUND-REVIEW-2026-09-14.md
+          git commit -m 'Review round 05: enforce terminal-case content mutation boundary'
+          git push origin HEAD:review/cf02-40-round-2026-09-14
