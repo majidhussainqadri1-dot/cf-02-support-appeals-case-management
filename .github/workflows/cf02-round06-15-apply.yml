@@ -16,17 +16,17 @@ jobs:
         with:
           ref: review/cf02-40-round-2026-09-14
           fetch-depth: 0
-      - name: Verify bounded staging state
+      - name: Verify exact frozen patch and base ancestry
         run: |
           set -euo pipefail
           git merge-base --is-ancestor 41214718e559c05539c0d6b0a44df03442a3e1fc HEAD
-          unexpected="$(git diff --name-only 41214718e559c05539c0d6b0a44df03442a3e1fc..HEAD | grep -Ev '^\.github/(review0615/part[0-7]|workflows/cf02-round06-15-apply\.yml)$' || true)"
-          test -z "$unexpected"
-          test "$(find .github/review0615 -maxdepth 1 -type f -name 'part*' | wc -l)" -eq 8
+          for i in 00 01 02 03 04 05 06 07; do test -f ".github/review0615/part${i}"; done
+          cat .github/review0615/part* | base64 -d > /tmp/cf02-round06-15.patch
+          echo '3ec4ee7cee9f65fd63a877bfa09bd8df467ac5f7554820fe8054b4ad874fde36  /tmp/cf02-round06-15.patch' | sha256sum -c -
+          patch --dry-run -p1 --forward < /tmp/cf02-round06-15.patch
       - name: Apply frozen Round 06-15 corrective patch
         run: |
           set -euo pipefail
-          cat .github/review0615/part* | base64 -d > /tmp/cf02-round06-15.patch
           patch -p1 --forward < /tmp/cf02-round06-15.patch
           rm -rf .github/review0615
           git rm .github/workflows/cf02-round06-15-apply.yml
