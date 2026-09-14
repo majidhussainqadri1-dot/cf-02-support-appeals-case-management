@@ -20,8 +20,26 @@ jobs:
         run: |
           set -euo pipefail
           git merge-base --is-ancestor 41214718e559c05539c0d6b0a44df03442a3e1fc HEAD
-          for i in 00 01 02 03 04 05 06 07; do test -f ".github/review0615/part${i}"; done
-          cat .github/review0615/part* | base64 -d > /tmp/cf02-round06-15.patch
+          for f in part00 part01 part02 part03 part04a part04b part04c part04d part05a part05b part05c part05d part06a part06b part06c part06d part07; do test -f ".github/review0615/$f"; done
+          cat \
+            .github/review0615/part00 \
+            .github/review0615/part01 \
+            .github/review0615/part02 \
+            .github/review0615/part03 \
+            .github/review0615/part04a \
+            .github/review0615/part04b \
+            .github/review0615/part04c \
+            .github/review0615/part04d \
+            .github/review0615/part05a \
+            .github/review0615/part05b \
+            .github/review0615/part05c \
+            .github/review0615/part05d \
+            .github/review0615/part06a \
+            .github/review0615/part06b \
+            .github/review0615/part06c \
+            .github/review0615/part06d \
+            .github/review0615/part07 \
+            | base64 -d > /tmp/cf02-round06-15.patch
           echo '3ec4ee7cee9f65fd63a877bfa09bd8df467ac5f7554820fe8054b4ad874fde36  /tmp/cf02-round06-15.patch' | sha256sum -c -
           patch --dry-run -p1 --forward < /tmp/cf02-round06-15.patch
       - name: Apply frozen Round 06-15 corrective patch
