@@ -40,3 +40,37 @@
 - Source correction: prepared in the Round 02 commit.
 - Exact-head CI: pending at the moment this entry is created; Round 03 must not start until the corrected exact head is green.
 - Staging/Live: not evaluated by this repository review.
+
+
+## Round 03 — Signed provider replay and one-time attachment-delivery audit
+
+### Frozen defect ledger
+
+No new defect was proven. Inbound adapters bind source owner + external event ID + payload hash; scan/redaction callbacks are state-checked and event-idempotent; native terminal results reject changed replay; attachment bearer tokens are random, short-lived and atomically marked used before secure delivery. Existing exact-head evidence from Round 02 remained green because Round 03 made no runtime-code change.
+
+### Correction after ledger freeze
+
+No correction was required.
+
+### Evidence state
+
+- Existing corrected source remained unchanged.
+- Staging/Live: not evaluated by this repository review.
+
+## Round 04 — Staff field-level attachment authorization audit
+
+### Frozen defect ledger
+
+1. **C4/C5 attachment metadata overexposure** — `OperationsRepository::caseProjection()` correctly hid restricted message visibility from ordinary assigned staff, but returned every attachment row to any assigned staff actor. That exposed sensitive attachment existence/purpose/classification and associated metadata even when the actor lacked `case.sensitive.read` and recent step-up authentication. This contradicted the CF-02 purpose-bound C4/C5 access law and CEN-06 minimum/JIT sensitive-access rule.
+
+### Correction after ledger freeze
+
+- Staff projections now remove all C4/C5 attachment rows unless the principal has explicit `case.sensitive.read` **and** recent authentication.
+- Requester behavior remains unchanged and no raw attachment binary/provider payload is introduced.
+- Permanent regression coverage is added to `tests/c2n-fresh40.php`.
+
+### Evidence state
+
+- Source correction applied after the Round 04 ledger freeze.
+- Exact-head automated QA required before Round 05 begins.
+- Staging/Live: not evaluated by this repository review.

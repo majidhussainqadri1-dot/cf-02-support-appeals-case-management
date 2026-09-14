@@ -1518,6 +1518,13 @@ final class OperationsRepository
              FROM {$this->tables['attachments']} WHERE case_uuid=%s ORDER BY id ASC LIMIT 250",
             $caseId->value()
         ));
+        if ($staff && (!$context->hasCapability('case.sensitive.read')
+            || !$context->recentlyAuthenticated(new DateTimeImmutable('now', new DateTimeZone('UTC'))))) {
+            $attachments = array_values(array_filter(
+                $attachments,
+                static fn (array $row): bool => !in_array((string) $row['privacy_class'], ['C4','C5'], true)
+            ));
+        }
         if (!$staff) {
             $attachments = array_values(array_map(static function (array $row): array {
                 unset($row['sha256'], $row['redacted_ref']);

@@ -24,4 +24,11 @@ $test(2,'provider webhook errors never expose internal exception messages',stati
     assert(!str_contains($source,'$error instanceof RuntimeException ? $error->getMessage()'));
 });
 
-if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 fresh 40-round regression register passed through round 02.\n");
+$test(4,'ordinary assigned staff cannot receive C4/C5 attachment metadata without sensitive capability and recent step-up',static function()use($read):void{
+    $source=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    assert(str_contains($source, '$context->hasCapability(\'case.sensitive.read\')'));
+    assert(str_contains($source, '$context->recentlyAuthenticated(new DateTimeImmutable(\'now\', new DateTimeZone(\'UTC\')))'));
+    assert(str_contains($source, '!in_array((string) $row[\'privacy_class\'], [\'C4\',\'C5\'], true)'));
+});
+
+if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 fresh 40-round regression register passed through round 04.\n");
