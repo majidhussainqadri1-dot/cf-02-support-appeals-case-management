@@ -115,4 +115,14 @@ $test(31,'runtime class resolution and terminal external-result states are monot
     assert(str_contains($worker,'Post-result reconciliation is non-authoritative for command terminal state.'));
 });
 
-if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 R24-R33 regression register passed through R31.\n");
+$test(32,'attachment bearer token is consumed only after authorized secure delivery under a token lease',static function()use($read):void{
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    $provider=$read('src/Infrastructure/WordPress/ProviderWebhookController.php');
+    assert(str_contains($repo,'public function inspectAttachmentToken'));
+    assert(str_contains($provider,"acquireWorkerLease('attachment_token'"));
+    assert(str_contains($provider,'inspectAttachmentToken($token'));
+    assert(strpos($provider,"(\$delivery['authorized'] ?? false) !== true") < strpos($provider,'consumeAttachmentToken($token'));
+    assert(str_contains($provider,"releaseWorkerLease('attachment_token'"));
+});
+
+if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 R24-R33 regression register passed through R32.\n");

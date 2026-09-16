@@ -1613,7 +1613,7 @@ final class OperationsRepository
     }
 
     /** @return array<string,mixed> */
-    public function consumeAttachmentToken(string $token, DateTimeImmutable $at): array
+    public function inspectAttachmentToken(string $token, DateTimeImmutable $at): array
     {
         $hash = hash('sha256', $token);
         $row = $this->row($this->wpdb->prepare(
@@ -1626,6 +1626,14 @@ final class OperationsRepository
         if ($row === null || !in_array((string) $row['state'], ['available','redacted'], true)) {
             throw new RuntimeException('Attachment token is invalid or expired.');
         }
+        return $row;
+    }
+
+    /** @return array<string,mixed> */
+    public function consumeAttachmentToken(string $token, DateTimeImmutable $at): array
+    {
+        $row = $this->inspectAttachmentToken($token, $at);
+        $hash = hash('sha256', $token);
         $updated = $this->wpdb->update($this->tables['tokens'], ['used_at' => $this->mysqlTime($at)], ['token_hash' => $hash, 'used_at' => null]);
         if ($updated !== 1) {
             throw new RuntimeException('Attachment token replay was rejected.');

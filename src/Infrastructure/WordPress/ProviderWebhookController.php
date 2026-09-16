@@ -203,18 +203,28 @@ final class ProviderWebhookController
             if (preg_match('/^[A-Za-z0-9_-]{40,80}$/', $token) !== 1) {
                 throw new RuntimeException('Attachment token is invalid or expired.');
             }
-            $evidence = $this->operations->consumeAttachmentToken($token, $this->now());
-            /** @var mixed $delivery */
-            $delivery = apply_filters('cf02_attachment_secure_delivery', null, [
-                'attachment_ref' => $evidence['attachment_uuid'],
-                'provider_ref' => $evidence['state'] === 'redacted' ? $evidence['redacted_ref'] : $evidence['provider_ref'],
-                'purpose' => $evidence['purpose'],
-                'actor_ref' => $evidence['actor_ref'],
-            ]);
-            if (!is_array($delivery) || ($delivery['authorized'] ?? false) !== true) {
-                throw new RuntimeException('Secure attachment provider is unavailable.');
+            $leaseId = hash('sha256', $token);
+            if (!$this->operations->acquireWorkerLease('attachment_token', $leaseId)) {
+                throw new RuntimeException('Attachment token is already being consumed.');
             }
-            return ['delivery' => array_intersect_key($delivery, array_flip(['authorized','expires_at','delivery_url','content_disposition']))];
+            try {
+                $evidence = $this->operations->inspectAttachmentToken($token, $this->now());
+                /** @var mixed $delivery */
+                $delivery = apply_filters('cf02_attachment_secure_delivery', null, [
+                    'attachment_ref' => $evidence['attachment_uuid'],
+                    'provider_ref' => $evidence['state'] === 'redacted' ? $evidence['redacted_ref'] : $evidence['provider_ref'],
+                    'purpose' => $evidence['purpose'],
+                    'actor_ref' => $evidence['actor_ref'],
+                ]);
+                if (!is_array($delivery) || ($delivery['authorized'] ?? false) !== true) {
+                    throw new RuntimeException('Secure attachment provider is unavailable.');
+                }
+                // Consume only after the provider has produced an authorized delivery response.
+                $this->operations->consumeAttachmentToken($token, $this->now());
+                return ['delivery' => array_intersect_key($delivery, array_flip(['authorized','expires_at','delivery_url','content_disposition']))];
+            } finally {
+                $this->operations->releaseWorkerLease('attachment_token', $leaseId);
+            }
         });
     }
 
