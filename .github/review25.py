@@ -16,7 +16,7 @@ $test(25,'object-level authorization keeps appeal review assigned and audit samp
     $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
     assert(!str_contains($repo, "hasAnyCapability('queue.manage', 'audit.sample.read')"));
     assert(!str_contains($repo, "'case.search.scoped', 'queue.manage', 'audit.sample.read'"));
-    assert(str_contains($repo, "if (\$context->hasCapability('appeal.queue.read'))"));
+    assert(str_contains($repo, "if (\$allowStaff && \$context->hasCapability('appeal.queue.read'))"));
     assert(str_contains($repo, "hasAnyCapability('appeal.review', 'appeal.decision', 'appeal.native.request', 'appeal.implementation.confirm')"));
     assert(str_contains($repo, "!hash_equals((string) \$row['reviewer_ref'], \$context->actorReference())"));
 });
