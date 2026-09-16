@@ -946,7 +946,7 @@ final class OperationsRepository
     ): array {
         SupportContractCatalog::assertEvent($event);
         $this->appealForActor($appealId, $context);
-        if ($this->eventReplay($appealId, $event, $idempotencyKey, $payload)) {
+        if ($this->eventReplay($appealId, $event, $idempotencyKey, $payload, 'appeal')) {
             return $this->appealForActor($appealId, $context);
         }
         $allowed = ['state','reviewer_ref','outcome','native_command_ref','implementation_ref'];
@@ -1038,28 +1038,45 @@ final class OperationsRepository
             throw new RuntimeException('Encrypted native command payload is required.');
         }
         $id = 'CF02-CMD-' . strtoupper(substr(hash('sha256', $idempotencyKey), 0, 20));
-        $this->transaction(function () use ($id, $caseId, $nativeOwner, $action, $objectRef, $expectedNativeVersion, $idempotencyKey, $payloadHash, $payloadCiphertext, $context, $purpose, $at): void {
-            $ok = $this->wpdb->insert($this->tables['commands'], [
-                'command_uuid' => $id, 'case_uuid' => $caseId->value(), 'native_owner' => $nativeOwner,
-                'action_key' => $action, 'object_ref' => $objectRef, 'expected_native_version' => $expectedNativeVersion,
-                'idempotency_key' => $idempotencyKey, 'payload_hash' => $payloadHash, 'state' => 'pending',
-                'attempts' => 0, 'next_attempt_at' => $this->mysqlTime($at), 'outcome_ref' => null,
-                'record_version' => 1, 'created_at' => $this->mysqlTime($at), 'updated_at' => $this->mysqlTime($at),
-            ]);
-            if ($ok !== 1) {
-                throw new RuntimeException('Native command persistence failed.');
+        try {
+            $this->transaction(function () use ($id, $caseId, $nativeOwner, $action, $objectRef, $expectedNativeVersion, $idempotencyKey, $payloadHash, $payloadCiphertext, $context, $purpose, $at): void {
+                $ok = $this->wpdb->insert($this->tables['commands'], [
+                    'command_uuid' => $id, 'case_uuid' => $caseId->value(), 'native_owner' => $nativeOwner,
+                    'action_key' => $action, 'object_ref' => $objectRef, 'expected_native_version' => $expectedNativeVersion,
+                    'idempotency_key' => $idempotencyKey, 'payload_hash' => $payloadHash, 'state' => 'pending',
+                    'attempts' => 0, 'next_attempt_at' => $this->mysqlTime($at), 'outcome_ref' => null,
+                    'record_version' => 1, 'created_at' => $this->mysqlTime($at), 'updated_at' => $this->mysqlTime($at),
+                ]);
+                if ($ok !== 1) {
+                    throw new RuntimeException('Native command persistence failed.');
+                }
+                $payloadOk = $this->wpdb->insert($this->tables['command_payloads'], [
+                    'command_uuid' => $id, 'payload_ciphertext' => $payloadCiphertext,
+                    'payload_hash' => $payloadHash, 'created_at' => $this->mysqlTime($at),
+                ]);
+                if ($payloadOk !== 1) {
+                    throw new RuntimeException('Native command payload persistence failed.');
+                }
+                $this->appendEvent('case', $caseId->value(), 'SupportNativeCommandRequested', $context, $purpose, $idempotencyKey, [
+                    'command_ref' => $id, 'native_owner' => $nativeOwner, 'action' => $action, 'object_ref' => $objectRef,
+                ], 1, $at);
+            });
+        } catch (RuntimeException $error) {
+            $replayed = $this->row($this->wpdb->prepare(
+                "SELECT * FROM {$this->tables['commands']} WHERE idempotency_key=%s LIMIT 1",
+                $idempotencyKey
+            ));
+            if ($replayed !== null
+                && hash_equals((string) $replayed['case_uuid'], $caseId->value())
+                && hash_equals((string) $replayed['native_owner'], $nativeOwner)
+                && hash_equals((string) $replayed['action_key'], $action)
+                && hash_equals((string) $replayed['object_ref'], $objectRef)
+                && (int) $replayed['expected_native_version'] === $expectedNativeVersion
+                && hash_equals((string) $replayed['payload_hash'], $payloadHash)) {
+                return $replayed;
             }
-            $payloadOk = $this->wpdb->insert($this->tables['command_payloads'], [
-                'command_uuid' => $id, 'payload_ciphertext' => $payloadCiphertext,
-                'payload_hash' => $payloadHash, 'created_at' => $this->mysqlTime($at),
-            ]);
-            if ($payloadOk !== 1) {
-                throw new RuntimeException('Native command payload persistence failed.');
-            }
-            $this->appendEvent('case', $caseId->value(), 'SupportNativeCommandRequested', $context, $purpose, $idempotencyKey, [
-                'command_ref' => $id, 'native_owner' => $nativeOwner, 'action' => $action, 'object_ref' => $objectRef,
-            ], 1, $at);
-        });
+            throw $error;
+        }
         return $this->row($this->wpdb->prepare("SELECT * FROM {$this->tables['commands']} WHERE command_uuid=%s", $id)) ?? [];
     }
 
@@ -1365,6 +1382,25 @@ final class OperationsRepository
         return $due;
     }
 
+    public function acquireWorkerLease(string $scope, string $objectId): bool
+    {
+        if (preg_match('/^[a-z][a-z0-9_-]{1,31}$/', $scope) !== 1 || trim($objectId) === '') {
+            throw new RuntimeException('Worker lease identity is invalid.');
+        }
+        $lockName = 'cf02:' . $scope . ':' . substr(hash('sha256', $objectId), 0, 40);
+        $acquired = $this->value($this->wpdb->prepare('SELECT GET_LOCK(%s,0)', $lockName));
+        return (int) $acquired === 1;
+    }
+
+    public function releaseWorkerLease(string $scope, string $objectId): void
+    {
+        if (preg_match('/^[a-z][a-z0-9_-]{1,31}$/', $scope) !== 1 || trim($objectId) === '') {
+            return;
+        }
+        $lockName = 'cf02:' . $scope . ':' . substr(hash('sha256', $objectId), 0, 40);
+        $this->value($this->wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lockName));
+    }
+
     /** @return list<array<string,mixed>> */
     public function pendingEvents(int $limit): array
     {
@@ -1428,25 +1464,41 @@ final class OperationsRepository
             }
             return (string) $existing['message_uuid'];
         }
-        $this->transaction(function () use ($messageId, $caseId, $recipientRef, $channel, $templateKey, $payloadHash, $payloadCiphertext, $idempotencyKey, $at): void {
-            $ok = $this->wpdb->insert($this->tables['outbox'], [
-                'message_uuid' => $messageId, 'case_uuid' => $caseId->value(), 'channel' => $channel,
-                'recipient_ref' => $recipientRef, 'template_key' => $templateKey, 'payload_hash' => $payloadHash,
-                'idempotency_key' => $idempotencyKey, 'state' => 'pending', 'attempts' => 0,
-                'next_attempt_at' => $this->mysqlTime($at), 'provider_ref' => null,
-                'created_at' => $this->mysqlTime($at), 'updated_at' => $this->mysqlTime($at),
-            ]);
-            if ($ok !== 1) {
-                throw new RuntimeException('Delivery outbox persistence failed.');
+        try {
+            $this->transaction(function () use ($messageId, $caseId, $recipientRef, $channel, $templateKey, $payloadHash, $payloadCiphertext, $idempotencyKey, $at): void {
+                $ok = $this->wpdb->insert($this->tables['outbox'], [
+                    'message_uuid' => $messageId, 'case_uuid' => $caseId->value(), 'channel' => $channel,
+                    'recipient_ref' => $recipientRef, 'template_key' => $templateKey, 'payload_hash' => $payloadHash,
+                    'idempotency_key' => $idempotencyKey, 'state' => 'pending', 'attempts' => 0,
+                    'next_attempt_at' => $this->mysqlTime($at), 'provider_ref' => null,
+                    'created_at' => $this->mysqlTime($at), 'updated_at' => $this->mysqlTime($at),
+                ]);
+                if ($ok !== 1) {
+                    throw new RuntimeException('Delivery outbox persistence failed.');
+                }
+                $payloadOk = $this->wpdb->insert($this->tables['outbox_payloads'], [
+                    'message_uuid' => $messageId, 'payload_ciphertext' => $payloadCiphertext,
+                    'payload_hash' => $payloadHash, 'created_at' => $this->mysqlTime($at),
+                ]);
+                if ($payloadOk !== 1) {
+                    throw new RuntimeException('Delivery payload persistence failed.');
+                }
+            });
+        } catch (RuntimeException $error) {
+            $replayed = $this->row($this->wpdb->prepare(
+                "SELECT * FROM {$this->tables['outbox']} WHERE idempotency_key=%s LIMIT 1",
+                $idempotencyKey
+            ));
+            if ($replayed !== null
+                && hash_equals((string) $replayed['case_uuid'], $caseId->value())
+                && hash_equals((string) $replayed['template_key'], $templateKey)
+                && hash_equals((string) $replayed['payload_hash'], $payloadHash)
+                && hash_equals((string) $replayed['recipient_ref'], $recipientRef)
+                && hash_equals((string) $replayed['channel'], $channel)) {
+                return (string) $replayed['message_uuid'];
             }
-            $payloadOk = $this->wpdb->insert($this->tables['outbox_payloads'], [
-                'message_uuid' => $messageId, 'payload_ciphertext' => $payloadCiphertext,
-                'payload_hash' => $payloadHash, 'created_at' => $this->mysqlTime($at),
-            ]);
-            if ($payloadOk !== 1) {
-                throw new RuntimeException('Delivery payload persistence failed.');
-            }
-        });
+            throw $error;
+        }
         return $messageId;
     }
 
@@ -1870,16 +1922,31 @@ final class OperationsRepository
         if ($this->eventReplay($source->value(), 'SupportCasesMerged', $idempotencyKey, $payload)) {
             return $this->row($this->wpdb->prepare("SELECT * FROM {$this->tables['merge_redirects']} WHERE source_case_uuid=%s AND active=1 LIMIT 1", $source->value())) ?? [];
         }
-        $existing = $this->row($this->wpdb->prepare(
-            "SELECT * FROM {$this->tables['merge_redirects']} WHERE source_case_uuid=%s AND active=1 LIMIT 1", $source->value()
-        ));
-        if ($existing !== null) {
-            if (!hash_equals((string) $existing['target_case_uuid'], $target->value())) {
-                throw new RuntimeException('Source case is already redirected to another target.');
+        $result = null;
+        $this->transaction(function () use ($source, $target, $context, $reason, $idempotencyKey, $payload, $at, &$result): void {
+            $lockIds = [$source->value(), $target->value()];
+            sort($lockIds, SORT_STRING);
+            foreach ($lockIds as $caseId) {
+                $this->lockCaseForLifecycle($caseId);
             }
-            return $existing;
-        }
-        $this->transaction(function () use ($source, $target, $context, $reason, $idempotencyKey, $payload, $at): void {
+            $existing = $this->row($this->wpdb->prepare(
+                "SELECT * FROM {$this->tables['merge_redirects']} WHERE source_case_uuid=%s AND active=1 LIMIT 1 FOR UPDATE",
+                $source->value()
+            ));
+            if ($existing !== null) {
+                if (!hash_equals((string) $existing['target_case_uuid'], $target->value())) {
+                    throw new RuntimeException('Source case is already redirected to another target.');
+                }
+                $result = $existing;
+                return;
+            }
+            $targetRedirect = $this->row($this->wpdb->prepare(
+                "SELECT source_case_uuid,target_case_uuid FROM {$this->tables['merge_redirects']} WHERE source_case_uuid=%s AND active=1 LIMIT 1 FOR UPDATE",
+                $target->value()
+            ));
+            if ($targetRedirect !== null) {
+                throw new RuntimeException('Merge target must be canonical and not already redirected.');
+            }
             $ok = $this->wpdb->insert($this->tables['merge_redirects'], [
                 'source_case_uuid' => $source->value(), 'target_case_uuid' => $target->value(),
                 'reason' => $reason, 'actor_ref' => $context->actorReference(), 'active' => 1,
@@ -1890,8 +1957,12 @@ final class OperationsRepository
             }
             $version = (int) $this->value($this->wpdb->prepare("SELECT record_version FROM {$this->tables['cases']} WHERE case_uuid=%s", $source->value()));
             $this->appendEvent('case', $source->value(), 'SupportCasesMerged', $context, 'case_merge', $idempotencyKey, $payload, $version, $at);
+            $result = $this->row($this->wpdb->prepare(
+                "SELECT * FROM {$this->tables['merge_redirects']} WHERE source_case_uuid=%s AND active=1 LIMIT 1",
+                $source->value()
+            ));
         });
-        return $this->row($this->wpdb->prepare("SELECT * FROM {$this->tables['merge_redirects']} WHERE source_case_uuid=%s AND active=1", $source->value())) ?? [];
+        return is_array($result) ? $result : [];
     }
 
     /** @return array<string,mixed> */
@@ -2140,19 +2211,25 @@ final class OperationsRepository
     }
 
     /** @param array<string,mixed> $payload */
-    private function eventReplay(string $aggregateRef, string $eventType, string $idempotencyKey, array $payload): bool
-    {
+    private function eventReplay(
+        string $aggregateRef,
+        string $eventType,
+        string $idempotencyKey,
+        array $payload,
+        string $aggregateType = 'case'
+    ): bool {
         $existing = $this->row($this->wpdb->prepare(
-            "SELECT aggregate_ref,payload_hash FROM {$this->tables['events']} WHERE idempotency_key=%s AND event_type=%s LIMIT 1",
+            "SELECT aggregate_type,aggregate_ref,payload_hash FROM {$this->tables['events']} WHERE idempotency_key=%s AND event_type=%s LIMIT 1",
             $idempotencyKey, $eventType
         ));
         if ($existing === null) {
             return false;
         }
         $payloadHash = hash('sha256', $this->json($payload));
-        if (!hash_equals((string) $existing['aggregate_ref'], $aggregateRef)
+        if (!hash_equals((string) $existing['aggregate_type'], $aggregateType)
+            || !hash_equals((string) $existing['aggregate_ref'], $aggregateRef)
             || !hash_equals((string) $existing['payload_hash'], $payloadHash)) {
-            throw new RuntimeException('Idempotency key was reused with a different aggregate or payload.');
+            throw new RuntimeException('Idempotency key was reused with a different aggregate type, aggregate, or payload.');
         }
         return true;
     }

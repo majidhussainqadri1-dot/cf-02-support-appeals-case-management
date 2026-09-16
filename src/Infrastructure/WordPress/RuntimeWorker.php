@@ -23,20 +23,28 @@ final class RuntimeWorker
     {
         $processed = $published = $retried = 0;
         foreach ($this->repository->pendingEvents($limit) as $event) {
-            ++$processed;
+            $eventId = (string) $event['event_uuid'];
+            if (!$this->repository->acquireWorkerLease('event', $eventId)) {
+                continue;
+            }
             try {
-                /** @var mixed $result */
-                $result = apply_filters('cf02_publish_domain_event', null, $event);
-                if (!is_array($result) || ($result['accepted'] ?? false) !== true) {
-                    throw new RuntimeException('Event consumer did not accept the event.');
+                ++$processed;
+                try {
+                    /** @var mixed $result */
+                    $result = apply_filters('cf02_publish_domain_event', null, $event);
+                    if (!is_array($result) || ($result['accepted'] ?? false) !== true) {
+                        throw new RuntimeException('Event consumer did not accept the event.');
+                    }
+                    $this->repository->markEventPublished($eventId);
+                    do_action('cf02_domain_event_published', $event);
+                    ++$published;
+                } catch (Throwable) {
+                    $attempts = (int) $event['publish_attempts'] + 1;
+                    $this->repository->markEventRetry($eventId, $attempts, $this->nextAttempt($attempts));
+                    ++$retried;
                 }
-                $this->repository->markEventPublished((string) $event['event_uuid']);
-                do_action('cf02_domain_event_published', $event);
-                ++$published;
-            } catch (Throwable) {
-                $attempts = (int) $event['publish_attempts'] + 1;
-                $this->repository->markEventRetry((string) $event['event_uuid'], $attempts, $this->nextAttempt($attempts));
-                ++$retried;
+            } finally {
+                $this->repository->releaseWorkerLease('event', $eventId);
             }
         }
         return compact('processed', 'published', 'retried');
@@ -46,41 +54,49 @@ final class RuntimeWorker
     {
         $processed = $sent = $retried = $deadLetters = 0;
         foreach ($this->repository->pendingOutbox($limit) as $message) {
-            ++$processed;
-            $attempts = (int) $message['attempts'] + 1;
+            $messageId = (string) $message['message_uuid'];
+            if (!$this->repository->acquireWorkerLease('outbox', $messageId)) {
+                continue;
+            }
             try {
-                $payload = json_decode($this->cipher->decrypt((string) $message['payload_ciphertext']), true, 512, JSON_THROW_ON_ERROR);
-                /** @var mixed $result */
-                $result = apply_filters('cf02_file19_delivery_request', null, [
-                    'message_id' => $message['message_uuid'],
-                    'case_id' => $message['case_uuid'],
-                    'channel' => $message['channel'],
-                    'recipient_ref' => $message['recipient_ref'],
-                    'template_key' => $message['template_key'],
-                    'payload' => $payload,
-                    'idempotency_key' => $message['idempotency_key'],
-                ]);
-                if (!is_array($result) || ($result['accepted'] ?? false) !== true) {
-                    throw new RuntimeException('File 19 delivery adapter is unavailable.');
-                }
-                $this->repository->updateOutboxResult(
-                    (string) $message['message_uuid'], 'sent', $attempts,
-                    isset($result['provider_ref']) ? (string) $result['provider_ref'] : null,
-                    null, $this->now()
-                );
-                ++$sent;
-            } catch (Throwable) {
-                $dead = $attempts >= 8;
-                $this->repository->updateOutboxResult(
-                    (string) $message['message_uuid'], $dead ? 'dead_letter' : 'retry', $attempts,
-                    null, $dead ? null : $this->nextAttempt($attempts), $this->now()
-                );
-                if ($dead && (string) ($message['template_key'] ?? '') === 'support_case_resolved') {
-                    $this->repository->recoverOutcomeDeliveryFailure(
-                        (string) $message['case_uuid'], (string) $message['message_uuid'], $this->now()
+                ++$processed;
+                $attempts = (int) $message['attempts'] + 1;
+                try {
+                    $payload = json_decode($this->cipher->decrypt((string) $message['payload_ciphertext']), true, 512, JSON_THROW_ON_ERROR);
+                    /** @var mixed $result */
+                    $result = apply_filters('cf02_file19_delivery_request', null, [
+                        'message_id' => $message['message_uuid'],
+                        'case_id' => $message['case_uuid'],
+                        'channel' => $message['channel'],
+                        'recipient_ref' => $message['recipient_ref'],
+                        'template_key' => $message['template_key'],
+                        'payload' => $payload,
+                        'idempotency_key' => $message['idempotency_key'],
+                    ]);
+                    if (!is_array($result) || ($result['accepted'] ?? false) !== true) {
+                        throw new RuntimeException('File 19 delivery adapter is unavailable.');
+                    }
+                    $this->repository->updateOutboxResult(
+                        $messageId, 'sent', $attempts,
+                        isset($result['provider_ref']) ? (string) $result['provider_ref'] : null,
+                        null, $this->now()
                     );
+                    ++$sent;
+                } catch (Throwable) {
+                    $dead = $attempts >= 8;
+                    $this->repository->updateOutboxResult(
+                        $messageId, $dead ? 'dead_letter' : 'retry', $attempts,
+                        null, $dead ? null : $this->nextAttempt($attempts), $this->now()
+                    );
+                    if ($dead && (string) ($message['template_key'] ?? '') === 'support_case_resolved') {
+                        $this->repository->recoverOutcomeDeliveryFailure(
+                            (string) $message['case_uuid'], $messageId, $this->now()
+                        );
+                    }
+                    $dead ? ++$deadLetters : ++$retried;
                 }
-                $dead ? ++$deadLetters : ++$retried;
+            } finally {
+                $this->repository->releaseWorkerLease('outbox', $messageId);
             }
         }
         return compact('processed', 'sent', 'retried', 'deadLetters');
@@ -90,7 +106,12 @@ final class RuntimeWorker
     {
         $processed = $succeeded = $failed = $retried = $uncertain = $deadLetters = 0;
         foreach ($this->repository->pendingCommands($limit) as $command) {
-            ++$processed;
+            $commandId = (string) $command['command_uuid'];
+            if (!$this->repository->acquireWorkerLease('command', $commandId)) {
+                continue;
+            }
+            try {
+                ++$processed;
             $attempts = (int) $command['attempts'] + 1;
             try {
                 $payload = json_decode($this->cipher->decrypt((string) $command['payload_ciphertext']), true, 512, JSON_THROW_ON_ERROR);
@@ -147,6 +168,9 @@ final class RuntimeWorker
                     $attempts, $dead ? null : $this->nextAttempt($attempts), $this->now()
                 );
                 $dead ? ++$deadLetters : ++$retried;
+            }
+            } finally {
+                $this->repository->releaseWorkerLease('command', $commandId);
             }
         }
         return compact('processed', 'succeeded', 'failed', 'retried', 'uncertain', 'deadLetters');

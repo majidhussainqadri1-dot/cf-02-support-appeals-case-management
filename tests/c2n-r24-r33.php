@@ -88,5 +88,20 @@ $test(29,'SLA worker emits escalation side effects only on a real status transit
     $worker=$read('src/Infrastructure/WordPress/RuntimeWorker.php');
     assert(str_contains($worker, "if (hash_equals((string) (\$timer['status'] ?? ''), \$status))"));
 });
+$test(30,'worker side effects are concurrency leased and replay identity is aggregate-type bound',static function()use($read):void{
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    $worker=$read('src/Infrastructure/WordPress/RuntimeWorker.php');
+    assert(str_contains($repo, "SELECT GET_LOCK(%s,0)"));
+    assert(str_contains($repo, "SELECT RELEASE_LOCK(%s)"));
+    assert(str_contains($worker, "acquireWorkerLease('event'"));
+    assert(str_contains($worker, "acquireWorkerLease('outbox'"));
+    assert(str_contains($worker, "acquireWorkerLease('command'"));
+    assert(substr_count($worker, 'releaseWorkerLease(')>=3);
+    assert(str_contains($repo, "SELECT aggregate_type,aggregate_ref,payload_hash"));
+    assert(str_contains($repo, "eventReplay(\$appealId, \$event, \$idempotencyKey, \$payload, 'appeal')"));
+    assert(str_contains($repo, "Merge target must be canonical and not already redirected."));
+    assert(str_contains($repo, "sort(\$lockIds, SORT_STRING)"));
+    assert(substr_count($repo, "WHERE idempotency_key=%s LIMIT 1")>=4);
+});
 
-if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 R24-R33 regression register passed through R29.\n");
+if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 R24-R33 regression register passed through R30.\n");
