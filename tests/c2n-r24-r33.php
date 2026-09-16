@@ -38,6 +38,9 @@ $test(24,'domain and runtime state laws use one canonical vocabulary and native 
     assert(RuntimeWorkflowPolicy::attachmentTransitions()['scanned']===['available','rejected','redacted']);
     assert(RuntimeWorkflowPolicy::attachmentTransitions()['rejected']===['purged']);
     assert(RuntimeWorkflowPolicy::attachmentTransitions()['superseded']===['expired','purged']);
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    assert(str_contains($repo, "RuntimeWorkflowPolicy::assertAttachment(\$fromState, 'redacted')"));
+    assert(str_contains($repo, "'state' => \$fromState"));
     $runtime=$read('src/Application/RuntimeWorkflowPolicy.php');
     assert(!str_contains($runtime,"'under_review' => ['native_decision_pending', 'decided']"));
 });

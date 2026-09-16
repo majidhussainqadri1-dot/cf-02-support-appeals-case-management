@@ -7,6 +7,7 @@ namespace Sabri\CF02\Infrastructure\WordPress;
 use DateTimeImmutable;
 use DateTimeZone;
 use RuntimeException;
+use Sabri\CF02\Application\RuntimeWorkflowPolicy;
 use Sabri\CF02\Authorization\PrincipalContext;
 use Sabri\CF02\Contracts\SupportContractCatalog;
 use Sabri\CF02\Domain\SupportCaseId;
@@ -634,14 +635,13 @@ final class OperationsRepository
             $this->appendEvent('attachment', $attachmentId, 'SupportAttachmentRedacted', $system, 'attachment_redaction', $idempotencyKey, $payload, (int) $row['record_version'], $at);
             return $row;
         }
-        if ((string) $row['state'] !== 'available') {
-            throw new RuntimeException('Attachment is not eligible for redaction.');
-        }
+        $fromState = (string) $row['state'];
+        RuntimeWorkflowPolicy::assertAttachment($fromState, 'redacted');
         $version = (int) $row['record_version'];
-        $this->transaction(function () use ($attachmentId, $redactedRef, $idempotencyKey, $payload, $system, $version, $at): void {
+        $this->transaction(function () use ($attachmentId, $redactedRef, $idempotencyKey, $payload, $system, $version, $fromState, $at): void {
             $updated = $this->wpdb->update($this->tables['attachments'], [
                 'state' => 'redacted', 'redacted_ref' => $redactedRef, 'record_version' => $version + 1,
-            ], ['attachment_uuid' => $attachmentId, 'state' => 'available', 'record_version' => $version]);
+            ], ['attachment_uuid' => $attachmentId, 'state' => $fromState, 'record_version' => $version]);
             if ($updated !== 1) {
                 throw new RuntimeException('Attachment redaction conflicted.');
             }
