@@ -12,11 +12,11 @@ final class AttachmentStateMachine
     private const TRANSITIONS = [
         'uploaded' => ['quarantined'],
         'quarantined' => ['scanned', 'rejected'],
-        'scanned' => ['available', 'rejected', 'redacted'],
+        'scanned' => ['available', 'rejected'],
         'available' => ['redacted', 'superseded', 'expired'],
         'redacted' => ['superseded', 'expired'],
-        'rejected' => ['purged'],
-        'superseded' => ['expired', 'purged'],
+        'superseded' => ['expired'],
+        'rejected' => ['expired', 'purged'],
         'expired' => ['purged'],
         'purged' => [],
     ];
