@@ -8,14 +8,15 @@ final class CaseStateMachine
 {
     /** @var array<string, list<CaseState>> */
     private const TRANSITIONS = [
-        'new' => [CaseState::Triaged],
-        'triaged' => [CaseState::InProgress],
-        'in_progress' => [CaseState::WaitingForUser, CaseState::WaitingForProvider, CaseState::Resolved],
-        'waiting_for_user' => [CaseState::InProgress, CaseState::Resolved],
-        'waiting_for_provider' => [CaseState::InProgress, CaseState::Resolved],
+        'new' => [CaseState::Triaged, CaseState::Withdrawn],
+        'triaged' => [CaseState::InProgress, CaseState::WaitingForUser, CaseState::WaitingForProvider, CaseState::Withdrawn],
+        'in_progress' => [CaseState::WaitingForUser, CaseState::WaitingForProvider, CaseState::Resolved, CaseState::Withdrawn],
+        'waiting_user' => [CaseState::InProgress, CaseState::Resolved, CaseState::Withdrawn],
+        'waiting_provider' => [CaseState::InProgress, CaseState::Resolved, CaseState::Withdrawn],
         'resolved' => [CaseState::Closed, CaseState::Reopened],
         'closed' => [CaseState::Reopened],
-        'reopened' => [CaseState::Triaged, CaseState::InProgress],
+        'reopened' => [CaseState::InProgress, CaseState::WaitingForUser, CaseState::WaitingForProvider, CaseState::Resolved],
+        'withdrawn' => [CaseState::Reopened],
     ];
 
     public function canTransition(CaseState $from, CaseState $to): bool
