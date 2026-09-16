@@ -32,9 +32,12 @@ $test(24,'domain and runtime state laws use one canonical vocabulary and native 
     assert(RuntimeWorkflowPolicy::appealTransitions()['under_review']===['native_decision_pending']);
     assert(RuntimeWorkflowPolicy::appealTransitions()['native_decision_pending']===['decided']);
     $attachments=new AttachmentStateMachine();
-    assert(!$attachments->canTransition(AttachmentState::Scanned,AttachmentState::Redacted));
-    assert($attachments->canTransition(AttachmentState::Rejected,AttachmentState::Expired));
-    assert(!$attachments->canTransition(AttachmentState::Superseded,AttachmentState::Purged));
+    assert($attachments->canTransition(AttachmentState::Scanned,AttachmentState::Redacted));
+    assert(!$attachments->canTransition(AttachmentState::Rejected,AttachmentState::Expired));
+    assert($attachments->canTransition(AttachmentState::Superseded,AttachmentState::Purged));
+    assert(RuntimeWorkflowPolicy::attachmentTransitions()['scanned']===['available','rejected','redacted']);
+    assert(RuntimeWorkflowPolicy::attachmentTransitions()['rejected']===['purged']);
+    assert(RuntimeWorkflowPolicy::attachmentTransitions()['superseded']===['expired','purged']);
     $runtime=$read('src/Application/RuntimeWorkflowPolicy.php');
     assert(!str_contains($runtime,"'under_review' => ['native_decision_pending', 'decided']"));
 });
