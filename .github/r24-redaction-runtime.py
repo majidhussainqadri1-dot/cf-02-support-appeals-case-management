@@ -15,7 +15,7 @@ repo.write_text(s)
 test=Path('tests/c2n-r24-r33.php')
 t=test.read_text()
 needle="    $runtime=$read('src/Application/RuntimeWorkflowPolicy.php');\n"
-insert="    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');\n    assert(str_contains($repo, 'RuntimeWorkflowPolicy::assertAttachment($fromState, \\'redacted\\')'));\n    assert(str_contains($repo, \\'\\'state\\' => $fromState\\'));\n"
+insert="    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');\n    assert(str_contains($repo, \"RuntimeWorkflowPolicy::assertAttachment(\\$fromState, 'redacted')\"));\n    assert(str_contains($repo, \"'state' => \\$fromState\"));\n"
 if insert not in t:
     t=t.replace(needle,insert+needle,1)
 test.write_text(t)
