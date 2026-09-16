@@ -7,6 +7,7 @@ namespace Sabri\CF02\Infrastructure\WordPress;
 use DateTimeImmutable;
 use DateTimeZone;
 use RuntimeException;
+use Sabri\CF02\Application\RuntimeWorkflowPolicy;
 use Sabri\CF02\Authorization\PrincipalContext;
 use Sabri\CF02\Contracts\SupportContractCatalog;
 use Sabri\CF02\Domain\SupportCaseId;
@@ -75,11 +76,11 @@ final class OperationsRepository
         }
         if (!$allowStaff || !$context->hasAnyCapability(
             'case.assigned.read', 'case.specialist.read', 'case.sensitive.read',
-            'case.search.scoped', 'queue.manage', 'audit.sample.read'
+            'case.search.scoped', 'queue.manage'
         )) {
             throw new RuntimeException('Case not found.');
         }
-        if ($context->hasAnyCapability('queue.manage', 'audit.sample.read')) {
+        if ($context->hasCapability('queue.manage')) {
             return $row;
         }
         $assigned = $this->value($this->wpdb->prepare(
@@ -107,10 +108,12 @@ final class OperationsRepository
             || $context->represents((string) $row['appellant_ref'])) {
             return $row;
         }
-        if ($allowStaff && $context->hasAnyCapability('appeal.queue.read', 'appeal.review', 'appeal.decision')) {
-            if ($context->hasCapability('appeal.review') && $row['reviewer_ref'] !== null
-                && !hash_equals((string) $row['reviewer_ref'], $context->actorReference())
-                && !$context->hasCapability('appeal.queue.read')) {
+        if ($allowStaff && $context->hasCapability('appeal.queue.read')) {
+            return $row;
+        }
+        if ($allowStaff && $context->hasAnyCapability('appeal.review', 'appeal.decision', 'appeal.native.request', 'appeal.implementation.confirm')) {
+            if (!is_string($row['reviewer_ref'] ?? null) || trim((string) $row['reviewer_ref']) === ''
+                || !hash_equals((string) $row['reviewer_ref'], $context->actorReference())) {
                 throw new RuntimeException('Appeal not found.');
             }
             return $row;
@@ -205,7 +208,18 @@ final class OperationsRepository
                 throw new RuntimeException('Unsupported case mutation field.');
             }
         }
-        $this->transaction(function () use ($caseId, $context, $expectedVersion, $fields, $event, $purpose, $idempotencyKey, $eventPayload, $at): void {
+        $this->transaction(function () use ($caseId, $context, $expectedVersion, $fields, $command, $event, $purpose, $idempotencyKey, $eventPayload, $at): void {
+            $current = $this->lockCaseForLifecycle($caseId->value());
+            if ((int) $current['record_version'] !== $expectedVersion) {
+                throw new RuntimeException('Stale case version or case mutation failed.');
+            }
+            $fromState = (string) $current['state'];
+            if ($command === 'EscalateCase' && in_array($fromState, ['resolved', 'closed', 'withdrawn'], true)) {
+                throw new RuntimeException('Terminal cases must be reopened before escalation.');
+            }
+            if (isset($fields['state']) && is_string($fields['state']) && !hash_equals($fromState, $fields['state'])) {
+                RuntimeWorkflowPolicy::assertCase($fromState, $fields['state']);
+            }
             $data = array_merge($fields, [
                 'record_version' => $expectedVersion + 1,
                 'updated_at' => $this->mysqlTime($at),
@@ -232,8 +246,8 @@ final class OperationsRepository
         DateTimeImmutable $at
     ): string {
         $case = $this->caseForActor($caseId, $context);
-        if (in_array((string) $case['state'], ['closed'], true)) {
-            throw new RuntimeException('Closed cases cannot receive messages before governed reopen.');
+        if (in_array((string) $case['state'], ['closed', 'withdrawn'], true)) {
+            throw new RuntimeException('Closed or withdrawn cases cannot receive messages before governed reopen.');
         }
         if (!in_array($visibility, ['requester', 'internal', 'restricted'], true)
             || !in_array($channel, ['web', 'email', 'chat', 'system'], true)
@@ -378,10 +392,75 @@ final class OperationsRepository
         }
     }
 
+    /** @return array<string,mixed> */
+    public function waitCaseAndPauseSla(
+        SupportCaseId $caseId,
+        PrincipalContext $context,
+        int $expectedVersion,
+        string $waitingState,
+        string $command,
+        string $idempotencyKey,
+        string $reason,
+        DateTimeImmutable $at
+    ): array {
+        if (!in_array($waitingState, ['waiting_user', 'waiting_provider'], true) || trim($reason) === '') {
+            throw new RuntimeException('A valid waiting state and bounded reason are required.');
+        }
+        SupportContractCatalog::assertCommand($command);
+        SupportContractCatalog::assertEvent('SupportCaseWaiting');
+        SupportContractCatalog::assertEvent('SupportSlaPaused');
+        $this->caseForActor($caseId, $context);
+        $waitingPayload = ['reason' => $reason, 'waiting_for' => $waitingState === 'waiting_provider' ? 'provider' : 'user'];
+        if ($this->eventReplay($caseId->value(), 'SupportCaseWaiting', $idempotencyKey, $waitingPayload)) {
+            return $this->caseForActor($caseId, $context);
+        }
+        $evidenceRef = 'event:' . $idempotencyKey;
+        $this->transaction(function () use ($caseId, $context, $expectedVersion, $waitingState, $idempotencyKey, $waitingPayload, $evidenceRef, $at): void {
+            $case = $this->lockCaseForLifecycle($caseId->value());
+            if ((int) $case['record_version'] !== $expectedVersion) {
+                throw new RuntimeException('Stale case version or case mutation failed.');
+            }
+            RuntimeWorkflowPolicy::assertCase((string) $case['state'], $waitingState);
+            if (!$this->hasRequesterVisibleStaffResponse($caseId)) {
+                throw new RuntimeException('SLA pause is prohibited before a requester-visible staff response.');
+            }
+            $sla = $this->row($this->wpdb->prepare(
+                "SELECT record_version,status FROM {$this->tables['sla']} WHERE case_uuid=%s FOR UPDATE",
+                $caseId->value()
+            ));
+            if ($sla === null || !in_array((string) $sla['status'], ['running', 'at_risk'], true)) {
+                throw new RuntimeException('SLA timer is not eligible for pause.');
+            }
+            $updatedCase = $this->wpdb->update($this->tables['cases'], [
+                'state' => $waitingState,
+                'record_version' => $expectedVersion + 1,
+                'updated_at' => $this->mysqlTime($at),
+            ], ['case_uuid' => $caseId->value(), 'record_version' => $expectedVersion]);
+            if ($updatedCase !== 1) {
+                throw new RuntimeException('Stale case version or case mutation failed.');
+            }
+            $updatedSla = $this->wpdb->update($this->tables['sla'], [
+                'status' => 'paused', 'paused_at' => $this->mysqlTime($at), 'pause_reason' => $waitingState,
+                'evidence_ref' => $evidenceRef, 'record_version' => (int) $sla['record_version'] + 1,
+            ], ['case_uuid' => $caseId->value(), 'record_version' => (int) $sla['record_version']]);
+            if ($updatedSla !== 1) {
+                throw new RuntimeException('SLA pause conflicted.');
+            }
+            $this->appendEvent('case', $caseId->value(), 'SupportCaseWaiting', $context, 'sla_wait', $idempotencyKey, $waitingPayload, $expectedVersion + 1, $at);
+            $this->appendEvent('case', $caseId->value(), 'SupportSlaPaused', $context, 'sla_wait', $idempotencyKey . ':sla-pause', [
+                'reason' => $waitingState, 'evidence_ref' => $evidenceRef,
+            ], $expectedVersion + 1, $at);
+        });
+        return $this->caseForActor($caseId, $context);
+    }
+
     public function pauseSla(SupportCaseId $caseId, string $reason, string $evidenceRef, DateTimeImmutable $at): void
     {
         if (!in_array($reason, ['waiting_user','waiting_provider','legal_hold'], true) || trim($evidenceRef) === '') {
             throw new RuntimeException('SLA pause reason or evidence is invalid.');
+        }
+        if (!$this->hasRequesterVisibleStaffResponse($caseId)) {
+            throw new RuntimeException('SLA pause is prohibited before a requester-visible staff response.');
         }
         $row = $this->row($this->wpdb->prepare("SELECT record_version,status FROM {$this->tables['sla']} WHERE case_uuid=%s LIMIT 1", $caseId->value()));
         if ($row === null || !in_array((string) $row['status'], ['running','at_risk'], true)) {
@@ -396,11 +475,14 @@ final class OperationsRepository
         }
     }
 
-    public function resumeSla(SupportCaseId $caseId, string $evidenceRef, DateTimeImmutable $at): void
+    public function resumeSla(SupportCaseId $caseId, string $evidenceRef, DateTimeImmutable $at, ?string $expectedPauseReason = null): bool
     {
         $row = $this->row($this->wpdb->prepare("SELECT * FROM {$this->tables['sla']} WHERE case_uuid=%s LIMIT 1", $caseId->value()));
         if ($row === null || (string) $row['status'] !== 'paused') {
-            return;
+            return false;
+        }
+        if ($expectedPauseReason !== null && !hash_equals((string) $row['pause_reason'], $expectedPauseReason)) {
+            return false;
         }
         if (trim($evidenceRef) === '' || $row['paused_at'] === null) {
             throw new RuntimeException('SLA resume evidence is invalid.');
@@ -409,7 +491,8 @@ final class OperationsRepository
         $seconds = max(0, $at->getTimestamp() - $pausedAt->getTimestamp());
         $shift = static fn (string $value): string => (new DateTimeImmutable($value, new DateTimeZone('UTC')))->modify('+' . $seconds . ' seconds')->format('Y-m-d H:i:s.u');
         $updated = $this->wpdb->update($this->tables['sla'], [
-            'status' => 'running', 'first_response_deadline' => $shift((string) $row['first_response_deadline']),
+            'status' => 'running',
+            // A pause can begin only after first response, so that already-satisfied deadline must never move.
             'update_deadline' => $shift((string) $row['update_deadline']),
             'resolution_deadline' => $shift((string) $row['resolution_deadline']),
             'paused_at' => null, 'pause_reason' => null, 'evidence_ref' => $evidenceRef,
@@ -418,21 +501,55 @@ final class OperationsRepository
         if ($updated !== 1) {
             throw new RuntimeException('SLA resume conflicted.');
         }
+        return true;
     }
 
     /** @return list<array<string,mixed>> */
     public function dueSla(int $limit): array
     {
+        $firstResponseRecorded = "EXISTS (
+            SELECT 1 FROM {$this->tables['messages']} mfr
+            WHERE mfr.case_uuid=s.case_uuid AND mfr.visibility='requester'
+              AND mfr.author_ref<>c.requester_ref
+              AND NOT EXISTS (
+                  SELECT 1 FROM {$this->tables['representatives']} rfr
+                  WHERE rfr.requester_ref=c.requester_ref AND rfr.representative_ref=mfr.author_ref
+                    AND rfr.verified_at<=mfr.created_at AND rfr.expires_at>mfr.created_at
+                    AND (rfr.revoked_at IS NULL OR rfr.revoked_at>mfr.created_at)
+              )
+        )";
         return $this->rows($this->wpdb->prepare(
-            "SELECT s.*,c.state,c.priority,c.owner_ref,c.requester_ref FROM {$this->tables['sla']} s
+            "SELECT s.*,c.state,c.priority,c.owner_ref,c.requester_ref,
+                    CASE WHEN {$firstResponseRecorded} THEN 1 ELSE 0 END AS first_response_recorded
+             FROM {$this->tables['sla']} s
              JOIN {$this->tables['cases']} c ON c.case_uuid=s.case_uuid
              WHERE s.status IN ('running','at_risk') AND c.state NOT IN ('resolved','closed','withdrawn')
-             AND (s.first_response_deadline<=DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 30 MINUTE)
+             AND ((NOT {$firstResponseRecorded} AND s.first_response_deadline<=DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 30 MINUTE))
                   OR s.update_deadline<=DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 30 MINUTE)
                   OR s.resolution_deadline<=DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 30 MINUTE))
-             ORDER BY LEAST(s.first_response_deadline,s.update_deadline,s.resolution_deadline) ASC LIMIT %d",
+             ORDER BY LEAST(
+                 CASE WHEN {$firstResponseRecorded} THEN '9999-12-31 23:59:59.999999' ELSE s.first_response_deadline END,
+                 s.update_deadline,s.resolution_deadline
+             ) ASC LIMIT %d",
             max(1, min(250, $limit))
         ));
+    }
+
+    private function hasRequesterVisibleStaffResponse(SupportCaseId $caseId): bool
+    {
+        $count = $this->value($this->wpdb->prepare(
+            "SELECT COUNT(*) FROM {$this->tables['messages']} m
+             JOIN {$this->tables['cases']} c ON c.case_uuid=m.case_uuid
+             WHERE m.case_uuid=%s AND m.visibility='requester' AND m.author_ref<>c.requester_ref
+               AND NOT EXISTS (
+                   SELECT 1 FROM {$this->tables['representatives']} r
+                   WHERE r.requester_ref=c.requester_ref AND r.representative_ref=m.author_ref
+                     AND r.verified_at<=m.created_at AND r.expires_at>m.created_at
+                     AND (r.revoked_at IS NULL OR r.revoked_at>m.created_at)
+               )",
+            $caseId->value()
+        ));
+        return (int) $count > 0;
     }
 
     public function markSlaStatus(string $caseId, string $status, DateTimeImmutable $at): int
@@ -467,7 +584,10 @@ final class OperationsRepository
         string $idempotencyKey,
         DateTimeImmutable $at
     ): array {
-        $this->caseForActor($caseId, $context);
+        $case = $this->caseForActor($caseId, $context);
+        if (in_array((string) $case['state'], ['closed', 'withdrawn'], true)) {
+            throw new RuntimeException('Closed or withdrawn cases cannot receive attachments before governed reopen.');
+        }
         if ($size < 1 || $size > 25 * 1024 * 1024 || preg_match('/^[a-f0-9]{64}$/', $sha256) !== 1
             || preg_match('/^[a-z0-9.+-]+\/[a-z0-9.+-]+$/i', $mimeType) !== 1
             || !in_array($privacyClass, ['C1','C2','C3','C4','C5'], true)
@@ -590,14 +710,13 @@ final class OperationsRepository
             $this->appendEvent('attachment', $attachmentId, 'SupportAttachmentRedacted', $system, 'attachment_redaction', $idempotencyKey, $payload, (int) $row['record_version'], $at);
             return $row;
         }
-        if ((string) $row['state'] !== 'available') {
-            throw new RuntimeException('Attachment is not eligible for redaction.');
-        }
+        $fromState = (string) $row['state'];
+        RuntimeWorkflowPolicy::assertAttachment($fromState, 'redacted');
         $version = (int) $row['record_version'];
-        $this->transaction(function () use ($attachmentId, $redactedRef, $idempotencyKey, $payload, $system, $version, $at): void {
+        $this->transaction(function () use ($attachmentId, $redactedRef, $idempotencyKey, $payload, $system, $version, $fromState, $at): void {
             $updated = $this->wpdb->update($this->tables['attachments'], [
                 'state' => 'redacted', 'redacted_ref' => $redactedRef, 'record_version' => $version + 1,
-            ], ['attachment_uuid' => $attachmentId, 'state' => 'available', 'record_version' => $version]);
+            ], ['attachment_uuid' => $attachmentId, 'state' => $fromState, 'record_version' => $version]);
             if ($updated !== 1) {
                 throw new RuntimeException('Attachment redaction conflicted.');
             }
@@ -785,6 +904,7 @@ final class OperationsRepository
         $submissions = [['actor_ref' => $context->actorReference(), 'grounds' => $grounds, 'at' => $at->format(DATE_ATOM)]];
         $dossierHash = hash('sha256', $this->json([$originalHash, $policyVersion, $evidenceRefs, $submissions]));
         $this->transaction(function () use ($appealId, $caseId, $context, $originalDecisionRef, $policyVersion, $evidenceRefs, $submissions, $originalHash, $dossierHash, $idempotencyKey, $at): void {
+            $this->lockCaseForLifecycle($caseId->value(), ['resolved','closed']);
             $ok = $this->wpdb->insert($this->tables['appeals'], [
                 'appeal_uuid' => $appealId, 'case_uuid' => $caseId->value(),
                 'appellant_ref' => $context->actorReference(), 'original_decision_ref' => $originalDecisionRef,
@@ -836,6 +956,17 @@ final class OperationsRepository
             }
         }
         $this->transaction(function () use ($appealId, $context, $expectedVersion, $fields, $event, $purpose, $idempotencyKey, $payload, $at): void {
+            $current = $this->row($this->wpdb->prepare(
+                "SELECT state,record_version FROM {$this->tables['appeals']} WHERE appeal_uuid=%s FOR UPDATE",
+                $appealId
+            ));
+            if ($current === null || (int) $current['record_version'] !== $expectedVersion) {
+                throw new RuntimeException('Stale appeal version or mutation failure.');
+            }
+            $fromState = (string) $current['state'];
+            if (isset($fields['state']) && is_string($fields['state']) && !hash_equals($fromState, $fields['state'])) {
+                RuntimeWorkflowPolicy::assertAppeal($fromState, $fields['state']);
+            }
             $data = $fields;
             $data['record_version'] = $expectedVersion + 1;
             $data['updated_at'] = $this->mysqlTime($at);
@@ -873,15 +1004,31 @@ final class OperationsRepository
         if (trim($action) === '' || trim($objectRef) === '' || $expectedNativeVersion < 1) {
             throw new RuntimeException('Native-owner command metadata is invalid.');
         }
+        $authorization = apply_filters('cf02_authorize_native_owner_command', null, [
+            'case_ref' => $caseId->value(),
+            'actor_ref' => $context->actorReference(),
+            'native_owner' => $nativeOwner,
+            'action' => $action,
+            'object_ref' => $objectRef,
+            'expected_native_version' => $expectedNativeVersion,
+            'purpose' => $purpose,
+        ]);
+        if (!is_array($authorization) || ($authorization['authorized'] ?? false) !== true
+            || !is_int($authorization['verified_native_version'] ?? null)
+            || (int) $authorization['verified_native_version'] < $expectedNativeVersion) {
+            throw new RuntimeException('Native-owner command is not authorized by the canonical owner.');
+        }
         $payloadHash = hash('sha256', $this->json($payload));
         $existing = $this->row($this->wpdb->prepare(
             "SELECT * FROM {$this->tables['commands']} WHERE idempotency_key=%s LIMIT 1",
             $idempotencyKey
         ));
         if ($existing !== null) {
-            if (!hash_equals((string) $existing['native_owner'], $nativeOwner)
+            if (!hash_equals((string) $existing['case_uuid'], $caseId->value())
+                || !hash_equals((string) $existing['native_owner'], $nativeOwner)
                 || !hash_equals((string) $existing['action_key'], $action)
                 || !hash_equals((string) $existing['object_ref'], $objectRef)
+                || (int) $existing['expected_native_version'] !== $expectedNativeVersion
                 || !hash_equals((string) $existing['payload_hash'], $payloadHash)) {
                 throw new RuntimeException('Native command idempotency collision.');
             }
@@ -934,6 +1081,7 @@ final class OperationsRepository
             return $existing;
         }
         $this->transaction(function () use ($id, $caseId, $context, $reason, $authorityRef, $reviewDue, $idempotencyKey, $at): void {
+            $this->lockCaseForLifecycle($caseId->value());
             $ok = $this->wpdb->insert($this->tables['holds'], [
                 'hold_uuid' => $id, 'case_uuid' => $caseId->value(), 'category' => null,
                 'reason_code' => $reason, 'authority_ref' => $authorityRef, 'state' => 'active',
@@ -1116,22 +1264,55 @@ final class OperationsRepository
         return ['generated_at' => gmdate(DATE_ATOM), 'groups' => $rows, 'privacy_safe' => true];
     }
 
+    /** @param list<string> $allowedStates */
+    private function lockCaseForLifecycle(string $caseId, array $allowedStates = []): array
+    {
+        $row = $this->row($this->wpdb->prepare(
+            "SELECT case_uuid,state,record_version FROM {$this->tables['cases']} WHERE case_uuid=%s FOR UPDATE",
+            $caseId
+        ));
+        if ($row === null) {
+            throw new RuntimeException('Canonical case is unavailable for lifecycle serialization.');
+        }
+        if ($allowedStates !== [] && !in_array((string) $row['state'], $allowedStates, true)) {
+            throw new RuntimeException('Canonical case state changed before lifecycle operation.');
+        }
+        return $row;
+    }
+
     public function purgeCase(string $caseId, array $providerResults, DateTimeImmutable $at): void
     {
-        $activeHolds = (int) $this->value($this->wpdb->prepare(
-            "SELECT COUNT(*) FROM {$this->tables['holds']} WHERE case_uuid=%s AND state='active'", $caseId
-        ));
-        if ($activeHolds > 0) {
-            throw new RuntimeException('Active legal or appeal hold blocks purge.');
-        }
         if (($providerResults['all_targets_reconciled'] ?? false) !== true) {
             throw new RuntimeException('Provider/cache/search deletion reconciliation is incomplete.');
         }
         $this->transaction(function () use ($caseId): void {
+            $this->lockCaseForLifecycle($caseId, ['closed']);
+            $activeHolds = (int) $this->value($this->wpdb->prepare(
+                "SELECT COUNT(*) FROM {$this->tables['holds']} WHERE case_uuid=%s AND state='active'", $caseId
+            ));
+            if ($activeHolds > 0) {
+                throw new RuntimeException('Active legal or appeal hold blocks purge.');
+            }
+            $unresolvedAppeals = (int) $this->value($this->wpdb->prepare(
+                "SELECT COUNT(*) FROM {$this->tables['appeals']} WHERE case_uuid=%s AND state<>'closed'", $caseId
+            ));
+            if ($unresolvedAppeals > 0) {
+                throw new RuntimeException('Open or unresolved appeal blocks purge until appeal closure.');
+            }
             $appeals = $this->rows($this->wpdb->prepare("SELECT appeal_uuid FROM {$this->tables['appeals']} WHERE case_uuid=%s", $caseId));
             foreach ($appeals as $appeal) {
                 $this->wpdb->delete($this->tables['dossiers'], ['appeal_uuid' => (string) $appeal['appeal_uuid']]);
             }
+            // Purge case-linked derivative records before deleting their canonical parents.
+            $this->wpdb->query($this->wpdb->prepare(
+                "DELETE nr FROM {$this->tables['note_revisions']} nr JOIN {$this->tables['messages']} m ON m.message_uuid=nr.message_uuid WHERE m.case_uuid=%s",
+                $caseId
+            ));
+            $this->wpdb->query($this->wpdb->prepare(
+                "DELETE t FROM {$this->tables['tokens']} t JOIN {$this->tables['attachments']} a ON a.attachment_uuid=t.attachment_uuid WHERE a.case_uuid=%s",
+                $caseId
+            ));
+            $this->wpdb->delete($this->tables['inbound'], ['case_uuid' => $caseId]);
             foreach (['messages','attachments','assignments','sla','tasks','appeals','commands','outbox','case_links','incident_links','feedback'] as $table) {
                 $this->wpdb->delete($this->tables[$table], ['case_uuid' => $caseId]);
             }
@@ -1238,7 +1419,9 @@ final class OperationsRepository
             $idempotencyKey
         ));
         if ($existing !== null) {
-            if (!hash_equals((string) $existing['payload_hash'], $payloadHash)
+            if (!hash_equals((string) $existing['case_uuid'], $caseId->value())
+                || !hash_equals((string) $existing['template_key'], $templateKey)
+                || !hash_equals((string) $existing['payload_hash'], $payloadHash)
                 || !hash_equals((string) $existing['recipient_ref'], $recipientRef)
                 || !hash_equals((string) $existing['channel'], $channel)) {
                 throw new RuntimeException('Delivery idempotency collision.');
@@ -1265,6 +1448,39 @@ final class OperationsRepository
             }
         });
         return $messageId;
+    }
+
+
+    public function outcomeDeliveryStatus(SupportCaseId $caseId): string
+    {
+        $row = $this->row($this->wpdb->prepare(
+            "SELECT state FROM {$this->tables['outbox']} WHERE case_uuid=%s AND template_key=%s ORDER BY id DESC LIMIT 1",
+            $caseId->value(), 'support_case_resolved'
+        ));
+        return is_array($row) && isset($row['state']) ? (string) $row['state'] : 'missing';
+    }
+
+    public function recoverOutcomeDeliveryFailure(string $caseId, string $messageId, DateTimeImmutable $at): bool
+    {
+        $row = $this->row($this->wpdb->prepare(
+            "SELECT state,record_version FROM {$this->tables['cases']} WHERE case_uuid=%s LIMIT 1",
+            $caseId
+        ));
+        if ($row === null || (string) $row['state'] !== 'resolved') {
+            return false;
+        }
+        $version = (int) $row['record_version'];
+        $updated = $this->wpdb->update($this->tables['cases'], [
+            'state' => 'reopened', 'closed_at' => null, 'record_version' => $version + 1,
+            'updated_at' => $this->mysqlTime($at),
+        ], ['case_uuid' => $caseId, 'state' => 'resolved', 'record_version' => $version]);
+        if ($updated !== 1) {
+            throw new RuntimeException('Outcome-delivery recovery conflicted.');
+        }
+        $this->appendWorkerEvent('case', $caseId, 'SupportCaseReopened', [
+            'reason' => 'outcome_delivery_failure', 'delivery_ref' => $messageId,
+        ], $version + 1, $at);
+        return true;
     }
 
     /** @return list<array<string,mixed>> */
@@ -1294,13 +1510,21 @@ final class OperationsRepository
     /** @return array{token:string,expires_at:string} */
     public function issueAttachmentToken(string $attachmentId, SupportCaseId $caseId, PrincipalContext $context, string $purpose, DateTimeImmutable $at): array
     {
-        $this->caseForActor($caseId, $context);
+        $case = $this->caseForActor($caseId, $context);
         $attachment = $this->row($this->wpdb->prepare(
-            "SELECT attachment_uuid,case_uuid,state,expires_at FROM {$this->tables['attachments']} WHERE attachment_uuid=%s AND case_uuid=%s LIMIT 1",
+            "SELECT attachment_uuid,case_uuid,state,expires_at,privacy_class FROM {$this->tables['attachments']} WHERE attachment_uuid=%s AND case_uuid=%s LIMIT 1",
             $attachmentId, $caseId->value()
         ));
-        if ($attachment === null || !in_array((string) $attachment['state'], ['available','redacted'], true)) {
+        if ($attachment === null || !in_array((string) $attachment['state'], ['available','redacted'], true)
+            || $attachment['expires_at'] === null
+            || new DateTimeImmutable((string) $attachment['expires_at'], new DateTimeZone('UTC')) <= $at) {
             throw new RuntimeException('Attachment is not available.');
+        }
+        $staff = !hash_equals((string) $case['requester_ref'], $context->actorReference())
+            && !$context->represents((string) $case['requester_ref']);
+        if ($staff && in_array((string) $attachment['privacy_class'], ['C4','C5'], true)
+            && (!$context->hasCapability('case.sensitive.read') || !$context->recentlyAuthenticated($at))) {
+            throw new RuntimeException('Sensitive attachment access requires scoped capability and recent authentication.');
         }
         $expires = $at->modify('+5 minutes');
         $token = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
@@ -1322,7 +1546,8 @@ final class OperationsRepository
         $row = $this->row($this->wpdb->prepare(
             "SELECT t.*,a.provider_ref,a.redacted_ref,a.state,a.case_uuid FROM {$this->tables['tokens']} t
              JOIN {$this->tables['attachments']} a ON a.attachment_uuid=t.attachment_uuid
-             WHERE t.token_hash=%s AND t.used_at IS NULL AND t.expires_at>UTC_TIMESTAMP(6) LIMIT 1",
+             WHERE t.token_hash=%s AND t.used_at IS NULL AND t.expires_at>UTC_TIMESTAMP(6)
+             AND a.expires_at IS NOT NULL AND a.expires_at>UTC_TIMESTAMP(6) LIMIT 1",
             $hash
         ));
         if ($row === null || !in_array((string) $row['state'], ['available','redacted'], true)) {
@@ -1337,10 +1562,17 @@ final class OperationsRepository
 
     public function recordRetentionResult(string $objectType, string $objectRef, string $policyVersion, string $action, array $providerResults, DateTimeImmutable $at): void
     {
-        $evidence = hash('sha256', $this->json([$objectType,$objectRef,$policyVersion,$action,$providerResults,$at->format(DATE_ATOM)]));
+        $rawHash = hash('sha256', $this->json($providerResults));
+        $summary = [
+            'authorized' => ($providerResults['authorized'] ?? false) === true,
+            'all_targets_reconciled' => ($providerResults['all_targets_reconciled'] ?? false) === true,
+            'result_hash' => $rawHash,
+            'result_count' => count($providerResults),
+        ];
+        $evidence = hash('sha256', $this->json([$objectType,$objectRef,$policyVersion,$action,$summary,$at->format(DATE_ATOM)]));
         $ok = $this->wpdb->insert($this->tables['retention'], [
             'object_type' => $objectType, 'object_ref' => $objectRef, 'policy_version' => $policyVersion,
-            'action_key' => $action, 'provider_results_json' => $this->json($providerResults),
+            'action_key' => $action, 'provider_results_json' => $this->json($summary),
             'evidence_hash' => $evidence, 'executed_at' => $this->mysqlTime($at),
         ]);
         if ($ok !== 1) {
@@ -1518,6 +1750,13 @@ final class OperationsRepository
              FROM {$this->tables['attachments']} WHERE case_uuid=%s ORDER BY id ASC LIMIT 250",
             $caseId->value()
         ));
+        if ($staff && (!$context->hasCapability('case.sensitive.read')
+            || !$context->recentlyAuthenticated(new DateTimeImmutable('now', new DateTimeZone('UTC'))))) {
+            $attachments = array_values(array_filter(
+                $attachments,
+                static fn (array $row): bool => !in_array((string) $row['privacy_class'], ['C4','C5'], true)
+            ));
+        }
         if (!$staff) {
             $attachments = array_values(array_map(static function (array $row): array {
                 unset($row['sha256'], $row['redacted_ref']);
@@ -1541,6 +1780,13 @@ final class OperationsRepository
                  FROM {$this->tables['case_links']} WHERE case_uuid=%s AND state='active' ORDER BY id ASC",
                 $caseId->value()
             ));
+            if (!$context->hasCapability('case.sensitive.read')
+                || !$context->recentlyAuthenticated(new DateTimeImmutable('now', new DateTimeZone('UTC')))) {
+                $result['links'] = array_values(array_filter(
+                    $result['links'],
+                    static fn (array $row): bool => !in_array((string) $row['privacy_class'], ['C4','C5'], true)
+                ));
+            }
             $result['holds'] = $this->rows($this->wpdb->prepare(
                 "SELECT hold_uuid,reason_code,authority_ref,state,review_due_at,placed_at,released_at,record_version
                  FROM {$this->tables['holds']} WHERE case_uuid=%s ORDER BY id ASC",
@@ -1750,17 +1996,26 @@ final class OperationsRepository
         $appeal = $this->appealForActor($appealId, $context);
         /** @var mixed $facts */
         $facts = apply_filters('cf02_appeal_reviewer_facts', null, $reviewerRef, $appealId, (string) $appeal['original_decision_ref']);
-        $available = is_array($facts) && is_string($facts['contract_version'] ?? null) && $facts['contract_version'] !== '';
+        $available = is_array($facts)
+            && is_string($facts['contract_version'] ?? null) && $facts['contract_version'] !== ''
+            && is_string($facts['original_decision_actor'] ?? null) && trim((string) $facts['original_decision_actor']) !== ''
+            && is_string($facts['reviewer_unit'] ?? null) && trim((string) $facts['reviewer_unit']) !== ''
+            && is_string($facts['original_decision_unit'] ?? null) && trim((string) $facts['original_decision_unit']) !== '';
+        $sameDecisionActor = $available && hash_equals((string) $facts['original_decision_actor'], $reviewerRef);
+        $sameDecisionUnit = $available && hash_equals((string) $facts['original_decision_unit'], (string) $facts['reviewer_unit']);
         return [
             'appeal_id' => $appealId,
             'reviewer_ref' => $reviewerRef,
             'self_review' => hash_equals((string) $appeal['appellant_ref'], $reviewerRef),
+            'same_original_decision_actor' => $sameDecisionActor,
+            'same_original_decision_unit' => $sameDecisionUnit,
             'prior_involvement' => $available ? (bool) ($facts['prior_involvement'] ?? true) : true,
             'conflicted' => $available ? (bool) ($facts['conflicted'] ?? true) : true,
             'competent' => $available && (bool) ($facts['competent'] ?? false),
             'available' => $available && (bool) ($facts['available'] ?? false),
             'facts_contract_available' => $available,
             'eligible' => $available && !hash_equals((string) $appeal['appellant_ref'], $reviewerRef)
+                && !$sameDecisionActor && !$sameDecisionUnit
                 && ($facts['prior_involvement'] ?? true) === false && ($facts['conflicted'] ?? true) === false
                 && ($facts['competent'] ?? false) === true && ($facts['available'] ?? false) === true,
         ];
@@ -1786,11 +2041,21 @@ final class OperationsRepository
     /** @return list<array<string,mixed>> */
     public function linkedDomainProjection(SupportCaseId $caseId, PrincipalContext $context): array
     {
-        $this->caseForActor($caseId, $context);
-        return $this->rows($this->wpdb->prepare(
+        $case = $this->caseForActor($caseId, $context);
+        $rows = $this->rows($this->wpdb->prepare(
             "SELECT link_uuid,owner_key,object_type,object_ref,object_version,privacy_class,projection_hash,state,updated_at FROM {$this->tables['case_links']} WHERE case_uuid=%s AND state='active' ORDER BY id ASC",
             $caseId->value()
         ));
+        $staff = !hash_equals((string) $case['requester_ref'], $context->actorReference())
+            && !$context->represents((string) $case['requester_ref']);
+        if ($staff && (!$context->hasCapability('case.sensitive.read')
+            || !$context->recentlyAuthenticated(new DateTimeImmutable('now', new DateTimeZone('UTC'))))) {
+            $rows = array_values(array_filter(
+                $rows,
+                static fn (array $row): bool => !in_array((string) $row['privacy_class'], ['C4','C5'], true)
+            ));
+        }
+        return $rows;
     }
 
     /** @return array<string,mixed> */

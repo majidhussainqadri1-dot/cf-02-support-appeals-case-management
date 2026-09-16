@@ -15,7 +15,7 @@ final class RepairService
     {
         add_filter('site_status_tests',static function(array $tests):array{
             $tests['direct']['cf02_repair_integrity']=['label'=>__('CF-02 installation integrity','cf-02-support-appeals-case-management'),'test'=>static function():array{
-                $i=self::inspect();$healthy=$i['missing_tables']===[]&&$i['legacy_local_roles_present']===[]&&$i['route_receipt_errors']===[];
+                $i=self::inspect();$healthy=$i['schema_issues']===[]&&$i['legacy_local_roles_present']===[]&&$i['route_receipt_errors']===[];
                 return ['label'=>$healthy?__('CF-02 installation is consistent','cf-02-support-appeals-case-management'):__('CF-02 repair is required','cf-02-support-appeals-case-management'),'status'=>$healthy?'good':'critical','badge'=>['label'=>__('CF-02','cf-02-support-appeals-case-management'),'color'=>'blue'],'description'=>'<p>'.esc_html(wp_json_encode($i)).'</p>','actions'=>'','test'=>'cf02_repair_integrity'];
             }];return $tests;
         });
@@ -24,10 +24,10 @@ final class RepairService
     /** @return array<string,mixed> */
     public static function inspect():array
     {
-        global $wpdb;$missing=[];
-        foreach(Installer::tableNames((string)$wpdb->prefix) as $table){$found=$wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s',$table));if(!is_string($found)||!hash_equals($table,$found))$missing[]=$table;}
+        global $wpdb;$issues=Installer::schemaIssues((string)$wpdb->prefix);
+        $missing=[];foreach($issues as $issue){if(($issue['type']??null)==='table_missing'&&is_string($issue['table']??null))$missing[]=$issue['table'];}
         $receipts=get_option('cf02_route_contract_receipts',[]);$receipts=is_array($receipts)?$receipts:[];
-        return ['schema_expected'=>SchemaCompletion::VERSION,'schema_installed'=>Installer::schemaVersion(),'missing_tables'=>$missing,'route_receipt_errors'=>RouteRegistrar::validateReceipts($receipts),'legacy_local_roles_present'=>self::legacyRoles(),'scheduler'=>Scheduler::inspection(),'repairable'=>true,'destructive'=>false];
+        return ['schema_expected'=>SchemaCompletion::VERSION,'schema_installed'=>Installer::schemaVersion(),'missing_tables'=>array_values(array_unique($missing)),'schema_issues'=>$issues,'route_receipt_errors'=>RouteRegistrar::validateReceipts($receipts),'legacy_local_roles_present'=>self::legacyRoles(),'scheduler'=>Scheduler::inspection(),'repairable'=>true,'destructive'=>false];
     }
 
     /** @return array<string,mixed> */
@@ -40,7 +40,7 @@ final class RepairService
         if(!is_array($approval)||($approval['approved']??false)!==true||($approval['approval_ref']??null)!==$approvalRef||($approval['actor_ref']??null)!==$context->actorReference())throw new RuntimeException('Repair approval evidence is unavailable or out of scope.');
         Installer::install();RoleRegistrar::register();do_action('cf02_republish_route_contracts',RouteRegistrar::contracts(),$approvalRef);Scheduler::repairRegistration();
         $result=self::inspect();$result+=['approval_ref'=>$approvalRef,'actor_ref'=>$context->actorReference(),'repaired_at'=>$at->format(DATE_ATOM)];
-        $result['status']=$result['missing_tables']===[]&&$result['legacy_local_roles_present']===[]&&$result['route_receipt_errors']===[]?'repaired':'incomplete';
+        $result['status']=$result['schema_issues']===[]&&$result['legacy_local_roles_present']===[]&&$result['route_receipt_errors']===[]?'repaired':'incomplete';
         update_option('cf02_last_repair_evidence',$result,false);
         global $wpdb;$json=wp_json_encode($result,JSON_UNESCAPED_SLASHES);
         $wpdb->insert($wpdb->prefix.'cf02_repair_ledger',['repair_uuid'=>'CF02-REPAIR-'.strtoupper(bin2hex(random_bytes(10))),'actor_ref'=>$context->actorReference(),'approval_ref'=>$approvalRef,'status'=>(string)$result['status'],'evidence_json'=>$json,'evidence_hash'=>hash('sha256',$json),'repaired_at'=>$at->format('Y-m-d H:i:s.u')]);

@@ -75,6 +75,11 @@ final class RuntimeWorker
                     (string) $message['message_uuid'], $dead ? 'dead_letter' : 'retry', $attempts,
                     null, $dead ? null : $this->nextAttempt($attempts), $this->now()
                 );
+                if ($dead && (string) ($message['template_key'] ?? '') === 'support_case_resolved') {
+                    $this->repository->recoverOutcomeDeliveryFailure(
+                        (string) $message['case_uuid'], (string) $message['message_uuid'], $this->now()
+                    );
+                }
                 $dead ? ++$deadLetters : ++$retried;
             }
         }
@@ -127,6 +132,14 @@ final class RuntimeWorker
                         'outcome_ref' => $outcomeRef, 'native_version' => $nativeVersion,
                     ], (int) $command['record_version'] + 1, $this->now()
                 );
+                if (in_array($state, ['succeeded','failed'], true)) {
+                    $caseId = SupportCaseId::fromString((string) $command['case_uuid']);
+                    if ($this->repository->resumeSla($caseId, 'native-command:' . (string) $command['command_uuid'], $this->now(), 'waiting_provider')) {
+                        $this->repository->appendWorkerEvent('case', (string) $command['case_uuid'], 'SupportSlaResumed', [
+                            'reason' => 'native_owner_result', 'evidence_ref' => 'native-command:' . (string) $command['command_uuid'],
+                        ], (int) $command['record_version'] + 1, $this->now());
+                    }
+                }
             } catch (Throwable) {
                 $dead = $attempts >= 8;
                 $this->repository->updateCommandResult(
@@ -145,13 +158,17 @@ final class RuntimeWorker
         foreach ($this->repository->dueSla($limit) as $timer) {
             ++$processed;
             $now = $this->now();
-            $deadlines = [
-                new DateTimeImmutable((string) $timer['first_response_deadline'], new DateTimeZone('UTC')),
-                new DateTimeImmutable((string) $timer['update_deadline'], new DateTimeZone('UTC')),
-                new DateTimeImmutable((string) $timer['resolution_deadline'], new DateTimeZone('UTC')),
-            ];
+            $deadlines = [];
+            if ((int) ($timer['first_response_recorded'] ?? 0) !== 1) {
+                $deadlines[] = new DateTimeImmutable((string) $timer['first_response_deadline'], new DateTimeZone('UTC'));
+            }
+            $deadlines[] = new DateTimeImmutable((string) $timer['update_deadline'], new DateTimeZone('UTC'));
+            $deadlines[] = new DateTimeImmutable((string) $timer['resolution_deadline'], new DateTimeZone('UTC'));
             $earliest = min(array_map(static fn (DateTimeImmutable $date): int => $date->getTimestamp(), $deadlines));
             $status = $earliest <= $now->getTimestamp() ? 'breached' : 'at_risk';
+            if (hash_equals((string) ($timer['status'] ?? ''), $status)) {
+                continue;
+            }
             $version = $this->repository->markSlaStatus((string) $timer['case_uuid'], $status, $now);
             $this->repository->appendWorkerEvent(
                 'case', (string) $timer['case_uuid'], $status === 'breached' ? 'SupportSlaBreached' : 'SupportSlaAtRisk',

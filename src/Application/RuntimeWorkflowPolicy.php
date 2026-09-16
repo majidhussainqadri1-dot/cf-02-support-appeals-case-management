@@ -28,7 +28,7 @@ final class RuntimeWorkflowPolicy
         'eligibility_review' => ['accepted', 'rejected'],
         'accepted' => ['under_review'],
         'rejected' => ['reopened'],
-        'under_review' => ['native_decision_pending', 'decided'],
+        'under_review' => ['native_decision_pending'],
         'native_decision_pending' => ['decided'],
         'decided' => ['implemented', 'under_review'],
         'implemented' => ['closed'],
@@ -40,11 +40,11 @@ final class RuntimeWorkflowPolicy
     private const ATTACHMENT_TRANSITIONS = [
         'uploaded' => ['quarantined'],
         'quarantined' => ['scanned', 'rejected'],
-        'scanned' => ['available', 'rejected'],
+        'scanned' => ['available', 'rejected', 'redacted'],
         'available' => ['redacted', 'superseded', 'expired'],
         'redacted' => ['superseded', 'expired'],
-        'superseded' => ['expired'],
-        'rejected' => ['expired', 'purged'],
+        'rejected' => ['purged'],
+        'superseded' => ['expired', 'purged'],
         'expired' => ['purged'],
         'purged' => [],
     ];
