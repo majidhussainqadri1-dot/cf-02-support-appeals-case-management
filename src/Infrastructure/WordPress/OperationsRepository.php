@@ -1413,16 +1413,37 @@ final class OperationsRepository
 
     public function markEventPublished(string $eventId): void
     {
-        $this->wpdb->update($this->tables['events'], ['publish_state' => 'published'], ['event_uuid' => $eventId]);
+        $updated = $this->wpdb->query($this->wpdb->prepare(
+            "UPDATE {$this->tables['events']} SET publish_state='published' WHERE event_uuid=%s AND publish_state IN ('pending','retry')",
+            $eventId
+        ));
+        if ($updated === 1) {
+            return;
+        }
+        $state = $this->value($this->wpdb->prepare("SELECT publish_state FROM {$this->tables['events']} WHERE event_uuid=%s", $eventId));
+        if (!is_string($state) || !hash_equals($state, 'published')) {
+            throw new RuntimeException('Event publication state update conflicted.');
+        }
     }
 
     public function markEventRetry(string $eventId, int $attempts, DateTimeImmutable $next): void
     {
-        $this->wpdb->update($this->tables['events'], [
-            'publish_state' => $attempts >= 8 ? 'dead_letter' : 'retry',
+        $target = $attempts >= 8 ? 'dead_letter' : 'retry';
+        $updated = $this->wpdb->update($this->tables['events'], [
+            'publish_state' => $target,
             'publish_attempts' => $attempts,
             'next_attempt_at' => $this->mysqlTime($next),
-        ], ['event_uuid' => $eventId]);
+        ], ['event_uuid' => $eventId, 'publish_state' => 'pending']);
+        if ($updated === 0) {
+            $updated = $this->wpdb->update($this->tables['events'], [
+                'publish_state' => $target,
+                'publish_attempts' => $attempts,
+                'next_attempt_at' => $this->mysqlTime($next),
+            ], ['event_uuid' => $eventId, 'publish_state' => 'retry']);
+        }
+        if ($updated === false) {
+            throw new RuntimeException('Event retry state update failed.');
+        }
     }
 
     /** @return array<string,mixed>|null */
@@ -1650,18 +1671,29 @@ final class OperationsRepository
             throw new RuntimeException('Invalid command result state.');
         }
         $row = $this->row($this->wpdb->prepare(
-            "SELECT record_version FROM {$this->tables['commands']} WHERE command_uuid=%s LIMIT 1",
+            "SELECT state,outcome_ref,record_version FROM {$this->tables['commands']} WHERE command_uuid=%s LIMIT 1",
             $commandId
         ));
         if ($row === null) {
             throw new RuntimeException('Native command was not found.');
+        }
+        $current = (string) $row['state'];
+        if (in_array($current, ['succeeded','failed','dead_letter'], true)) {
+            if (hash_equals($current, $state)
+                && hash_equals((string) ($row['outcome_ref'] ?? ''), (string) ($outcomeRef ?? ''))) {
+                return;
+            }
+            throw new RuntimeException('Terminal native command result is immutable.');
+        }
+        if (!in_array($current, ['pending','retry','outcome_uncertain'], true)) {
+            throw new RuntimeException('Native command current state is invalid.');
         }
         $updated = $this->wpdb->update($this->tables['commands'], [
             'state' => $state, 'outcome_ref' => $outcomeRef, 'attempts' => $attempts,
             'next_attempt_at' => $next ? $this->mysqlTime($next) : null,
             'record_version' => (int) $row['record_version'] + 1,
             'updated_at' => $this->mysqlTime($at),
-        ], ['command_uuid' => $commandId, 'record_version' => (int) $row['record_version']]);
+        ], ['command_uuid' => $commandId, 'state' => $current, 'record_version' => (int) $row['record_version']]);
         if ($updated !== 1) {
             throw new RuntimeException('Native command result update conflicted.');
         }

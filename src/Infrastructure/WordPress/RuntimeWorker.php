@@ -7,6 +7,7 @@ namespace Sabri\CF02\Infrastructure\WordPress;
 use DateTimeImmutable;
 use DateTimeZone;
 use RuntimeException;
+use Sabri\CF02\Domain\SupportCaseId;
 use Sabri\CF02\Security\DataCipher;
 use Throwable;
 
@@ -36,12 +37,18 @@ final class RuntimeWorker
                         throw new RuntimeException('Event consumer did not accept the event.');
                     }
                     $this->repository->markEventPublished($eventId);
-                    do_action('cf02_domain_event_published', $event);
                     ++$published;
                 } catch (Throwable) {
                     $attempts = (int) $event['publish_attempts'] + 1;
                     $this->repository->markEventRetry($eventId, $attempts, $this->nextAttempt($attempts));
                     ++$retried;
+                    continue;
+                }
+                // Publication is already durable. Observer failures must never reopen/retry it.
+                try {
+                    do_action('cf02_domain_event_published', $event);
+                } catch (Throwable) {
+                    // Non-authoritative observer failure is isolated from publication state.
                 }
             } finally {
                 $this->repository->releaseWorkerLease('event', $eventId);
@@ -112,63 +119,75 @@ final class RuntimeWorker
             }
             try {
                 ++$processed;
-            $attempts = (int) $command['attempts'] + 1;
-            try {
-                $payload = json_decode($this->cipher->decrypt((string) $command['payload_ciphertext']), true, 512, JSON_THROW_ON_ERROR);
-                /** @var mixed $result */
-                $result = apply_filters('cf02_dispatch_native_owner_command', null, [
-                    'command_id' => $command['command_uuid'],
-                    'case_id' => $command['case_uuid'],
-                    'native_owner' => $command['native_owner'],
-                    'action' => $command['action_key'],
-                    'object_ref' => $command['object_ref'],
-                    'expected_native_version' => (int) $command['expected_native_version'],
-                    'payload' => $payload,
-                    'idempotency_key' => $command['idempotency_key'],
-                ]);
-                if (!is_array($result) || !isset($result['state'])) {
-                    throw new RuntimeException('Native owner adapter returned no authoritative state.');
-                }
-                $state = (string) $result['state'];
-                $nativeVersion = (int) ($result['native_version'] ?? 0);
-                $outcomeRef = isset($result['outcome_ref']) ? trim((string) $result['outcome_ref']) : '';
-                if ($nativeVersion < (int) $command['expected_native_version']) {
-                    throw new RuntimeException('Native owner result is stale.');
-                }
-                if ($state === 'succeeded' && $outcomeRef !== '') {
-                    $this->repository->updateCommandResult((string) $command['command_uuid'], 'succeeded', $outcomeRef, $attempts, null, $this->now());
-                    ++$succeeded;
-                } elseif ($state === 'failed') {
-                    $this->repository->updateCommandResult((string) $command['command_uuid'], 'failed', $outcomeRef === '' ? null : $outcomeRef, $attempts, null, $this->now());
-                    ++$failed;
-                } elseif ($state === 'outcome_uncertain') {
-                    $this->repository->updateCommandResult((string) $command['command_uuid'], 'outcome_uncertain', null, $attempts, $this->nextAttempt($attempts), $this->now());
-                    ++$uncertain;
-                } else {
-                    throw new RuntimeException('Native owner did not return a supported result state.');
-                }
-                $this->repository->appendWorkerEvent(
-                    'case', (string) $command['case_uuid'], 'SupportNativeCommandResultRecorded', [
-                        'command_ref' => (string) $command['command_uuid'], 'status' => $state,
-                        'outcome_ref' => $outcomeRef, 'native_version' => $nativeVersion,
-                    ], (int) $command['record_version'] + 1, $this->now()
-                );
-                if (in_array($state, ['succeeded','failed'], true)) {
-                    $caseId = SupportCaseId::fromString((string) $command['case_uuid']);
-                    if ($this->repository->resumeSla($caseId, 'native-command:' . (string) $command['command_uuid'], $this->now(), 'waiting_provider')) {
-                        $this->repository->appendWorkerEvent('case', (string) $command['case_uuid'], 'SupportSlaResumed', [
-                            'reason' => 'native_owner_result', 'evidence_ref' => 'native-command:' . (string) $command['command_uuid'],
-                        ], (int) $command['record_version'] + 1, $this->now());
+                $attempts = (int) $command['attempts'] + 1;
+                try {
+                    $payload = json_decode($this->cipher->decrypt((string) $command['payload_ciphertext']), true, 512, JSON_THROW_ON_ERROR);
+                    /** @var mixed $result */
+                    $result = apply_filters('cf02_dispatch_native_owner_command', null, [
+                        'command_id' => $command['command_uuid'],
+                        'case_id' => $command['case_uuid'],
+                        'native_owner' => $command['native_owner'],
+                        'action' => $command['action_key'],
+                        'object_ref' => $command['object_ref'],
+                        'expected_native_version' => (int) $command['expected_native_version'],
+                        'payload' => $payload,
+                        'idempotency_key' => $command['idempotency_key'],
+                    ]);
+                    if (!is_array($result) || !isset($result['state'])) {
+                        throw new RuntimeException('Native owner adapter returned no authoritative state.');
                     }
+                    $state = (string) $result['state'];
+                    $nativeVersion = (int) ($result['native_version'] ?? 0);
+                    $outcomeRef = isset($result['outcome_ref']) ? trim((string) $result['outcome_ref']) : '';
+                    if ($nativeVersion < (int) $command['expected_native_version']) {
+                        throw new RuntimeException('Native owner result is stale.');
+                    }
+                    if ($state === 'succeeded' && $outcomeRef !== '') {
+                        $this->repository->updateCommandResult($commandId, 'succeeded', $outcomeRef, $attempts, null, $this->now());
+                        ++$succeeded;
+                    } elseif ($state === 'failed') {
+                        $this->repository->updateCommandResult($commandId, 'failed', $outcomeRef === '' ? null : $outcomeRef, $attempts, null, $this->now());
+                        ++$failed;
+                    } elseif ($state === 'outcome_uncertain') {
+                        $this->repository->updateCommandResult($commandId, 'outcome_uncertain', null, $attempts, $this->nextAttempt($attempts), $this->now());
+                        ++$uncertain;
+                    } else {
+                        throw new RuntimeException('Native owner did not return a supported result state.');
+                    }
+                } catch (Throwable $dispatchError) {
+                    $current = $this->repository->command($commandId);
+                    if (is_array($current) && in_array((string) ($current['state'] ?? ''), ['succeeded','failed','dead_letter'], true)) {
+                        continue;
+                    }
+                    $dead = $attempts >= 8;
+                    $this->repository->updateCommandResult(
+                        $commandId, $dead ? 'dead_letter' : 'retry', null,
+                        $attempts, $dead ? null : $this->nextAttempt($attempts), $this->now()
+                    );
+                    $dead ? ++$deadLetters : ++$retried;
+                    continue;
                 }
-            } catch (Throwable) {
-                $dead = $attempts >= 8;
-                $this->repository->updateCommandResult(
-                    (string) $command['command_uuid'], $dead ? 'dead_letter' : 'retry', null,
-                    $attempts, $dead ? null : $this->nextAttempt($attempts), $this->now()
-                );
-                $dead ? ++$deadLetters : ++$retried;
-            }
+
+                // Authoritative command state is now persisted. Projection/event/SLA failures
+                // must never rewrite a succeeded/failed command back to retry/dead-letter.
+                try {
+                    $this->repository->appendWorkerEvent(
+                        'case', (string) $command['case_uuid'], 'SupportNativeCommandResultRecorded', [
+                            'command_ref' => $commandId, 'status' => $state,
+                            'outcome_ref' => $outcomeRef, 'native_version' => $nativeVersion,
+                        ], (int) $command['record_version'] + 1, $this->now()
+                    );
+                    if (in_array($state, ['succeeded','failed'], true)) {
+                        $caseId = SupportCaseId::fromString((string) $command['case_uuid']);
+                        if ($this->repository->resumeSla($caseId, 'native-command:' . $commandId, $this->now(), 'waiting_provider')) {
+                            $this->repository->appendWorkerEvent('case', (string) $command['case_uuid'], 'SupportSlaResumed', [
+                                'reason' => 'native_owner_result', 'evidence_ref' => 'native-command:' . $commandId,
+                            ], (int) $command['record_version'] + 1, $this->now());
+                        }
+                    }
+                } catch (Throwable) {
+                    // Post-result reconciliation is non-authoritative for command terminal state.
+                }
             } finally {
                 $this->repository->releaseWorkerLease('command', $commandId);
             }

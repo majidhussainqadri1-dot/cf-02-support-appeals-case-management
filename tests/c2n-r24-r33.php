@@ -104,4 +104,15 @@ $test(30,'worker side effects are concurrency leased and replay identity is aggr
     assert(substr_count($repo, "WHERE idempotency_key=%s LIMIT 1")>=4);
 });
 
-if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 R24-R33 regression register passed through R30.\n");
+$test(31,'runtime class resolution and terminal external-result states are monotonic',static function()use($read):void{
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    $worker=$read('src/Infrastructure/WordPress/RuntimeWorker.php');
+    assert(str_contains($worker,'use Sabri\\CF02\\Domain\\SupportCaseId;'));
+    assert(str_contains($repo,'Terminal native command result is immutable.'));
+    assert(str_contains($repo,"'state' => $current"));
+    assert(str_contains($repo,"publish_state IN ('pending','retry')"));
+    assert(str_contains($worker,'Publication is already durable. Observer failures must never reopen/retry it.'));
+    assert(str_contains($worker,'Post-result reconciliation is non-authoritative for command terminal state.'));
+});
+
+if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 R24-R33 regression register passed through R31.\n");
