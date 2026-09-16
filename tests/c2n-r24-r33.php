@@ -1,0 +1,42 @@
+<?php
+
+declare(strict_types=1);
+ini_set('assert.exception','1');
+assert_options(ASSERT_ACTIVE,1);
+assert_options(ASSERT_EXCEPTION,1);
+require_once dirname(__DIR__).'/src/Autoload.php';
+\Sabri\CF02\Autoload::register(dirname(__DIR__).'/src');
+
+use Sabri\CF02\Application\RuntimeWorkflowPolicy;
+use Sabri\CF02\Attachment\AttachmentState;
+use Sabri\CF02\Attachment\AttachmentStateMachine;
+use Sabri\CF02\Domain\CaseState;
+use Sabri\CF02\Domain\CaseStateMachine;
+
+$root=dirname(__DIR__);
+$failures=[];
+$test=static function(int $round,string $name,callable $callback)use(&$failures):void{
+    try{$callback();fwrite(STDOUT,sprintf("PASS REVIEW %02d %s\n",$round,$name));}
+    catch(Throwable $e){$failures[]=sprintf('%02d %s: %s',$round,$name,$e->getMessage());fwrite(STDERR,sprintf("FAIL REVIEW %02d %s: %s\n",$round,$name,$e->getMessage()));}
+};
+$read=static fn(string $path):string=>(string)file_get_contents($root.'/'.$path);
+
+$test(24,'domain and runtime state laws use one canonical vocabulary and native appeal gate',static function()use($read):void{
+    assert(CaseState::WaitingForUser->value==='waiting_user');
+    assert(CaseState::WaitingForProvider->value==='waiting_provider');
+    assert(CaseState::Withdrawn->value==='withdrawn');
+    $cases=new CaseStateMachine();
+    assert($cases->canTransition(CaseState::New,CaseState::Withdrawn));
+    assert($cases->canTransition(CaseState::Withdrawn,CaseState::Reopened));
+    assert(RuntimeWorkflowPolicy::caseTransitions()['waiting_user']===['in_progress','resolved','withdrawn']);
+    assert(RuntimeWorkflowPolicy::appealTransitions()['under_review']===['native_decision_pending']);
+    assert(RuntimeWorkflowPolicy::appealTransitions()['native_decision_pending']===['decided']);
+    $attachments=new AttachmentStateMachine();
+    assert(!$attachments->canTransition(AttachmentState::Scanned,AttachmentState::Redacted));
+    assert($attachments->canTransition(AttachmentState::Rejected,AttachmentState::Expired));
+    assert(!$attachments->canTransition(AttachmentState::Superseded,AttachmentState::Purged));
+    $runtime=$read('src/Application/RuntimeWorkflowPolicy.php');
+    assert(!str_contains($runtime,"'under_review' => ['native_decision_pending', 'decided']"));
+});
+
+if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 R24-R33 regression register passed through R24.\n");
