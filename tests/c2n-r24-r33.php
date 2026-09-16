@@ -54,4 +54,39 @@ $test(25,'object-level authorization keeps appeal review assigned and audit samp
     assert(str_contains($repo, "!hash_equals((string) \$row['reviewer_ref'], \$context->actorReference())"));
 });
 
-if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 R24-R33 regression register passed through R25.\n");
+
+$test(26,'repository serializes state law and waiting/SLA pause atomically',static function()use($read):void{
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    $rest=$read('src/Infrastructure/WordPress/ComprehensiveRestController.php');
+    assert(str_contains($repo, "RuntimeWorkflowPolicy::assertCase(\$fromState, \$fields['state'])"));
+    assert(str_contains($repo, "RuntimeWorkflowPolicy::assertAppeal(\$fromState, \$fields['state'])"));
+    assert(str_contains($repo, "public function waitCaseAndPauseSla("));
+    assert(str_contains($repo, "SELECT record_version,status FROM {\$this->tables['sla']} WHERE case_uuid=%s FOR UPDATE"));
+    assert(str_contains($repo, "Terminal cases must be reopened before escalation."));
+    assert(str_contains($rest, "return \$this->operations->waitCaseAndPauseSla("));
+}
+);
+$test(27,'schema verification detects structural drift and blocks unknown newer schemas',static function()use($read):void{
+    $installer=$read('src/Infrastructure/WordPress/Installer.php');
+    $repair=$read('src/Infrastructure/WordPress/RepairService.php');
+    assert(str_contains($installer, "version_compare(\$installed, SchemaCompletion::VERSION, '>')"));
+    assert(str_contains($installer, "public static function schemaIssues(string \$prefix): array"));
+    assert(str_contains($installer, "SHOW COLUMNS FROM"));
+    assert(str_contains($installer, "SHOW INDEX FROM"));
+    assert(str_contains($repair, "'schema_issues'=>\$issues"));
+});
+$test(28,'retention purge removes derivatives and stores only bounded provider evidence',static function()use($read):void{
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    assert(str_contains($repo, "DELETE nr FROM {\$this->tables['note_revisions']} nr JOIN {\$this->tables['messages']}"));
+    assert(str_contains($repo, "DELETE t FROM {\$this->tables['tokens']} t JOIN {\$this->tables['attachments']}"));
+    assert(str_contains($repo, "\$this->wpdb->delete(\$this->tables['inbound'], ['case_uuid' => \$caseId])"));
+    assert(str_contains($repo, "'result_hash' => \$rawHash"));
+    assert(str_contains($repo, "'provider_results_json' => \$this->json(\$summary)"));
+    assert(!str_contains($repo, "'provider_results_json' => \$this->json(\$providerResults)"));
+});
+$test(29,'SLA worker emits escalation side effects only on a real status transition',static function()use($read):void{
+    $worker=$read('src/Infrastructure/WordPress/RuntimeWorker.php');
+    assert(str_contains($worker, "if (hash_equals((string) (\$timer['status'] ?? ''), \$status))"));
+});
+
+if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 R24-R33 regression register passed through R29.\n");

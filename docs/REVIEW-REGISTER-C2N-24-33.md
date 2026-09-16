@@ -36,4 +36,20 @@ Status: **corrected and validated before R25.**
 - Remove `audit.sample.read` as a generic `caseForActor()` bypass. Sampling/quality endpoints may return bounded sample projections, but arbitrary case lookup must still require requester/representative, assignment/specialist scope, or queue-management authority.
 - Add negative regression assertions for both boundaries and run exact-head full QA before R26.
 
-Status: **findings frozen; correction follows this completed review.**
+Status: **corrected and validated before R26.**
+
+## R26 — State invariants and intra-case concurrency
+
+**Review completed before correction.** Frozen findings: split waiting/SLA transaction; repository state-transition bypass; terminal escalation without reopen. Status: **corrected and validated before R27.**
+
+## R27 — Schema, migration and rollback compatibility
+
+**Review completed before correction.** Frozen findings: table-only schema verification; acceptance of unknown newer schemas. Status: **corrected and validated before R28.**
+
+## R28 — Privacy, minimization and retention
+
+**Review completed before correction.** Frozen findings: purge left note/token/inbound derivatives; retention ledger stored provider payloads verbatim. Status: **corrected and validated before R29.**
+
+## R29 — SLA escalation idempotence
+
+**Review completed before correction.** Frozen finding: unchanged `at_risk` timers repeatedly fired mutation/events/escalation hooks. Status: **corrected and validated before R30.**

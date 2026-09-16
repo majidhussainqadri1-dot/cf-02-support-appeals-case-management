@@ -166,6 +166,9 @@ final class RuntimeWorker
             $deadlines[] = new DateTimeImmutable((string) $timer['resolution_deadline'], new DateTimeZone('UTC'));
             $earliest = min(array_map(static fn (DateTimeImmutable $date): int => $date->getTimestamp(), $deadlines));
             $status = $earliest <= $now->getTimestamp() ? 'breached' : 'at_risk';
+            if (hash_equals((string) ($timer['status'] ?? ''), $status)) {
+                continue;
+            }
             $version = $this->repository->markSlaStatus((string) $timer['case_uuid'], $status, $now);
             $this->repository->appendWorkerEvent(
                 'case', (string) $timer['case_uuid'], $status === 'breached' ? 'SupportSlaBreached' : 'SupportSlaAtRisk',

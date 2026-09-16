@@ -208,7 +208,18 @@ final class OperationsRepository
                 throw new RuntimeException('Unsupported case mutation field.');
             }
         }
-        $this->transaction(function () use ($caseId, $context, $expectedVersion, $fields, $event, $purpose, $idempotencyKey, $eventPayload, $at): void {
+        $this->transaction(function () use ($caseId, $context, $expectedVersion, $fields, $command, $event, $purpose, $idempotencyKey, $eventPayload, $at): void {
+            $current = $this->lockCaseForLifecycle($caseId->value());
+            if ((int) $current['record_version'] !== $expectedVersion) {
+                throw new RuntimeException('Stale case version or case mutation failed.');
+            }
+            $fromState = (string) $current['state'];
+            if ($command === 'EscalateCase' && in_array($fromState, ['resolved', 'closed', 'withdrawn'], true)) {
+                throw new RuntimeException('Terminal cases must be reopened before escalation.');
+            }
+            if (isset($fields['state']) && is_string($fields['state']) && !hash_equals($fromState, $fields['state'])) {
+                RuntimeWorkflowPolicy::assertCase($fromState, $fields['state']);
+            }
             $data = array_merge($fields, [
                 'record_version' => $expectedVersion + 1,
                 'updated_at' => $this->mysqlTime($at),
@@ -379,6 +390,68 @@ final class OperationsRepository
         if ($ok !== 1) {
             throw new RuntimeException('SLA timer persistence failed.');
         }
+    }
+
+    /** @return array<string,mixed> */
+    public function waitCaseAndPauseSla(
+        SupportCaseId $caseId,
+        PrincipalContext $context,
+        int $expectedVersion,
+        string $waitingState,
+        string $command,
+        string $idempotencyKey,
+        string $reason,
+        DateTimeImmutable $at
+    ): array {
+        if (!in_array($waitingState, ['waiting_user', 'waiting_provider'], true) || trim($reason) === '') {
+            throw new RuntimeException('A valid waiting state and bounded reason are required.');
+        }
+        SupportContractCatalog::assertCommand($command);
+        SupportContractCatalog::assertEvent('SupportCaseWaiting');
+        SupportContractCatalog::assertEvent('SupportSlaPaused');
+        $this->caseForActor($caseId, $context);
+        $waitingPayload = ['reason' => $reason, 'waiting_for' => $waitingState === 'waiting_provider' ? 'provider' : 'user'];
+        if ($this->eventReplay($caseId->value(), 'SupportCaseWaiting', $idempotencyKey, $waitingPayload)) {
+            return $this->caseForActor($caseId, $context);
+        }
+        $evidenceRef = 'event:' . $idempotencyKey;
+        $this->transaction(function () use ($caseId, $context, $expectedVersion, $waitingState, $idempotencyKey, $waitingPayload, $evidenceRef, $at): void {
+            $case = $this->lockCaseForLifecycle($caseId->value());
+            if ((int) $case['record_version'] !== $expectedVersion) {
+                throw new RuntimeException('Stale case version or case mutation failed.');
+            }
+            RuntimeWorkflowPolicy::assertCase((string) $case['state'], $waitingState);
+            if (!$this->hasRequesterVisibleStaffResponse($caseId)) {
+                throw new RuntimeException('SLA pause is prohibited before a requester-visible staff response.');
+            }
+            $sla = $this->row($this->wpdb->prepare(
+                "SELECT record_version,status FROM {$this->tables['sla']} WHERE case_uuid=%s FOR UPDATE",
+                $caseId->value()
+            ));
+            if ($sla === null || !in_array((string) $sla['status'], ['running', 'at_risk'], true)) {
+                throw new RuntimeException('SLA timer is not eligible for pause.');
+            }
+            $updatedCase = $this->wpdb->update($this->tables['cases'], [
+                'state' => $waitingState,
+                'record_version' => $expectedVersion + 1,
+                'updated_at' => $this->mysqlTime($at),
+            ], ['case_uuid' => $caseId->value(), 'record_version' => $expectedVersion]);
+            if ($updatedCase !== 1) {
+                throw new RuntimeException('Stale case version or case mutation failed.');
+            }
+            $updatedSla = $this->wpdb->update($this->tables['sla'], [
+                'status' => 'paused', 'paused_at' => $this->mysqlTime($at), 'pause_reason' => $waitingState,
+                'evidence_ref' => $evidenceRef, 'record_version' => (int) $sla['record_version'] + 1,
+            ], ['case_uuid' => $caseId->value(), 'record_version' => (int) $sla['record_version']]);
+            if ($updatedSla !== 1) {
+                throw new RuntimeException('SLA pause conflicted.');
+            }
+            $this->appendEvent('case', $caseId->value(), 'SupportCaseWaiting', $context, 'sla_wait', $idempotencyKey, $waitingPayload, $expectedVersion + 1, $at);
+            $this->appendEvent('case', $caseId->value(), 'SupportSlaPaused', $context, 'sla_wait', $idempotencyKey . ':sla-pause', [
+                'reason' => $waitingState, 'evidence_ref' => $evidenceRef,
+            ], $expectedVersion + 1, $at);
+        });
+        return $this->caseForActor($caseId, $context);
     }
 
     public function pauseSla(SupportCaseId $caseId, string $reason, string $evidenceRef, DateTimeImmutable $at): void
@@ -883,6 +956,17 @@ final class OperationsRepository
             }
         }
         $this->transaction(function () use ($appealId, $context, $expectedVersion, $fields, $event, $purpose, $idempotencyKey, $payload, $at): void {
+            $current = $this->row($this->wpdb->prepare(
+                "SELECT state,record_version FROM {$this->tables['appeals']} WHERE appeal_uuid=%s FOR UPDATE",
+                $appealId
+            ));
+            if ($current === null || (int) $current['record_version'] !== $expectedVersion) {
+                throw new RuntimeException('Stale appeal version or mutation failure.');
+            }
+            $fromState = (string) $current['state'];
+            if (isset($fields['state']) && is_string($fields['state']) && !hash_equals($fromState, $fields['state'])) {
+                RuntimeWorkflowPolicy::assertAppeal($fromState, $fields['state']);
+            }
             $data = $fields;
             $data['record_version'] = $expectedVersion + 1;
             $data['updated_at'] = $this->mysqlTime($at);
@@ -1219,6 +1303,16 @@ final class OperationsRepository
             foreach ($appeals as $appeal) {
                 $this->wpdb->delete($this->tables['dossiers'], ['appeal_uuid' => (string) $appeal['appeal_uuid']]);
             }
+            // Purge case-linked derivative records before deleting their canonical parents.
+            $this->wpdb->query($this->wpdb->prepare(
+                "DELETE nr FROM {$this->tables['note_revisions']} nr JOIN {$this->tables['messages']} m ON m.message_uuid=nr.message_uuid WHERE m.case_uuid=%s",
+                $caseId
+            ));
+            $this->wpdb->query($this->wpdb->prepare(
+                "DELETE t FROM {$this->tables['tokens']} t JOIN {$this->tables['attachments']} a ON a.attachment_uuid=t.attachment_uuid WHERE a.case_uuid=%s",
+                $caseId
+            ));
+            $this->wpdb->delete($this->tables['inbound'], ['case_uuid' => $caseId]);
             foreach (['messages','attachments','assignments','sla','tasks','appeals','commands','outbox','case_links','incident_links','feedback'] as $table) {
                 $this->wpdb->delete($this->tables[$table], ['case_uuid' => $caseId]);
             }
@@ -1468,10 +1562,17 @@ final class OperationsRepository
 
     public function recordRetentionResult(string $objectType, string $objectRef, string $policyVersion, string $action, array $providerResults, DateTimeImmutable $at): void
     {
-        $evidence = hash('sha256', $this->json([$objectType,$objectRef,$policyVersion,$action,$providerResults,$at->format(DATE_ATOM)]));
+        $rawHash = hash('sha256', $this->json($providerResults));
+        $summary = [
+            'authorized' => ($providerResults['authorized'] ?? false) === true,
+            'all_targets_reconciled' => ($providerResults['all_targets_reconciled'] ?? false) === true,
+            'result_hash' => $rawHash,
+            'result_count' => count($providerResults),
+        ];
+        $evidence = hash('sha256', $this->json([$objectType,$objectRef,$policyVersion,$action,$summary,$at->format(DATE_ATOM)]));
         $ok = $this->wpdb->insert($this->tables['retention'], [
             'object_type' => $objectType, 'object_ref' => $objectRef, 'policy_version' => $policyVersion,
-            'action_key' => $action, 'provider_results_json' => $this->json($providerResults),
+            'action_key' => $action, 'provider_results_json' => $this->json($summary),
             'evidence_hash' => $evidence, 'executed_at' => $this->mysqlTime($at),
         ]);
         if ($ok !== 1) {

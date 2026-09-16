@@ -598,23 +598,16 @@ final class ComprehensiveRestController
             $waitingFor = sanitize_key((string) $request->get_param('waiting_for'));
             $to = $waitingFor === 'provider' ? 'waiting_provider' : 'waiting_user';
             $caseId = $this->caseId($request);
-            $case = $this->operations->caseForActor($caseId, $context);
-            RuntimeWorkflowPolicy::assertCase((string) $case['state'], $to);
             $key = RequestGuard::idempotencyKey($request);
             $reason = sanitize_textarea_field((string) $request->get_param('reason'));
             if ($reason === '') {
                 throw new RuntimeException('A bounded waiting reason is required.');
             }
-            $mutated = $this->operations->mutateCase(
-                $caseId, $context, RequestGuard::expectedVersion($request), ['state' => $to],
-                $waitingFor === 'provider' ? 'RequestProviderAction' : 'RequestUserInfo', 'SupportCaseWaiting',
-                'sla_wait', $key, ['reason' => $reason, 'waiting_for' => $waitingFor], $this->now()
+            return $this->operations->waitCaseAndPauseSla(
+                $caseId, $context, RequestGuard::expectedVersion($request), $to,
+                $waitingFor === 'provider' ? 'RequestProviderAction' : 'RequestUserInfo',
+                $key, $reason, $this->now()
             );
-            $this->operations->pauseSla($caseId, $to, 'event:' . $key, $this->now());
-            $this->operations->appendEvent('case', $caseId->value(), 'SupportSlaPaused', $context, 'sla_wait',
-                $key . ':sla-pause', ['reason' => $to, 'evidence_ref' => 'event:' . $key],
-                (int) $mutated['record_version'], $this->now());
-            return $mutated;
         });
     }
 
