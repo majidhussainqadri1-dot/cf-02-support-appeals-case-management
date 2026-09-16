@@ -829,6 +829,7 @@ final class OperationsRepository
         $submissions = [['actor_ref' => $context->actorReference(), 'grounds' => $grounds, 'at' => $at->format(DATE_ATOM)]];
         $dossierHash = hash('sha256', $this->json([$originalHash, $policyVersion, $evidenceRefs, $submissions]));
         $this->transaction(function () use ($appealId, $caseId, $context, $originalDecisionRef, $policyVersion, $evidenceRefs, $submissions, $originalHash, $dossierHash, $idempotencyKey, $at): void {
+            $this->lockCaseForLifecycle($caseId->value(), ['resolved','closed']);
             $ok = $this->wpdb->insert($this->tables['appeals'], [
                 'appeal_uuid' => $appealId, 'case_uuid' => $caseId->value(),
                 'appellant_ref' => $context->actorReference(), 'original_decision_ref' => $originalDecisionRef,
@@ -994,6 +995,7 @@ final class OperationsRepository
             return $existing;
         }
         $this->transaction(function () use ($id, $caseId, $context, $reason, $authorityRef, $reviewDue, $idempotencyKey, $at): void {
+            $this->lockCaseForLifecycle($caseId->value());
             $ok = $this->wpdb->insert($this->tables['holds'], [
                 'hold_uuid' => $id, 'case_uuid' => $caseId->value(), 'category' => null,
                 'reason_code' => $reason, 'authority_ref' => $authorityRef, 'state' => 'active',
@@ -1176,24 +1178,41 @@ final class OperationsRepository
         return ['generated_at' => gmdate(DATE_ATOM), 'groups' => $rows, 'privacy_safe' => true];
     }
 
+    /** @param list<string> $allowedStates */
+    private function lockCaseForLifecycle(string $caseId, array $allowedStates = []): array
+    {
+        $row = $this->row($this->wpdb->prepare(
+            "SELECT case_uuid,state,record_version FROM {$this->tables['cases']} WHERE case_uuid=%s FOR UPDATE",
+            $caseId
+        ));
+        if ($row === null) {
+            throw new RuntimeException('Canonical case is unavailable for lifecycle serialization.');
+        }
+        if ($allowedStates !== [] && !in_array((string) $row['state'], $allowedStates, true)) {
+            throw new RuntimeException('Canonical case state changed before lifecycle operation.');
+        }
+        return $row;
+    }
+
     public function purgeCase(string $caseId, array $providerResults, DateTimeImmutable $at): void
     {
-        $activeHolds = (int) $this->value($this->wpdb->prepare(
-            "SELECT COUNT(*) FROM {$this->tables['holds']} WHERE case_uuid=%s AND state='active'", $caseId
-        ));
-        if ($activeHolds > 0) {
-            throw new RuntimeException('Active legal or appeal hold blocks purge.');
-        }
-        $unresolvedAppeals = (int) $this->value($this->wpdb->prepare(
-            "SELECT COUNT(*) FROM {$this->tables['appeals']} WHERE case_uuid=%s AND state<>'closed'", $caseId
-        ));
-        if ($unresolvedAppeals > 0) {
-            throw new RuntimeException('Open or unresolved appeal blocks purge until appeal closure.');
-        }
         if (($providerResults['all_targets_reconciled'] ?? false) !== true) {
             throw new RuntimeException('Provider/cache/search deletion reconciliation is incomplete.');
         }
         $this->transaction(function () use ($caseId): void {
+            $this->lockCaseForLifecycle($caseId, ['closed']);
+            $activeHolds = (int) $this->value($this->wpdb->prepare(
+                "SELECT COUNT(*) FROM {$this->tables['holds']} WHERE case_uuid=%s AND state='active'", $caseId
+            ));
+            if ($activeHolds > 0) {
+                throw new RuntimeException('Active legal or appeal hold blocks purge.');
+            }
+            $unresolvedAppeals = (int) $this->value($this->wpdb->prepare(
+                "SELECT COUNT(*) FROM {$this->tables['appeals']} WHERE case_uuid=%s AND state<>'closed'", $caseId
+            ));
+            if ($unresolvedAppeals > 0) {
+                throw new RuntimeException('Open or unresolved appeal blocks purge until appeal closure.');
+            }
             $appeals = $this->rows($this->wpdb->prepare("SELECT appeal_uuid FROM {$this->tables['appeals']} WHERE case_uuid=%s", $caseId));
             foreach ($appeals as $appeal) {
                 $this->wpdb->delete($this->tables['dossiers'], ['appeal_uuid' => (string) $appeal['appeal_uuid']]);

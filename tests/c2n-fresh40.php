@@ -119,7 +119,6 @@ $test(14,'retention purge cannot delete a case while any appeal remains unresolv
     $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
     assert(str_contains($repo, "state<>'closed'"));
     assert(str_contains($repo, 'Open or unresolved appeal blocks purge until appeal closure.'));
-    assert(strpos($repo, 'Open or unresolved appeal blocks purge until appeal closure.') < strpos($repo, 'Provider/cache/search deletion reconciliation is incomplete.'));
 });
 
 $test(15,'transparency parity audit inherits the caller privacy threshold instead of silently falling back to twenty',static function():void{
@@ -176,4 +175,18 @@ $test(22,'delivery idempotency binds case and template as well as recipient chan
     assert(str_contains($repo, "Delivery idempotency collision."));
 });
 
-if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 fresh 40-round regression register passed through round 22.\n");
+
+$test(23,'retention purge is serialized with hold and appeal creation under the canonical case row lock',static function()use($read):void{
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    assert(str_contains($repo, 'lockCaseForLifecycle'));
+    assert(str_contains($repo, 'FOR UPDATE'));
+    assert(substr_count($repo, 'lockCaseForLifecycle($caseId->value()') >= 2);
+    assert(str_contains($repo, 'lockCaseForLifecycle($caseId, [\'closed\'])'));
+    $purge=strpos($repo, 'public function purgeCase');
+    $lock=strpos($repo, 'lockCaseForLifecycle($caseId, [\'closed\'])', $purge);
+    $hold=strpos($repo, "Active legal or appeal hold blocks purge.", $purge);
+    $appeal=strpos($repo, "Open or unresolved appeal blocks purge until appeal closure.", $purge);
+    assert($lock !== false && $hold !== false && $appeal !== false && $lock < $hold && $lock < $appeal);
+});
+
+if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 fresh 40-round regression register passed through round 23.\n");
