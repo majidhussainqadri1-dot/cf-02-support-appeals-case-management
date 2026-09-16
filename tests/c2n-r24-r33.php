@@ -45,4 +45,13 @@ $test(24,'domain and runtime state laws use one canonical vocabulary and native 
     assert(!str_contains($runtime,"'under_review' => ['native_decision_pending', 'decided']"));
 });
 
-if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 R24-R33 regression register passed through R24.\n");
+$test(25,'object-level authorization keeps appeal review assigned and audit sampling non-global',static function()use($read):void{
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    assert(!str_contains($repo, "hasAnyCapability('queue.manage', 'audit.sample.read')"));
+    assert(!str_contains($repo, "'case.search.scoped', 'queue.manage', 'audit.sample.read'"));
+    assert(str_contains($repo, "if (\$allowStaff && \$context->hasCapability('appeal.queue.read'))"));
+    assert(str_contains($repo, "hasAnyCapability('appeal.review', 'appeal.decision', 'appeal.native.request', 'appeal.implementation.confirm')"));
+    assert(str_contains($repo, "!hash_equals((string) \$row['reviewer_ref'], \$context->actorReference())"));
+});
+
+if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 R24-R33 regression register passed through R25.\n");

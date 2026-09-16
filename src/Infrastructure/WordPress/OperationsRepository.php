@@ -76,11 +76,11 @@ final class OperationsRepository
         }
         if (!$allowStaff || !$context->hasAnyCapability(
             'case.assigned.read', 'case.specialist.read', 'case.sensitive.read',
-            'case.search.scoped', 'queue.manage', 'audit.sample.read'
+            'case.search.scoped', 'queue.manage'
         )) {
             throw new RuntimeException('Case not found.');
         }
-        if ($context->hasAnyCapability('queue.manage', 'audit.sample.read')) {
+        if ($context->hasCapability('queue.manage')) {
             return $row;
         }
         $assigned = $this->value($this->wpdb->prepare(
@@ -108,10 +108,12 @@ final class OperationsRepository
             || $context->represents((string) $row['appellant_ref'])) {
             return $row;
         }
-        if ($allowStaff && $context->hasAnyCapability('appeal.queue.read', 'appeal.review', 'appeal.decision')) {
-            if ($context->hasCapability('appeal.review') && $row['reviewer_ref'] !== null
-                && !hash_equals((string) $row['reviewer_ref'], $context->actorReference())
-                && !$context->hasCapability('appeal.queue.read')) {
+        if ($allowStaff && $context->hasCapability('appeal.queue.read')) {
+            return $row;
+        }
+        if ($allowStaff && $context->hasAnyCapability('appeal.review', 'appeal.decision', 'appeal.native.request', 'appeal.implementation.confirm')) {
+            if (!is_string($row['reviewer_ref'] ?? null) || trim((string) $row['reviewer_ref']) === ''
+                || !hash_equals((string) $row['reviewer_ref'], $context->actorReference())) {
                 throw new RuntimeException('Appeal not found.');
             }
             return $row;
