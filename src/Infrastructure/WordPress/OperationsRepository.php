@@ -588,6 +588,56 @@ final class OperationsRepository
         return $version;
     }
 
+    public function assertCaseResolutionReady(SupportCaseId $caseId, string $nativeOutcomeRef = ''): void
+    {
+        $case = $this->row($this->wpdb->prepare(
+            "SELECT case_uuid,state FROM {$this->tables['cases']} WHERE case_uuid=%s LIMIT 1",
+            $caseId->value()
+        ));
+        if ($case === null || !in_array((string) $case['state'], ['in_progress','waiting_user','waiting_provider','reopened'], true)) {
+            throw new RuntimeException('Case is not eligible for governed resolution.');
+        }
+        $openTasks = (int) $this->value($this->wpdb->prepare(
+            "SELECT COUNT(*) FROM {$this->tables['tasks']} WHERE case_uuid=%s AND state<>'completed'",
+            $caseId->value()
+        ));
+        if ($openTasks > 0) {
+            throw new RuntimeException('Case has open tasks or blockers.');
+        }
+        $openAppeals = (int) $this->value($this->wpdb->prepare(
+            "SELECT COUNT(*) FROM {$this->tables['appeals']} WHERE case_uuid=%s AND state<>'closed'",
+            $caseId->value()
+        ));
+        if ($openAppeals > 0) {
+            throw new RuntimeException('Case has an open or unresolved appeal.');
+        }
+        $commands = (int) $this->value($this->wpdb->prepare(
+            "SELECT COUNT(*) FROM {$this->tables['commands']} WHERE case_uuid=%s",
+            $caseId->value()
+        ));
+        $unreconciled = (int) $this->value($this->wpdb->prepare(
+            "SELECT COUNT(*) FROM {$this->tables['commands']} WHERE case_uuid=%s AND state<>'succeeded'",
+            $caseId->value()
+        ));
+        if ($unreconciled > 0) {
+            throw new RuntimeException('A native-owner command failed or remains unreconciled.');
+        }
+        if ($commands > 0) {
+            if (trim($nativeOutcomeRef) === '') {
+                throw new RuntimeException('Resolved native-owner work requires an authoritative outcome reference.');
+            }
+            $matched = (int) $this->value($this->wpdb->prepare(
+                "SELECT COUNT(*) FROM {$this->tables['commands']} WHERE case_uuid=%s AND state='succeeded' AND outcome_ref=%s",
+                $caseId->value(), $nativeOutcomeRef
+            ));
+            if ($matched < 1) {
+                throw new RuntimeException('Native outcome reference is not reconciled to a succeeded command.');
+            }
+        } elseif (trim($nativeOutcomeRef) !== '') {
+            throw new RuntimeException('Native outcome reference has no matching command evidence.');
+        }
+    }
+
     /** @return array<string,mixed> */
     public function createAttachment(
         SupportCaseId $caseId,
@@ -1174,6 +1224,39 @@ final class OperationsRepository
         return $this->row($this->wpdb->prepare("SELECT * FROM {$this->tables['holds']} WHERE hold_uuid=%s", $holdId)) ?? [];
     }
 
+    /** @param list<mixed> $approvalRefs @return list<string> */
+    private function verifiedConfigurationApprovals(array $approvalRefs, string $key, string $checksum, string $operation, PrincipalContext $context): array
+    {
+        $refs = array_values(array_unique(array_filter($approvalRefs, static fn (mixed $ref): bool => is_string($ref) && preg_match('/^[A-Za-z0-9._:\/-]{8,191}$/', $ref) === 1)));
+        if (count($refs) < 2) {
+            throw new RuntimeException('Two independent governed configuration approvals are required.');
+        }
+        $approvers = [];
+        foreach ($refs as $ref) {
+            /** @var mixed $verification */
+            $verification = apply_filters('cf02_verify_configuration_approval', null, [
+                'approval_ref' => $ref, 'config_key' => $key, 'checksum' => $checksum,
+                'operation' => $operation, 'actor_ref' => $context->actorReference(),
+            ]);
+            if (!is_array($verification) || ($verification['verified'] ?? false) !== true
+                || !is_string($verification['approval_ref'] ?? null) || !hash_equals($ref, (string) $verification['approval_ref'])
+                || !is_string($verification['config_key'] ?? null) || !hash_equals($key, (string) $verification['config_key'])
+                || !is_string($verification['checksum'] ?? null) || !hash_equals($checksum, (string) $verification['checksum'])
+                || !is_string($verification['approver_ref'] ?? null) || trim((string) $verification['approver_ref']) === '') {
+                throw new RuntimeException('Configuration approval evidence is unavailable, invalid or drifted.');
+            }
+            $approver = (string) $verification['approver_ref'];
+            if (hash_equals($approver, $context->actorReference())) {
+                throw new RuntimeException('Configuration actor cannot self-approve governed evidence.');
+            }
+            $approvers[$approver] = true;
+        }
+        if (count($approvers) < 2) {
+            throw new RuntimeException('Configuration approvals must come from two independent approvers.');
+        }
+        return $refs;
+    }
+
     /** @return array<string,mixed> */
     public function stageConfiguration(PrincipalContext $context, string $key, array $config, array $approvals, string $idempotencyKey, DateTimeImmutable $at): array
     {
@@ -1182,6 +1265,7 @@ final class OperationsRepository
         }
         $json = $this->json($config);
         $checksum = hash('sha256', $json);
+        $approvals = $this->verifiedConfigurationApprovals($approvals, $key, $checksum, 'stage', $context);
         $existing = $this->row($this->wpdb->prepare(
             "SELECT * FROM {$this->tables['configuration']} WHERE config_key=%s AND checksum=%s ORDER BY config_version DESC LIMIT 1", $key, $checksum
         ));
@@ -1227,9 +1311,9 @@ final class OperationsRepository
             return $row;
         }
         $approvals = json_decode((string) $row['approvals_json'], true);
-        $approved = is_array($approvals) ? array_values(array_unique(array_filter($approvals, 'is_string'))) : [];
-        if (count($approved) < 2 || !in_array($approvalRef, $approved, true) || hash_equals((string) $row['created_by'], $context->actorReference())) {
-            throw new RuntimeException('Activation requires two independent approvals and separation of duties.');
+        $approved = $this->verifiedConfigurationApprovals(is_array($approvals) ? $approvals : [], $key, (string) $row['checksum'], 'activate', $context);
+        if (!in_array($approvalRef, $approved, true) || hash_equals((string) $row['created_by'], $context->actorReference())) {
+            throw new RuntimeException('Activation requires verified independent approvals and separation of duties.');
         }
         $this->transaction(function () use ($key, $version, $context, $approvalRef, $idempotencyKey, $at): void {
             $this->wpdb->query($this->wpdb->prepare(
@@ -1283,9 +1367,9 @@ final class OperationsRepository
             return $row;
         }
         $approvals = json_decode((string) $row['approvals_json'], true);
-        $approved = is_array($approvals) ? array_values(array_unique(array_filter($approvals, 'is_string'))) : [];
-        if (count($approved) < 2 || !in_array($approvalRef, $approved, true)) {
-            throw new RuntimeException('Rollback requires the approved snapshot evidence.');
+        $approved = $this->verifiedConfigurationApprovals(is_array($approvals) ? $approvals : [], $key, (string) $row['checksum'], 'rollback', $context);
+        if (!in_array($approvalRef, $approved, true)) {
+            throw new RuntimeException('Rollback requires verified approved snapshot evidence.');
         }
         $this->transaction(function () use ($key, $version, $context, $approvalRef, $idempotencyKey, $at): void {
             $this->wpdb->query($this->wpdb->prepare(

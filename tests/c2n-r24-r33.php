@@ -151,4 +151,21 @@ $test(34,'signed provider adapters bind route identity and exact concurrent repl
     assert(substr_count($messageBlock,'body_hash')>=3);
 });
 
-if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 cumulative regression register passed through R34.\n");
+$test(35,'resolution closure appeals and configuration approvals rely on server evidence rather than client claims',static function()use($read):void{
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    $ctl=$read('src/Infrastructure/WordPress/ComprehensiveRestController.php');
+    $policy=$read('src/Application/RuntimeWorkflowPolicy.php');
+    assert(str_contains($repo,'public function assertCaseResolutionReady'));
+    assert(str_contains($repo,"state<>'completed'"));
+    assert(str_contains($repo,"state<>'succeeded'"));
+    assert(str_contains($repo,"state<>'closed'"));
+    assert(str_contains($ctl,'assertCaseResolutionReady($caseId, $nativeRef)'));
+    assert(!str_contains($ctl,"'verified' => (bool) $request->get_param('verified')"));
+    assert(str_contains($ctl,'cf02_verify_case_user_confirmation'));
+    assert(str_contains($ctl,'cf02_verify_appeal_notice_delivery'));
+    assert(str_contains($policy,"'rejected' => ['closed', 'reopened']"));
+    assert(str_contains($repo,'cf02_verify_configuration_approval'));
+    assert(str_contains($repo,'Configuration approvals must come from two independent approvers.'));
+});
+
+if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 cumulative regression register passed through R35.\n");

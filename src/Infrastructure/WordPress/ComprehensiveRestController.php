@@ -671,15 +671,16 @@ final class ComprehensiveRestController
             $resolutionCode = sanitize_key((string) $request->get_param('resolution_code'));
             $nativeRef = sanitize_text_field((string) $request->get_param('native_outcome_ref'));
             $instructions = sanitize_textarea_field((string) $request->get_param('user_instructions'));
-            if ($resolutionCode === '' || $instructions === '' || ((bool) $request->get_param('native_action_required') && $nativeRef === '')) {
-                throw new RuntimeException('Resolution requires a code, user instructions and any required native outcome.');
+            if ($resolutionCode === '' || $instructions === '') {
+                throw new RuntimeException('Resolution requires a code and user instructions.');
             }
             $caseId = $this->caseId($request);
+            $this->operations->assertCaseResolutionReady($caseId, $nativeRef);
             $key = RequestGuard::idempotencyKey($request);
             $resolved = $this->operations->mutateCase(
                 $caseId, $context, RequestGuard::expectedVersion($request), ['state' => 'resolved'],
                 'ResolveCase', 'SupportCaseResolved', RequestGuard::purpose($request, true), $key,
-                ['resolution_code' => $resolutionCode, 'native_outcome_ref' => $nativeRef, 'verified' => (bool) $request->get_param('verified'), 'closure_notice_sent' => (bool) $request->get_param('closure_notice_sent')], $this->now()
+                ['resolution_code' => $resolutionCode, 'native_outcome_ref' => $nativeRef, 'verified' => true, 'verification_source' => 'server_runtime_gates'], $this->now()
             );
             $this->operations->markSlaStatus($caseId->value(), 'resolved', $this->now());
             $notice = ['case_id' => $caseId->value(), 'resolution_code' => $resolutionCode, 'instructions' => $instructions, 'reopen_available' => true];
@@ -696,7 +697,22 @@ final class ComprehensiveRestController
             $case = $this->operations->caseForActor($this->caseId($request), $context);
             RuntimeWorkflowPolicy::assertCase((string) $case['state'], 'closed');
             $userConfirmed = (bool) $request->get_param('user_confirmed');
-            if (!$userConfirmed) {
+            $confirmationRef = '';
+            if ($userConfirmed) {
+                /** @var mixed $confirmation */
+                $confirmation = apply_filters('cf02_verify_case_user_confirmation', null, [
+                    'case_id' => (string) $case['case_uuid'], 'requester_ref' => (string) $case['requester_ref'],
+                    'actor_ref' => $context->actorReference(),
+                ]);
+                if (!is_array($confirmation) || ($confirmation['verified'] ?? false) !== true
+                    || !is_string($confirmation['requester_ref'] ?? null)
+                    || !hash_equals((string) $case['requester_ref'], (string) $confirmation['requester_ref'])
+                    || !is_string($confirmation['confirmation_ref'] ?? null)
+                    || trim((string) $confirmation['confirmation_ref']) === '') {
+                    throw new RuntimeException('User-confirmed closure requires authoritative requester confirmation evidence.');
+                }
+                $confirmationRef = (string) $confirmation['confirmation_ref'];
+            } else {
                 $deliveryStatus = $this->operations->outcomeDeliveryStatus($this->caseId($request));
                 if ($deliveryStatus !== 'sent') {
                     throw new RuntimeException('Automatic closure requires confirmed outcome-notification delivery.');
@@ -705,7 +721,7 @@ final class ComprehensiveRestController
             return $this->operations->mutateCase(
                 $this->caseId($request), $context, RequestGuard::expectedVersion($request), ['state' => 'closed', 'closed_at' => $this->now()->format('Y-m-d H:i:s.u')],
                 'CloseCase', 'SupportCaseClosed', RequestGuard::purpose($request, true), RequestGuard::idempotencyKey($request),
-                ['user_confirmed' => $userConfirmed, 'outcome_delivery_status' => $userConfirmed ? 'confirmed_by_user' : 'sent'], $this->now()
+                ['user_confirmed' => $userConfirmed, 'confirmation_ref' => $confirmationRef, 'outcome_delivery_status' => $userConfirmed ? 'confirmed_by_user' : 'sent'], $this->now()
             );
         });
     }
@@ -934,10 +950,19 @@ final class ComprehensiveRestController
             RequestGuard::requireCapability($context, $this->now(), 'appeal.decision');
             $appeal = $this->operations->appealForActor((string) $request['id'], $context);
             RuntimeWorkflowPolicy::assertAppeal((string) $appeal['state'], 'closed');
-            if (trim((string) $appeal['implementation_ref']) === '') {
+            if ((string) $appeal['state'] !== 'rejected' && trim((string) $appeal['implementation_ref']) === '') {
                 throw new RuntimeException('Appeal cannot close before native implementation reconciliation.');
             }
-            return $this->operations->mutateAppeal((string) $request['id'], $context, RequestGuard::expectedVersion($request), ['state' => 'closed'], 'AppealClosed', 'appeal_closure', RequestGuard::idempotencyKey($request), ['notice_sent' => (bool) $request->get_param('notice_sent')], $this->now());
+            /** @var mixed $notice */
+            $notice = apply_filters('cf02_verify_appeal_notice_delivery', null, [
+                'appeal_id' => (string) $appeal['appeal_uuid'], 'case_id' => (string) $appeal['case_uuid'],
+                'appellant_ref' => (string) $appeal['appellant_ref'], 'state' => (string) $appeal['state'],
+            ]);
+            if (!is_array($notice) || ($notice['delivered'] ?? false) !== true
+                || !is_string($notice['notice_ref'] ?? null) || trim((string) $notice['notice_ref']) === '') {
+                throw new RuntimeException('Appeal closure requires authoritative delivered-notice evidence.');
+            }
+            return $this->operations->mutateAppeal((string) $request['id'], $context, RequestGuard::expectedVersion($request), ['state' => 'closed'], 'AppealClosed', 'appeal_closure', RequestGuard::idempotencyKey($request), ['notice_ref' => (string) $notice['notice_ref'], 'notice_delivered' => true], $this->now());
         });
     }
 
