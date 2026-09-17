@@ -112,29 +112,21 @@ write(worker_path, worker)
 
 test_path = 'tests/c2n-r24-r33.php'
 test = read(test_path)
-needle = '''$test(32,'attachment bearer token is consumed only after authorized secure delivery under a token lease',static function()use($read):void{
-    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
-    $provider=$read('src/Infrastructure/WordPress/ProviderWebhookController.php');
-    assert(str_contains($repo,'public function inspectAttachmentToken'));
-    assert(str_contains($provider,"acquireWorkerLease('attachment_token'"));
-    assert(str_contains($provider,'inspectAttachmentToken($token'));
-    assert(strpos($provider,"($delivery['authorized'] ?? false) !== true") < strpos($provider,'consumeAttachmentToken($token'));
-    assert(str_contains($provider,"releaseWorkerLease('attachment_token'"));
-});
-'''
-if needle not in test:
-    raise SystemExit('R33 expected R32 test block missing')
-insert = needle + '''$test(33,'SLA escalation and retention purge workers are serialized before external side effects',static function()use($read):void{
+marker = '\nif($failures!==[]){'
+if marker not in test:
+    raise SystemExit('R33 regression insertion marker missing')
+addition = '''
+$test(33,'SLA escalation and retention purge workers are serialized before external side effects',static function()use($read):void{
     $worker=$read('src/Infrastructure/WordPress/RuntimeWorker.php');
     assert(str_contains($worker,"acquireWorkerLease('sla', $caseId)"));
     assert(str_contains($worker,"releaseWorkerLease('sla', $caseId)"));
     assert(str_contains($worker,"acquireWorkerLease('retention', $caseId)"));
     assert(str_contains($worker,"releaseWorkerLease('retention', $caseId)"));
-    assert(strpos($worker,"acquireWorkerLease('sla', $caseId)") < strpos($worker,"cf02_sla_escalation_request"));
-    assert(strpos($worker,"acquireWorkerLease('retention', $caseId)") < strpos($worker,"cf02_retention_purge_request"));
+    assert(strpos($worker,"acquireWorkerLease('sla', $caseId)") < strpos($worker,'cf02_sla_escalation_request'));
+    assert(strpos($worker,"acquireWorkerLease('retention', $caseId)") < strpos($worker,'cf02_retention_purge_request'));
 });
 '''
-test = test.replace(needle, insert, 1)
+test = test.replace(marker, addition + marker, 1)
 test = test.replace('CF-02 R24-R33 regression register passed through R32.', 'CF-02 R24-R33 regression register passed through R33.', 1)
 write(test_path, test)
 
