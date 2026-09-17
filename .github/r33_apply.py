@@ -2,14 +2,11 @@ from pathlib import Path
 
 ROOT = Path('.')
 
-
 def read(path: str) -> str:
     return (ROOT / path).read_text()
 
-
 def write(path: str, content: str) -> None:
     (ROOT / path).write_text(content)
-
 
 worker_path = 'src/Infrastructure/WordPress/RuntimeWorker.php'
 worker = read(worker_path)
@@ -112,21 +109,24 @@ write(worker_path, worker)
 
 test_path = 'tests/c2n-r24-r33.php'
 test = read(test_path)
+# Repair an older regression literal that interpolated a PHP variable instead of matching source text.
+test = test.replace('assert(str_contains($repo,"\'state\' => $current"));', 'assert(str_contains($repo,"\'state\' => \\$current"));')
 marker = '\nif($failures!==[]){'
 if marker not in test:
     raise SystemExit('R33 regression insertion marker missing')
 addition = '''
 $test(33,'SLA escalation and retention purge workers are serialized before external side effects',static function()use($read):void{
     $worker=$read('src/Infrastructure/WordPress/RuntimeWorker.php');
-    assert(str_contains($worker,"acquireWorkerLease('sla', $caseId)"));
-    assert(str_contains($worker,"releaseWorkerLease('sla', $caseId)"));
-    assert(str_contains($worker,"acquireWorkerLease('retention', $caseId)"));
-    assert(str_contains($worker,"releaseWorkerLease('retention', $caseId)"));
-    assert(strpos($worker,"acquireWorkerLease('sla', $caseId)") < strpos($worker,'cf02_sla_escalation_request'));
-    assert(strpos($worker,"acquireWorkerLease('retention', $caseId)") < strpos($worker,'cf02_retention_purge_request'));
+    assert(str_contains($worker,"acquireWorkerLease('sla', \\$caseId)"));
+    assert(str_contains($worker,"releaseWorkerLease('sla', \\$caseId)"));
+    assert(str_contains($worker,"acquireWorkerLease('retention', \\$caseId)"));
+    assert(str_contains($worker,"releaseWorkerLease('retention', \\$caseId)"));
+    assert(strpos($worker,"acquireWorkerLease('sla', \\$caseId)") < strpos($worker,'cf02_sla_escalation_request'));
+    assert(strpos($worker,"acquireWorkerLease('retention', \\$caseId)") < strpos($worker,'cf02_retention_purge_request'));
 });
 '''
-test = test.replace(marker, addition + marker, 1)
+if "$test(33,'SLA escalation and retention purge workers are serialized before external side effects'" not in test:
+    test = test.replace(marker, addition + marker, 1)
 test = test.replace('CF-02 R24-R33 regression register passed through R32.', 'CF-02 R24-R33 regression register passed through R33.', 1)
 write(test_path, test)
 
