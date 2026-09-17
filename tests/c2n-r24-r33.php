@@ -135,4 +135,20 @@ $test(33,'SLA escalation and retention purge workers are serialized before exter
     assert(strpos($worker,"acquireWorkerLease('retention', \$caseId)") < strpos($worker,'cf02_retention_purge_request'));
 });
 
-if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 R24-R33 regression register passed through R33.\n");
+$test(34,'signed provider adapters bind route identity and exact concurrent replays recover safely',static function()use($read):void{
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    $provider=$read('src/Infrastructure/WordPress/ProviderWebhookController.php');
+    assert(str_contains($provider,'$request->get_route()'));
+    assert(str_contains($provider,'$request->get_method()'));
+    assert(str_contains($provider,'$timestamp . "\\n" . $purpose . "\\n" . $method . "\\n" . $route'));
+    assert(str_contains($repo,'Inbound receipt persistence failed or conflicted.'));
+    assert(str_contains($repo,'Attachment scan replay differs from the recorded evidence.'));
+    assert(str_contains($repo,"eventReplay(\$attachmentId, \$eventType, \$idempotencyKey, \$payload, 'attachment')"));
+    $messageStart=strpos($repo,'public function appendMessage(');
+    $messageEnd=strpos($repo,'public function linkObject(',$messageStart);
+    $messageBlock=substr($repo,$messageStart,$messageEnd-$messageStart);
+    assert(str_contains($messageBlock,'catch (RuntimeException $error)'));
+    assert(substr_count($messageBlock,'body_hash')>=3);
+});
+
+if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 cumulative regression register passed through R34.\n");

@@ -245,7 +245,13 @@ final class ProviderWebhookController
         if (!is_string($key) || strlen($key) < 32) {
             throw new RuntimeException('Provider signing key is unavailable.');
         }
-        $expected = hash_hmac('sha256', $timestamp . '.' . $request->get_body(), $key);
+        $route = $request->get_route();
+        $method = strtoupper($request->get_method());
+        if (!is_string($route) || $route === '' || !in_array($method, ['POST'], true)) {
+            throw new RuntimeException('Provider signing target is invalid.');
+        }
+        $signingTarget = $timestamp . "\n" . $purpose . "\n" . $method . "\n" . $route . "\n" . $request->get_body();
+        $expected = hash_hmac('sha256', $signingTarget, $key);
         if (!hash_equals($expected, $signature)) {
             throw new RuntimeException('Provider signature verification failed.');
         }
