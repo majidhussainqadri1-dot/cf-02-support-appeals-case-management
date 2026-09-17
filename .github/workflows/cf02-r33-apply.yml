@@ -1,0 +1,39 @@
+name: CF-02 R33 Apply and Validate
+
+on:
+  push:
+    branches:
+      - review/cf02-r30-r39-2026-09-16
+    paths:
+      - '.github/workflows/cf02-r33-apply.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: review/cf02-r30-r39-2026-09-16
+          fetch-depth: 0
+      - name: Apply frozen R33 corrections
+        run: python3 .github/r33_apply.py
+      - name: Validate R33 corrected tree
+        run: |
+          set -euo pipefail
+          git diff --check
+          find . -name '*.php' -not -path './vendor/*' -not -path './.git/*' -print0 | xargs -0 -n1 php -l >/tmp/php-lint.txt
+          composer test
+          python3 build/security_scan.py
+      - name: Commit R33 corrected tree
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/r33_apply.py .github/workflows/cf02-r33-apply.yml
+          git add src/Infrastructure/WordPress/RuntimeWorker.php tests/c2n-r24-r33.php
+          git diff --cached --check
+          git commit -m 'R33: serialize SLA and retention side effects'
+          git push origin HEAD:review/cf02-r30-r39-2026-09-16
