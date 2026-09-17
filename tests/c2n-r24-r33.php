@@ -109,7 +109,7 @@ $test(31,'runtime class resolution and terminal external-result states are monot
     $worker=$read('src/Infrastructure/WordPress/RuntimeWorker.php');
     assert(str_contains($worker,'use Sabri\\CF02\\Domain\\SupportCaseId;'));
     assert(str_contains($repo,'Terminal native command result is immutable.'));
-    assert(str_contains($repo,"'state' => $current"));
+    assert(str_contains($repo,"'state' => \$current"));
     assert(str_contains($repo,"publish_state IN ('pending','retry')"));
     assert(str_contains($worker,'Publication is already durable. Observer failures must never reopen/retry it.'));
     assert(str_contains($worker,'Post-result reconciliation is non-authoritative for command terminal state.'));
@@ -125,4 +125,14 @@ $test(32,'attachment bearer token is consumed only after authorized secure deliv
     assert(str_contains($provider,"releaseWorkerLease('attachment_token'"));
 });
 
-if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 R24-R33 regression register passed through R32.\n");
+$test(33,'SLA escalation and retention purge workers are serialized before external side effects',static function()use($read):void{
+    $worker=$read('src/Infrastructure/WordPress/RuntimeWorker.php');
+    assert(str_contains($worker,"acquireWorkerLease('sla', \$caseId)"));
+    assert(str_contains($worker,"releaseWorkerLease('sla', \$caseId)"));
+    assert(str_contains($worker,"acquireWorkerLease('retention', \$caseId)"));
+    assert(str_contains($worker,"releaseWorkerLease('retention', \$caseId)"));
+    assert(strpos($worker,"acquireWorkerLease('sla', \$caseId)") < strpos($worker,'cf02_sla_escalation_request'));
+    assert(strpos($worker,"acquireWorkerLease('retention', \$caseId)") < strpos($worker,'cf02_retention_purge_request'));
+});
+
+if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}fwrite(STDOUT,"CF-02 R24-R33 regression register passed through R33.\n");

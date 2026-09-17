@@ -199,33 +199,41 @@ final class RuntimeWorker
     {
         $processed = $atRisk = $breached = 0;
         foreach ($this->repository->dueSla($limit) as $timer) {
-            ++$processed;
-            $now = $this->now();
-            $deadlines = [];
-            if ((int) ($timer['first_response_recorded'] ?? 0) !== 1) {
-                $deadlines[] = new DateTimeImmutable((string) $timer['first_response_deadline'], new DateTimeZone('UTC'));
-            }
-            $deadlines[] = new DateTimeImmutable((string) $timer['update_deadline'], new DateTimeZone('UTC'));
-            $deadlines[] = new DateTimeImmutable((string) $timer['resolution_deadline'], new DateTimeZone('UTC'));
-            $earliest = min(array_map(static fn (DateTimeImmutable $date): int => $date->getTimestamp(), $deadlines));
-            $status = $earliest <= $now->getTimestamp() ? 'breached' : 'at_risk';
-            if (hash_equals((string) ($timer['status'] ?? ''), $status)) {
+            $caseId = (string) $timer['case_uuid'];
+            if (!$this->repository->acquireWorkerLease('sla', $caseId)) {
                 continue;
             }
-            $version = $this->repository->markSlaStatus((string) $timer['case_uuid'], $status, $now);
-            $this->repository->appendWorkerEvent(
-                'case', (string) $timer['case_uuid'], $status === 'breached' ? 'SupportSlaBreached' : 'SupportSlaAtRisk',
-                ['status' => $status, 'priority' => (string) $timer['priority'], 'policy_id' => (string) $timer['policy_id'], 'policy_version' => (string) $timer['policy_version']],
-                $version, $now
-            );
-            $status === 'breached' ? ++$breached : ++$atRisk;
-            /** @var mixed $escalation */
-            $escalation = apply_filters('cf02_sla_escalation_request', null, [
-                'case_id' => $timer['case_uuid'], 'priority' => $timer['priority'], 'status' => $status,
-                'owner_ref' => $timer['owner_ref'], 'requester_ref' => $timer['requester_ref'],
-                'requires_human_update' => true,
-            ]);
-            do_action('cf02_sla_state_changed', $timer['case_uuid'], $status, $escalation);
+            try {
+                ++$processed;
+                $now = $this->now();
+                $deadlines = [];
+                if ((int) ($timer['first_response_recorded'] ?? 0) !== 1) {
+                    $deadlines[] = new DateTimeImmutable((string) $timer['first_response_deadline'], new DateTimeZone('UTC'));
+                }
+                $deadlines[] = new DateTimeImmutable((string) $timer['update_deadline'], new DateTimeZone('UTC'));
+                $deadlines[] = new DateTimeImmutable((string) $timer['resolution_deadline'], new DateTimeZone('UTC'));
+                $earliest = min(array_map(static fn (DateTimeImmutable $date): int => $date->getTimestamp(), $deadlines));
+                $status = $earliest <= $now->getTimestamp() ? 'breached' : 'at_risk';
+                if (hash_equals((string) ($timer['status'] ?? ''), $status)) {
+                    continue;
+                }
+                $version = $this->repository->markSlaStatus($caseId, $status, $now);
+                $this->repository->appendWorkerEvent(
+                    'case', $caseId, $status === 'breached' ? 'SupportSlaBreached' : 'SupportSlaAtRisk',
+                    ['status' => $status, 'priority' => (string) $timer['priority'], 'policy_id' => (string) $timer['policy_id'], 'policy_version' => (string) $timer['policy_version']],
+                    $version, $now
+                );
+                $status === 'breached' ? ++$breached : ++$atRisk;
+                /** @var mixed $escalation */
+                $escalation = apply_filters('cf02_sla_escalation_request', null, [
+                    'case_id' => $caseId, 'priority' => $timer['priority'], 'status' => $status,
+                    'owner_ref' => $timer['owner_ref'], 'requester_ref' => $timer['requester_ref'],
+                    'requires_human_update' => true,
+                ]);
+                do_action('cf02_sla_state_changed', $caseId, $status, $escalation);
+            } finally {
+                $this->repository->releaseWorkerLease('sla', $caseId);
+            }
         }
         return compact('processed', 'atRisk', 'breached');
     }
@@ -239,33 +247,41 @@ final class RuntimeWorker
     {
         $processed = $purged = $deferred = 0;
         foreach ($this->repository->dueRetention($limit) as $case) {
-            ++$processed;
-            /** @var mixed $result */
-            $result = apply_filters('cf02_retention_purge_request', null, [
-                'case_id' => $case['case_uuid'],
-                'category' => $case['category'],
-                'state' => $case['state'],
-                'closed_at' => $case['closed_at'],
-                'required_targets' => ['canonical','attachments','cache','search','analytics','providers'],
-            ]);
-            $accepted = is_array($result)
-                && ($result['authorized'] ?? false) === true
-                && ($result['all_targets_reconciled'] ?? false) === true;
-            if ($accepted) {
-                try {
-                    $this->repository->purgeCase((string) $case['case_uuid'], $result, $this->now());
-                    $this->repository->recordRetentionResult('case', (string) $case['case_uuid'], 'cf02-retention-v1', 'purged', $result, $this->now());
-                    ++$purged;
-                } catch (Throwable $error) {
-                    $this->repository->recordRetentionResult('case', (string) $case['case_uuid'], 'cf02-retention-v1', 'deferred', ['reason' => $error->getMessage()], $this->now());
+            $caseId = (string) $case['case_uuid'];
+            if (!$this->repository->acquireWorkerLease('retention', $caseId)) {
+                continue;
+            }
+            try {
+                ++$processed;
+                /** @var mixed $result */
+                $result = apply_filters('cf02_retention_purge_request', null, [
+                    'case_id' => $caseId,
+                    'category' => $case['category'],
+                    'state' => $case['state'],
+                    'closed_at' => $case['closed_at'],
+                    'required_targets' => ['canonical','attachments','cache','search','analytics','providers'],
+                ]);
+                $accepted = is_array($result)
+                    && ($result['authorized'] ?? false) === true
+                    && ($result['all_targets_reconciled'] ?? false) === true;
+                if ($accepted) {
+                    try {
+                        $this->repository->purgeCase($caseId, $result, $this->now());
+                        $this->repository->recordRetentionResult('case', $caseId, 'cf02-retention-v1', 'purged', $result, $this->now());
+                        ++$purged;
+                    } catch (Throwable $error) {
+                        $this->repository->recordRetentionResult('case', $caseId, 'cf02-retention-v1', 'deferred', ['reason' => $error->getMessage()], $this->now());
+                        ++$deferred;
+                    }
+                } else {
+                    $this->repository->recordRetentionResult(
+                        'case', $caseId, 'cf02-retention-v1', 'deferred',
+                        is_array($result) ? $result : ['reason' => 'provider_unavailable'], $this->now()
+                    );
                     ++$deferred;
                 }
-            } else {
-                $this->repository->recordRetentionResult(
-                    'case', (string) $case['case_uuid'], 'cf02-retention-v1', 'deferred',
-                    is_array($result) ? $result : ['reason' => 'provider_unavailable'], $this->now()
-                );
-                ++$deferred;
+            } finally {
+                $this->repository->releaseWorkerLease('retention', $caseId);
             }
         }
         return compact('processed', 'purged', 'deferred');
