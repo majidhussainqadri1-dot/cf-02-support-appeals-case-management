@@ -19,7 +19,18 @@ jobs:
           ref: review/cf02-r30-r39-2026-09-16
           fetch-depth: 0
       - name: Apply frozen R34 corrections
-        run: python3 .github/r34_apply.py
+        run: |
+          python3 .github/r34_apply.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tests/c2n-r24-r33.php')
+          s=p.read_text()
+          s=s.replace(
+              'assert(str_contains($repo,"eventReplay($attachmentId, $eventType, $idempotencyKey, $payload, \'attachment\')"));',
+              'assert(str_contains($repo,"eventReplay(\\$attachmentId, \\$eventType, \\$idempotencyKey, \\$payload, \'attachment\')"));'
+          )
+          p.write_text(s)
+          PY
       - name: Validate R34 corrected tree
         run: |
           set -euo pipefail
