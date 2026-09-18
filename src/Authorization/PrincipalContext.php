@@ -13,6 +13,7 @@ final class PrincipalContext
     /** @var list<string> */ private array $roles;
     /** @var list<string> */ private array $capabilities;
     /** @var list<string> */ private array $representedRequesters;
+    /** @var list<string> */ private array $queueScopes;
 
     /**
      * @param list<string> $roles
@@ -30,7 +31,8 @@ final class PrincipalContext
         private readonly string $assertionOwner,
         private readonly string $assertionVersion,
         private readonly DateTimeImmutable $assertedAt,
-        private readonly DateTimeImmutable $expiresAt
+        private readonly DateTimeImmutable $expiresAt,
+        array $queueScopes = []
     ) {
         if (trim($actorReference) === '' || $userId < 1) {
             throw new InvalidArgumentException('A canonical authenticated actor is required.');
@@ -44,6 +46,12 @@ final class PrincipalContext
         $this->roles = self::normalize($roles, 'role');
         $this->capabilities = self::normalize($capabilities, 'capability');
         $this->representedRequesters = self::normalize($representedRequesters, 'represented requester');
+        $this->queueScopes = self::normalize($queueScopes, 'queue scope');
+        foreach ($this->queueScopes as $queueScope) {
+            if (preg_match('/^[a-z][a-z0-9_]{1,63}$/', $queueScope) !== 1) {
+                throw new InvalidArgumentException('Malformed queue scope list.');
+            }
+        }
     }
 
     public function actorReference(): string { return $this->actorReference; }
@@ -53,6 +61,8 @@ final class PrincipalContext
     /** @return list<string> */ public function roles(): array { return $this->roles; }
     /** @return list<string> */ public function capabilities(): array { return $this->capabilities; }
     /** @return list<string> */ public function representedRequesters(): array { return $this->representedRequesters; }
+    /** @return list<string> */ public function queueScopes(): array { return $this->queueScopes; }
+    public function inQueueScope(string $queueKey): bool { return in_array($queueKey, $this->queueScopes, true); }
 
     public function validAt(DateTimeImmutable $at): bool
     {
