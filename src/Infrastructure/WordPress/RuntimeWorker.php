@@ -29,6 +29,11 @@ final class RuntimeWorker
                 continue;
             }
             try {
+                $fresh = $this->repository->pendingEventById($eventId);
+                if ($fresh === null) {
+                    continue;
+                }
+                $event = $fresh;
                 ++$processed;
                 try {
                     /** @var mixed $result */
@@ -66,6 +71,11 @@ final class RuntimeWorker
                 continue;
             }
             try {
+                $fresh = $this->repository->pendingOutboxById($messageId);
+                if ($fresh === null) {
+                    continue;
+                }
+                $message = $fresh;
                 ++$processed;
                 $attempts = (int) $message['attempts'] + 1;
                 try {
@@ -118,6 +128,11 @@ final class RuntimeWorker
                 continue;
             }
             try {
+                $fresh = $this->repository->pendingCommandById($commandId);
+                if ($fresh === null) {
+                    continue;
+                }
+                $command = $fresh;
                 ++$processed;
                 $attempts = (int) $command['attempts'] + 1;
                 try {
