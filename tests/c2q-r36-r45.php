@@ -59,4 +59,14 @@ $test(42,'quality review rejects the active case owner or active assigned handle
     assert(str_contains($block,"Quality reviewer must be independent from active case handling."));
     assert(str_contains($block,"hash_equals((string) \$case['owner_ref'], \$context->actorReference())"));
 });
-if($failures!==[]){exit(1);}fwrite(STDOUT,"CF-02 new ten-review register passed through R42.\n");
+
+$test(43,'requester reply events use case ownership or verified representation rather than a user-prefix heuristic',static function()use($read):void{
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    $start=strpos($repo,'public function appendMessage(');
+    $end=strpos($repo,'public function linkObject(',$start);
+    $block=substr($repo,$start,$end-$start);
+    assert(!str_contains($block,"str_starts_with(\$context->actorReference(), 'user:')"));
+    assert(str_contains($block,"hash_equals((string) \$case['requester_ref'], \$context->actorReference())"));
+    assert(str_contains($block,"\$context->represents((string) \$case['requester_ref'])"));
+});
+if($failures!==[]){exit(1);}fwrite(STDOUT,"CF-02 new ten-review register passed through R43.\n");
