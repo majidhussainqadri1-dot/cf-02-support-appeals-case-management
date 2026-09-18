@@ -38,6 +38,14 @@ $test('every category resolves to its canonical configured queue',static functio
     assert(CategoryRoutingPolicy::queueFor('learning_billing')==='learning');
 });
 
+$test('REST case creation and triage use the canonical category routing policy',static function()use($root):void{
+    $controller=(string)file_get_contents($root.'/src/Infrastructure/WordPress/ComprehensiveRestController.php');
+    assert(str_contains($controller,'CategoryRoutingPolicy::queueFor($category)'));
+    foreach(['identity_coordination','financial_coordination','clinic_coordination','communication_support','publishing_support','media_support','accessibility_support'] as $staleQueue){
+        assert(!str_contains($controller,"'".$staleQueue."'"));
+    }
+});
+
 $test('donation and sponsorship signals cannot influence priority or appeals',static function():void{
     assert(ServiceEqualityPolicy::requesterPriority('account_blocked','time_sensitive')==='P2');
     assert(ServiceEqualityPolicy::requesterPriority('single_action','normal')==='P3');
