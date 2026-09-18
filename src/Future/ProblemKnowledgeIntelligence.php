@@ -23,6 +23,14 @@ final class ProblemKnowledgeIntelligence
         }
         $normalized=array_values(array_unique($normalized)); sort($normalized);
         if ($normalized===[]) throw new InvalidArgumentException('At least one problem symptom is required.');
+        foreach ([$rootCause,$workaround] as $optionalText) {
+            if ($optionalText!==null && SensitiveContentDetector::containsProhibitedSecret($optionalText)) {
+                throw new InvalidArgumentException('Problem knowledge cannot contain prohibited secret material.');
+            }
+        }
+        if ($fixVersion!==null && trim($fixVersion)!=='' && preg_match('/^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$/',trim($fixVersion))!==1) {
+            throw new InvalidArgumentException('Problem fix version is invalid.');
+        }
         $fingerprint=hash('sha256',$serviceKey.'|'.$category.'|'.implode('|',$normalized));
         return [
             'feature_id'=>'CF02-FUT-005','problem_fingerprint'=>$fingerprint,'service_key'=>$serviceKey,'category'=>$category,
