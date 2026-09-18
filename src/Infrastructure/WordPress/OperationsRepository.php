@@ -1426,6 +1426,17 @@ final class OperationsRepository
         ));
     }
 
+    /** @return array<string,mixed>|null */
+    public function pendingEventById(string $eventId): ?array
+    {
+        return $this->row($this->wpdb->prepare(
+            "SELECT * FROM {$this->tables['events']} WHERE event_uuid=%s
+             AND publish_state IN ('pending','retry')
+             AND (next_attempt_at IS NULL OR next_attempt_at<=UTC_TIMESTAMP(6)) LIMIT 1",
+            $eventId
+        ));
+    }
+
     public function markEventPublished(string $eventId): void
     {
         $updated = $this->wpdb->query($this->wpdb->prepare(
@@ -1581,6 +1592,18 @@ final class OperationsRepository
         ));
     }
 
+    /** @return array<string,mixed>|null */
+    public function pendingOutboxById(string $messageId): ?array
+    {
+        return $this->row($this->wpdb->prepare(
+            "SELECT o.*,p.payload_ciphertext FROM {$this->tables['outbox']} o
+             JOIN {$this->tables['outbox_payloads']} p ON p.message_uuid=o.message_uuid
+             WHERE o.message_uuid=%s AND o.state IN ('pending','retry')
+             AND (o.next_attempt_at IS NULL OR o.next_attempt_at<=UTC_TIMESTAMP(6)) LIMIT 1",
+            $messageId
+        ));
+    }
+
     public function updateOutboxResult(string $messageId, string $state, int $attempts, ?string $providerRef, ?DateTimeImmutable $next, DateTimeImmutable $at): void
     {
         if (!in_array($state, ['sent','retry','dead_letter'], true)) {
@@ -1685,6 +1708,18 @@ final class OperationsRepository
              WHERE c.state IN ('pending','retry','outcome_uncertain')
              AND (c.next_attempt_at IS NULL OR c.next_attempt_at<=UTC_TIMESTAMP(6)) ORDER BY c.id ASC LIMIT %d",
             max(1, min(250, $limit))
+        ));
+    }
+
+    /** @return array<string,mixed>|null */
+    public function pendingCommandById(string $commandId): ?array
+    {
+        return $this->row($this->wpdb->prepare(
+            "SELECT c.*,p.payload_ciphertext FROM {$this->tables['commands']} c
+             JOIN {$this->tables['command_payloads']} p ON p.command_uuid=c.command_uuid
+             WHERE c.command_uuid=%s AND c.state IN ('pending','retry','outcome_uncertain')
+             AND (c.next_attempt_at IS NULL OR c.next_attempt_at<=UTC_TIMESTAMP(6)) LIMIT 1",
+            $commandId
         ));
     }
 
