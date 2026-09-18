@@ -65,5 +65,12 @@ $test(39,'requester reply events use canonical requester or representative ident
     assert(str_contains($repo,"? 'SupportUserReplied' : 'SupportAgentReplied'"));
 });
 
+$test(40,'appeal eligibility cannot accept or reject without a reasoned decision',static function()use($read):void{
+    $api=$read('src/Infrastructure/WordPress/ComprehensiveRestController.php');
+    assert(str_contains($api,"Appeal eligibility requires a reasoned decision."));
+    assert(str_contains($api,"'reason' => \$reason"));
+    assert(str_contains($api,"'further_path' => \$furtherPath"));
+});
+
 if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}
-fwrite(STDOUT,"CF-02 R34-R43 regression register passed through R39.\n");
+fwrite(STDOUT,"CF-02 R34-R43 regression register passed through R40.\n");
