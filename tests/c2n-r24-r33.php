@@ -160,7 +160,7 @@ $test(35,'resolution closure appeals and configuration approvals rely on server 
     assert(str_contains($repo,"state<>'succeeded'"));
     assert(str_contains($repo,"state<>'closed'"));
     assert(str_contains($ctl,'assertCaseResolutionReady($caseId, $nativeRef)'));
-    assert(!str_contains($ctl,"'verified' => (bool) $request->get_param('verified')"));
+    assert(!str_contains($ctl,"'verified' => (bool) \$request->get_param('verified')"));
     assert(str_contains($ctl,'cf02_verify_case_user_confirmation'));
     assert(str_contains($ctl,'cf02_verify_appeal_notice_delivery'));
     assert(str_contains($policy,"'rejected' => ['closed', 'reopened']"));

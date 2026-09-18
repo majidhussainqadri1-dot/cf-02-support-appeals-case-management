@@ -77,8 +77,19 @@ $test(44,'retention purge completion evidence is written inside the same transac
     $block=substr($repo,$start,$end-$start);
     $tx=strpos($block,'$this->transaction(');
     $event=strpos($block,"'SupportRetentionPurgeCompleted'");
-    $delete=strpos($block,"$this->wpdb->delete($this->tables['cases']");
+    $delete=strpos($block,'$this->wpdb->delete($this->tables[\'cases\']');
     assert($tx!==false && $event!==false && $delete!==false && $tx<$event && $event<$delete);
     assert(!str_contains(substr($block,$delete),'$this->appendEvent('));
 });
-if($failures!==[]){exit(1);}fwrite(STDOUT,"CF-02 new ten-review register passed through R44.\n");
+
+$test(45,'standard CI executes this review register and packaging cannot label a dirty or different checkout as an exact source SHA',static function()use($read):void{
+    $composer=$read('composer.json');
+    $package=$read('build/package.py');
+    assert(str_contains($composer,'php -d zend.assertions=1 tests/c2q-r36-r45.php'));
+    assert(str_contains($package,'def validate_source_checkout(source_sha: str) -> None:'));
+    assert(str_contains($package,'git_value("rev-parse", "HEAD")'));
+    assert(str_contains($package,'git_value("status", "--porcelain", "--untracked-files=no")'));
+    assert(str_contains($package,'tracked working tree is dirty; commit corrections before packaging'));
+    assert(str_contains($package,'validate_source_checkout(source_sha)'));
+});
+if($failures!==[]){exit(1);}fwrite(STDOUT,"CF-02 new ten-review register passed through R45.\n");

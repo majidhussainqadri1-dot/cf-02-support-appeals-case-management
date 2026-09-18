@@ -55,6 +55,19 @@ def resolve_source_sha(value: str | None) -> str:
     return candidate
 
 
+def validate_source_checkout(source_sha: str) -> None:
+    head = git_value("rev-parse", "HEAD")
+    if head is None:
+        fail("release packaging requires an exact Git checkout")
+    if head != source_sha:
+        fail("source SHA does not match the checked-out commit")
+    dirty = git_value("status", "--porcelain", "--untracked-files=no")
+    if dirty is None:
+        fail("tracked working-tree state could not be verified")
+    if dirty != "":
+        fail("tracked working tree is dirty; commit corrections before packaging")
+
+
 def source_timestamp(source_sha: str) -> tuple[int, str]:
     raw = os.environ.get("SOURCE_DATE_EPOCH") or git_value("show", "-s", "--format=%ct", source_sha)
     try:
@@ -207,6 +220,7 @@ def main() -> int:
     config = load_config()
     validate_metadata(config)
     source_sha = resolve_source_sha(args.source_sha)
+    validate_source_checkout(source_sha)
     _, created = source_timestamp(source_sha)
     files = collect_files(config)
 
