@@ -20,7 +20,18 @@ jobs:
           fetch-depth: 0
       - name: Apply frozen review corrections
         run: python3 .github/review_apply.py
-      - name: Validate corrected tree
+      - name: Commit corrected tree locally
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src tests docs build
+          if git diff --cached --quiet; then
+            echo "No correction diff to commit."
+          else
+            git commit -m "Sequential review: apply frozen corrections"
+          fi
+      - name: Validate corrected committed tree
         run: |
           set -euo pipefail
           git diff --check
@@ -28,15 +39,7 @@ jobs:
           composer test
           python3 -m py_compile build/package.py build/verify_package.py
           python3 build/security_scan.py
-      - name: Commit corrected tree
+      - name: Push validated corrected tree
         run: |
           set -euo pipefail
-          if git diff --quiet; then
-            echo "No correction diff to commit."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src tests docs build
-          git commit -m "Sequential review: apply frozen corrections"
           git push origin HEAD:review/cf02-r30-r39-2026-09-16
