@@ -38,5 +38,16 @@ $test(36,'worker leases re-read pending state before any external side effect',s
     assert(substr_count($worker,'if ($fresh === null)')>=3);
 });
 
+$test(37,'retention external purge is blocked by current hold or unresolved appeal and serialized with their creation',static function()use($read):void{
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    $worker=$read('src/Infrastructure/WordPress/RuntimeWorker.php');
+    assert(str_contains($repo,'public function retentionEligibleForPurge'));
+    assert(str_contains($repo,"SELECT COUNT(*) FROM {\$this->tables['holds']} WHERE case_uuid=%s AND state='active'"));
+    assert(str_contains($repo,"SELECT COUNT(*) FROM {\$this->tables['appeals']} WHERE case_uuid=%s AND state<>'closed'"));
+    assert(substr_count($repo,"acquireWorkerLease('retention', \$caseId->value())")>=2);
+    assert(str_contains($worker,'retentionEligibleForPurge($caseId)'));
+    assert(strpos($worker,'retentionEligibleForPurge($caseId)') < strpos($worker,'cf02_retention_purge_request'));
+});
+
 if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}
-fwrite(STDOUT,"CF-02 R34-R43 regression register passed through R36.\n");
+fwrite(STDOUT,"CF-02 R34-R43 regression register passed through R37.\n");
