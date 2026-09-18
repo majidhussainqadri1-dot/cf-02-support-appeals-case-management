@@ -2,7 +2,7 @@
 
 ## Status boundary
 
-Runtime candidate: `1.0.0-rc.6`  
+Runtime candidate: `1.0.0-rc.7`  
 Plan: `1.0`  
 Schema: `1.3.0`  
 Contract: `1.1.0`
