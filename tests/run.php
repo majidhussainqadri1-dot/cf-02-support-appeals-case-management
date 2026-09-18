@@ -19,7 +19,8 @@ use Sabri\CF02\Staffing\StaffingRegistry;
 
 $failures=[];$test=static function(string $n,callable $c)use(&$failures):void{try{$c();fwrite(STDOUT,"PASS {$n}\n");}catch(Throwable $e){$failures[]=$n.': '.$e->getMessage();fwrite(STDERR,"FAIL {$n}: {$e->getMessage()}\n");}};
 $now=new DateTimeImmutable('2026-08-04T09:30:00+00:00');
-$identity=['runtime_version'=>'1.0.0-rc.5','schema_version'=>'1.3.0','source_sha'=>str_repeat('a',40),'package_sha256'=>str_repeat('b',64)];
+$releaseManifest=json_decode((string)file_get_contents(dirname(__DIR__).'/release/manifest.json'),true,512,JSON_THROW_ON_ERROR);
+$identity=['runtime_version'=>(string)$releaseManifest['plugin_version'],'schema_version'=>(string)$releaseManifest['database_schema_version'],'source_sha'=>str_repeat('a',40),'package_sha256'=>str_repeat('b',64)];
 $contracts=static function()use($now):array{$out=[];foreach(RequiredCompanionContracts::definitions() as $key=>$def){if(!$def['required'])continue;$out[$key]=['ready'=>true,'enabled'=>true,'owner'=>$def['owner'],'contract_version'=>'1.0.0','capabilities'=>[$def['capability']],'health'=>'healthy','health_checked_at'=>$now->format(DATE_ATOM)];}return $out;};
 $record=static fn(string $id,string $owner):array=>['status'=>'accepted','evidence_id'=>$id,'owner'=>$owner,'artifact_ref'=>'evidence/'.strtolower($id),'recorded_at'=>'2026-08-04T09:20:00+00:00'];
 $coreOps=static function()use($record):array{return[
