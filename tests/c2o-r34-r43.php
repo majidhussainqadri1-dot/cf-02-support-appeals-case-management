@@ -28,5 +28,15 @@ $test(35,'stale SLA worker cannot overwrite paused or already-resolved timer sta
     assert(str_contains($worker,"if (\$version === 0)"));
 });
 
+$test(36,'worker leases re-read pending state before any external side effect',static function()use($read):void{
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    $worker=$read('src/Infrastructure/WordPress/RuntimeWorker.php');
+    foreach(['pendingEventById','pendingOutboxById','pendingCommandById'] as $method){assert(str_contains($repo,"function {$method}"));}
+    assert(str_contains($worker,'pendingEventById($eventId)'));
+    assert(str_contains($worker,'pendingOutboxById($messageId)'));
+    assert(str_contains($worker,'pendingCommandById($commandId)'));
+    assert(substr_count($worker,'if ($fresh === null)')>=3);
+});
+
 if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}
-fwrite(STDOUT,"CF-02 R34-R43 regression register passed through R35.\n");
+fwrite(STDOUT,"CF-02 R34-R43 regression register passed through R36.\n");
