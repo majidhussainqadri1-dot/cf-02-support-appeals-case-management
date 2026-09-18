@@ -29,7 +29,15 @@ final class OperationsTransparencyIntelligence
         if ($count<$privacyThreshold) return ['feature_id'=>'CF02-FUT-024','period'=>$period,'status'=>'suppressed','reason'=>'Aggregate cohort is below privacy publication threshold.'];
         $allowed=['case_count','first_response_seconds_p50','resolution_seconds_p50','reopen_rate','appeal_overturn_rate','accessibility_completion_rate','major_incident_count'];
         $public=[];
-        foreach ($allowed as $key) if (array_key_exists($key,$serviceMetrics)) $public[$key]=$serviceMetrics[$key];
+        foreach ($allowed as $key) {
+            if (!array_key_exists($key,$serviceMetrics)) continue;
+            $value=$serviceMetrics[$key];
+            if (!is_int($value) && !is_float($value)) throw new InvalidArgumentException('Transparency metrics must be numeric.');
+            if ($value<0) throw new InvalidArgumentException('Transparency metrics cannot be negative.');
+            if (in_array($key,['reopen_rate','appeal_overturn_rate','accessibility_completion_rate'],true) && $value>1) throw new InvalidArgumentException('Transparency rate metrics must be between zero and one.');
+            if (in_array($key,['case_count','major_incident_count'],true) && !is_int($value)) throw new InvalidArgumentException('Transparency count metrics must be integers.');
+            $public[$key]=$value;
+        }
         $parity=(new SupportParityAudit())->evaluate($period,$donorCohort,$nonDonorCohort);
         return ['feature_id'=>'CF02-FUT-024','period'=>$period,'status'=>'published-aggregate','metrics'=>$public,'support_parity_status'=>$parity['status'],'privacy_threshold'=>$privacyThreshold,'individual_staff_scoring'=>false,'low_volume_identity_disclosure'=>false];
     }
