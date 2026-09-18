@@ -180,15 +180,18 @@ final class ProviderWebhookController
                 }
                 throw new RuntimeException('A terminal native command result cannot be changed.');
             }
-            $this->operations->updateCommandResult(
-                $commandId, $state, $outcomeRef === '' ? null : $outcomeRef,
-                (int) $command['attempts'] + 1, $state === 'outcome_uncertain' ? $this->now()->modify('+5 minutes') : null, $this->now()
-            );
             $context = $this->providerContext($owner);
-            $this->operations->appendEvent(
-                'case', (string) $command['case_uuid'], 'SupportNativeCommandResultRecorded', $context,
-                'native_result_reconciliation', 'native-result-' . substr(hash('sha256', $request->get_body()), 0, 40),
-                $evidencePayload, (int) $command['record_version'] + 1, $this->now()
+            $this->operations->recordCommandResultWithEvidence(
+                $commandId,
+                $state,
+                $outcomeRef === '' ? null : $outcomeRef,
+                (int) $command['attempts'] + 1,
+                $state === 'outcome_uncertain' ? $this->now()->modify('+5 minutes') : null,
+                $evidencePayload,
+                'native-result-' . substr(hash('sha256', $request->get_body()), 0, 40),
+                'native_result_reconciliation',
+                $this->now(),
+                $context
             );
             return ['command_id' => $commandId, 'state' => $state, 'reconciled' => $state === 'succeeded', 'replayed' => false];
         });
