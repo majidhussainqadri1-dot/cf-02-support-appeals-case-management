@@ -15,7 +15,7 @@ This record covers code-level completion. Hostinger staging, real companion/prov
 The runtime now implements the full documented CF-02 contract instead of leaving major plan capabilities as domain-only classes:
 
 1. **Canonical contract catalogue** — 33 commands, 20 queries, governed events, 12 support categories, native-owner keys and role-capability maps.
-2. **File 00 authorization** — exact authenticated-actor binding, versioned assertions, maximum lifetime, suspension, representative scope, recent authentication and capability checks; no staff privilege inferred from WordPress role names.
+2. **File 00 authorization** — exact authenticated-actor binding, versioned assertions, maximum lifetime, suspension, representative scope, explicit `queue_scopes` for queue-manager/auditor case visibility, recent authentication and capability checks; no staff privilege inferred from WordPress role names.
 3. **Case intake and work** — guided intake, safe descriptions, emergency diversion, exact replay, receipt outbox, requester/staff projections, assignment, transfer, escalation, waiting, resolution, closure, reopen, notes, revisions, tasks and reversible merges.
 4. **Evidence and attachments** — upload intent, quarantine, signed scan result, clean/rejected result, signed redaction, one-time delivery tokens, restricted projections, holds and purge reconciliation.
 5. **SLA and operations** — versioned policy provider, timers, pause/resume, at-risk/breach events, escalation requests, backlog/SLA/reopen/quality metrics and scheduled workers.
