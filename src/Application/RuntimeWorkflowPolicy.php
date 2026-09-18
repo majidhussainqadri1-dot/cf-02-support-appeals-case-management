@@ -28,7 +28,7 @@ final class RuntimeWorkflowPolicy
         'eligibility_review' => ['accepted', 'rejected'],
         'accepted' => ['under_review'],
         'rejected' => ['reopened'],
-        'under_review' => ['native_decision_pending', 'decided'],
+        'under_review' => ['native_decision_pending'],
         'native_decision_pending' => ['decided'],
         'decided' => ['implemented', 'under_review'],
         'implemented' => ['closed'],
