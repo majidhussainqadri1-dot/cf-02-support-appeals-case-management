@@ -67,6 +67,16 @@ $test('native callback and worker preserve terminal result immutability definiti
     assert(str_contains($worker,'SupportNativeCommandResultRecorded'));
 });
 
+$test('native command terminal state and reconciliation event commit atomically',static function()use($read):void{
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    $worker=$read('src/Infrastructure/WordPress/RuntimeWorker.php');
+    $provider=$read('src/Infrastructure/WordPress/ProviderWebhookController.php');
+    assert(str_contains($repo,'recordCommandResultWithEvidence'));
+    assert(str_contains($repo,'A terminal native command result cannot be changed.'));
+    assert(str_contains($worker,'recordCommandResultWithEvidence'));
+    assert(str_contains($provider,'recordCommandResultWithEvidence'));
+});
+
 $test('worker SLA and event queues are observable and SQL aliases are valid',static function()use($read):void{
     $worker=$read('src/Infrastructure/WordPress/RuntimeWorker.php');
     $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
