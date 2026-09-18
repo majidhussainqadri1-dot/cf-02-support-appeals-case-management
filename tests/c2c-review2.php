@@ -183,6 +183,17 @@ $test('breach prediction rejects stale observation and treats governed pause as 
     assert($prediction->risk() === 'watch');
 });
 
+$test('canonical case-state slugs and reopen lifecycle stay aligned with runtime', static function () use ($root): void {
+    assert(CaseState::WaitingForUser->value === 'waiting_user');
+    assert(CaseState::WaitingForProvider->value === 'waiting_provider');
+    assert(CaseState::Withdrawn->value === 'withdrawn');
+    $controller=(string)file_get_contents($root.'/src/Infrastructure/WordPress/ComprehensiveRestController.php');
+    assert(str_contains($controller,"Waiting target must be user or provider."));
+    assert(str_contains($controller,"'reopen_until' => $reopenUntil->format(DATE_ATOM)"));
+    assert(str_contains($controller,'resolutionReopenUntil'));
+    assert(str_contains($controller,'restartSla'));
+});
+
 $test('incident public text rejects secrets and projection hides internal notice reference', static function (): void {
     $secret = false;
     try {
