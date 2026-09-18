@@ -2136,7 +2136,7 @@ final class OperationsRepository
             $caseId->value(), $pseudonym
         ));
         if ($existing !== null) {
-            return $existing;
+            return array_intersect_key($existing, array_flip(['case_uuid','rating','opted_out','submitted_at']));
         }
         $ok = $this->wpdb->insert($this->tables['feedback'], [
             'case_uuid' => $caseId->value(), 'respondent_pseudonym_hash' => $pseudonym,

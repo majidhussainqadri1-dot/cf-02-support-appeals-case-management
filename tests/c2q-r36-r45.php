@@ -40,4 +40,13 @@ $test(40,'quality rubric compares normalized key sets instead of rejecting a com
     $posKeys=strpos($repo,'$keys = array_keys($scores);',$posRequired);
     assert($posRequired!==false && $posSort!==false && $posKeys!==false && $posRequired<$posSort && $posSort<$posKeys);
 });
-if($failures!==[]){exit(1);}fwrite(STDOUT,"CF-02 new ten-review register passed through R40.\n");
+
+$test(41,'feedback replay returns the same minimized public projection and never exposes pseudonym hash or encrypted comment fields',static function()use($read):void{
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    assert(str_contains($repo,"return array_intersect_key(\$existing, array_flip(['case_uuid','rating','opted_out','submitted_at']));"));
+    $start=strpos($repo,'public function addFeedback(');
+    $end=strpos($repo,'public function mergeCases(',$start);
+    $block=substr($repo,$start,$end-$start);
+    assert(!str_contains($block,'return $existing;'));
+});
+if($failures!==[]){exit(1);}fwrite(STDOUT,"CF-02 new ten-review register passed through R41.\n");
