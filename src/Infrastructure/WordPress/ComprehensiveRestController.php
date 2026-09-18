@@ -10,6 +10,7 @@ use RuntimeException;
 use Sabri\CF02\Application\RuntimeWorkflowPolicy;
 use Sabri\CF02\Authorization\PrincipalContext;
 use Sabri\CF02\Authorization\WordPressPrincipalContextFactory;
+use Sabri\CF02\Configuration\CategoryRoutingPolicy;
 use Sabri\CF02\Contracts\SupportContractCatalog;
 use Sabri\CF02\Domain\SupportCaseId;
 use Sabri\CF02\Security\DataCipher;
@@ -1040,18 +1041,7 @@ final class ComprehensiveRestController
 
     private function queueForCategory(string $category): string
     {
-        return match ($category) {
-            'privacy_data_rights' => 'privacy_liaison',
-            'safety_abuse' => 'safety_liaison',
-            'verification', 'account_access' => 'identity_coordination',
-            'learning_billing', 'marketplace' => 'financial_coordination',
-            'clinic_appointment' => 'clinic_coordination',
-            'messages_calls' => 'communication_support',
-            'publishing' => 'publishing_support',
-            'media_pdf' => 'media_support',
-            'accessibility' => 'accessibility_support',
-            default => 'technical_support',
-        };
+        return CategoryRoutingPolicy::queueFor($category);
     }
 
     /** @param callable():array<string,mixed> $callback */
