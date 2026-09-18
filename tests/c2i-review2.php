@@ -11,6 +11,13 @@ $test('complete REST surface exposes both canonical and compatibility namespaces
     foreach(['/cases','/appeals','/staff/queue','/staff/cases/search','/staff/appeals','/staff/configuration','/staff/metrics/backlog','/staff/retention/due'] as $route){assert(str_contains($api,$route),$route);}
 });
 
+$test('provider adapter errors are public-safe and privately traceable',static function()use($read):void{
+    $provider=$read('src/Infrastructure/WordPress/ProviderWebhookController.php');
+    assert(str_contains($provider,'cf02_provider_request_failed'));
+    assert(str_contains($provider,'The provider request was rejected.'));
+    assert(!str_contains($provider,'$error instanceof RuntimeException ? $error->getMessage()'));
+});
+
 $test('signed provider adapters reject stale replay and changed inbound payloads',static function()use($read):void{
     $provider=$read('src/Infrastructure/WordPress/ProviderWebhookController.php');
     foreach(['X-CF02-Timestamp','X-CF02-Signature','X-CF02-Key-Id','hash_hmac','abs(time() - (int) $timestamp) > 300','Inbound replay identifier was reused with changed content'] as $needle){assert(str_contains($provider,$needle),$needle);}
