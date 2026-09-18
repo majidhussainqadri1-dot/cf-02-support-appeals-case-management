@@ -790,11 +790,16 @@ final class ComprehensiveRestController
             RuntimeWorkflowPolicy::assertAppeal((string) $appeal['state'], 'eligibility_review');
             $first = $this->operations->mutateAppeal((string) $request['id'], $context, RequestGuard::expectedVersion($request), ['state' => 'eligibility_review'], 'AppealSubmitted', 'appeal_eligibility', RequestGuard::idempotencyKey($request) . ':review', [], $this->now());
             $eligible = (bool) $request->get_param('eligible');
+            $reason = sanitize_textarea_field((string) $request->get_param('reason'));
+            $furtherPath = sanitize_text_field((string) $request->get_param('further_path'));
+            if ($reason === '') {
+                throw new RuntimeException('Appeal eligibility requires a reasoned decision.');
+            }
             $to = $eligible ? 'accepted' : 'rejected';
             RuntimeWorkflowPolicy::assertAppeal((string) $first['state'], $to);
             return $this->operations->mutateAppeal((string) $request['id'], $context, (int) $first['record_version'], ['state' => $to], $eligible ? 'AppealAccepted' : 'AppealRejected', 'appeal_eligibility', RequestGuard::idempotencyKey($request) . ':decision', [
-                'reason' => sanitize_textarea_field((string) $request->get_param('reason')),
-                'further_path' => sanitize_text_field((string) $request->get_param('further_path')),
+                'reason' => $reason,
+                'further_path' => $furtherPath,
                 'time_exception' => (bool) $request->get_param('time_exception'),
             ], $this->now());
         });
