@@ -38,8 +38,16 @@ $test('release package is explicit allowlist and excludes development surfaces',
 
 $test('default uninstall is non destructive and clears every scheduler hook', static function () use ($root): void {
     $uninstall = strtolower((string) file_get_contents($root . '/uninstall.php'));
-    foreach (['cf02_process_outbox','cf02_process_events','cf02_process_sla','cf02_process_retention','cf02_process_reconciliation'] as $hook) assert(str_contains($uninstall, $hook));
+    foreach (['cf02_process_outbox','cf02_process_events','cf02_process_sla','cf02_process_retention','cf02_process_reconciliation','cf02_process_key_rotation','cf02_support_parity_monthly'] as $hook) assert(str_contains($uninstall, $hook));
     foreach (['drop table', "delete_option('cf02_", 'delete_user_meta(', 'delete from'] as $destructive) assert(!str_contains($uninstall, $destructive));
+});
+
+$test('schema verifier checks columns and refuses runtime downgrade over newer database', static function () use ($root): void {
+    $installer=(string)file_get_contents($root.'/src/Infrastructure/WordPress/Installer.php');
+    assert(str_contains($installer,'Installed CF-02 schema is newer than this runtime; downgrade is refused.'));
+    assert(str_contains($installer,'SHOW COLUMNS FROM'));
+    assert(str_contains($installer,'missing-column:'));
+    assert(str_contains($installer,'requiredColumns'));
 });
 
 $test('release status remains truthful and external evidence gates remain explicit', static function () use ($manifest): void {
