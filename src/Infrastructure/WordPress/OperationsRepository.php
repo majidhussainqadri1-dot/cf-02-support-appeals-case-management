@@ -1892,15 +1892,18 @@ final class OperationsRepository
         }
         try {
             $existing = $this->row($this->wpdb->prepare(
-                "SELECT aggregate_type,aggregate_ref,payload_hash,event_hash FROM {$this->tables['events']} WHERE event_uuid=%s",
+                "SELECT aggregate_type,aggregate_ref,actor_ref,purpose,payload_hash,event_hash FROM {$this->tables['events']} WHERE event_uuid=%s",
                 $eventId
             ));
             if ($existing !== null) {
                 if (!hash_equals((string) $existing['aggregate_type'], $aggregateType)
                     || !hash_equals((string) $existing['aggregate_ref'], $aggregateRef)
+                    || !hash_equals((string) $existing['actor_ref'], $context->actorReference())
+                    || !hash_equals((string) $existing['purpose'], $purpose)
                     || !hash_equals((string) $existing['payload_hash'], $payloadHash)) {
                     throw new RuntimeException('Event idempotency collision.');
                 }
+                $this->ensureEventAudit($aggregateType, $aggregateRef, $context, $purpose, $eventType, $objectVersion, $payloadHash, $at);
                 return $eventId;
             }
             $previous = $this->value($this->wpdb->prepare(
@@ -1924,11 +1927,37 @@ final class OperationsRepository
             if ($ok !== 1) {
                 throw new RuntimeException('Event persistence failed.');
             }
-            $this->appendAudit($aggregateType, $aggregateRef, $context, $purpose, $eventType, 'accepted', $objectVersion, $payloadHash, $at);
+            $this->ensureEventAudit($aggregateType, $aggregateRef, $context, $purpose, $eventType, $objectVersion, $payloadHash, $at);
             return $eventId;
         } finally {
             $this->releaseWorkerLease('event_chain', $chainId);
         }
+    }
+
+    private function ensureEventAudit(
+        string $objectType,
+        string $objectRef,
+        PrincipalContext $context,
+        string $purpose,
+        string $action,
+        int $objectVersion,
+        string $contextHash,
+        DateTimeImmutable $at
+    ): void {
+        $existing = $this->row($this->wpdb->prepare(
+            "SELECT object_version FROM {$this->tables['audit']}
+             WHERE object_type=%s AND object_ref=%s AND actor_ref=%s AND purpose=%s
+               AND action_key=%s AND result_code='accepted' AND context_hash=%s
+             ORDER BY id DESC LIMIT 1",
+            $objectType, $objectRef, $context->actorReference(), $purpose, $action, $contextHash
+        ));
+        if ($existing !== null) {
+            if ((int) $existing['object_version'] !== $objectVersion) {
+                throw new RuntimeException('Event replay object version differs from recorded audit evidence.');
+            }
+            return;
+        }
+        $this->appendAudit($objectType, $objectRef, $context, $purpose, $action, 'accepted', $objectVersion, $contextHash, $at);
     }
 
     private function appendAudit(
