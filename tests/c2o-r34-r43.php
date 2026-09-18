@@ -72,5 +72,13 @@ $test(40,'appeal eligibility cannot accept or reject without a reasoned decision
     assert(str_contains($api,"'further_path' => \$furtherPath"));
 });
 
+$test(41,'staff cannot manufacture requester confirmation to close a case',static function()use($read):void{
+    $api=$read('src/Infrastructure/WordPress/ComprehensiveRestController.php');
+    assert(str_contains($api,'cf02_verify_user_close_confirmation'));
+    assert(str_contains($api,'User-confirmed closure requires server-verified requester confirmation.'));
+    assert(str_contains($api,"'user_confirmation_ref_hash' =>"));
+    assert(str_contains($api,"hash('sha256', \$confirmationRef)"));
+});
+
 if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}
-fwrite(STDOUT,"CF-02 R34-R43 regression register passed through R40.\n");
+fwrite(STDOUT,"CF-02 R34-R43 regression register passed through R41.\n");
