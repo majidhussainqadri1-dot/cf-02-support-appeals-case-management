@@ -1,100 +1,82 @@
 from pathlib import Path
-
 ROOT=Path('.')
 def read(p): return (ROOT/p).read_text()
 def write(p,s): (ROOT/p).write_text(s)
-
-repo_path='src/Infrastructure/WordPress/OperationsRepository.php'
-repo=read(repo_path)
-
-old="""            $existing = $this->row($this->wpdb->prepare(
-                \"SELECT aggregate_type,aggregate_ref,payload_hash,event_hash FROM {$this->tables['events']} WHERE event_uuid=%s\",
-                $eventId
-            ));
-            if ($existing !== null) {
-                if (!hash_equals((string) $existing['aggregate_type'], $aggregateType)
-                    || !hash_equals((string) $existing['aggregate_ref'], $aggregateRef)
-                    || !hash_equals((string) $existing['payload_hash'], $payloadHash)) {
-                    throw new RuntimeException('Event idempotency collision.');
-                }
-                return $eventId;
-            }
-"""
-new="""            $existing = $this->row($this->wpdb->prepare(
-                \"SELECT aggregate_type,aggregate_ref,actor_ref,purpose,payload_hash,event_hash FROM {$this->tables['events']} WHERE event_uuid=%s\",
-                $eventId
-            ));
-            if ($existing !== null) {
-                if (!hash_equals((string) $existing['aggregate_type'], $aggregateType)
-                    || !hash_equals((string) $existing['aggregate_ref'], $aggregateRef)
-                    || !hash_equals((string) $existing['actor_ref'], $context->actorReference())
-                    || !hash_equals((string) $existing['purpose'], $purpose)
-                    || !hash_equals((string) $existing['payload_hash'], $payloadHash)) {
-                    throw new RuntimeException('Event idempotency collision.');
-                }
-                $this->ensureEventAudit($aggregateType, $aggregateRef, $context, $purpose, $eventType, $objectVersion, $payloadHash, $at);
-                return $eventId;
-            }
-"""
-if old not in repo: raise SystemExit('R36 existing-event block not found')
-repo=repo.replace(old,new,1)
-repo=repo.replace(
-"            $this->appendAudit($aggregateType, $aggregateRef, $context, $purpose, $eventType, 'accepted', $objectVersion, $payloadHash, $at);\n            return $eventId;",
-"            $this->ensureEventAudit($aggregateType, $aggregateRef, $context, $purpose, $eventType, $objectVersion, $payloadHash, $at);\n            return $eventId;",1)
-
-marker="    private function appendAudit(\n"
-helper="""    private function ensureEventAudit(
-        string $objectType,
-        string $objectRef,
-        PrincipalContext $context,
-        string $purpose,
-        string $action,
-        int $objectVersion,
-        string $contextHash,
-        DateTimeImmutable $at
-    ): void {
-        $existing = $this->row($this->wpdb->prepare(
-            \"SELECT object_version FROM {$this->tables['audit']}
-             WHERE object_type=%s AND object_ref=%s AND actor_ref=%s AND purpose=%s
-               AND action_key=%s AND result_code='accepted' AND context_hash=%s
+p='src/Infrastructure/WordPress/OperationsRepository.php'
+s=read(p)
+marker="    /** @return array<string,mixed> */\n    public function caseProjection("
+helper="""    private function activeAssignmentHasScope(SupportCaseId $caseId, PrincipalContext $context, string $scope): bool
+    {
+        $row = $this->row($this->wpdb->prepare(
+            \"SELECT scopes_json FROM {$this->tables['assignments']}
+             WHERE case_uuid=%s AND agent_ref=%s AND ended_at IS NULL
              ORDER BY id DESC LIMIT 1\",
-            $objectType, $objectRef, $context->actorReference(), $purpose, $action, $contextHash
+            $caseId->value(), $context->actorReference()
         ));
-        if ($existing !== null) {
-            if ((int) $existing['object_version'] !== $objectVersion) {
-                throw new RuntimeException('Event replay object version differs from recorded audit evidence.');
-            }
-            return;
+        if ($row === null || !is_string($row['scopes_json'] ?? null)) {
+            return false;
         }
-        $this->appendAudit($objectType, $objectRef, $context, $purpose, $action, 'accepted', $objectVersion, $contextHash, $at);
+        $decoded = json_decode((string) $row['scopes_json'], true);
+        if (!is_array($decoded)) {
+            return false;
+        }
+        return in_array($scope, array_values(array_filter($decoded, 'is_string')), true);
     }
 
 """
-idx=repo.find(marker)
-if idx<0: raise SystemExit('R36 appendAudit marker not found')
-repo=repo[:idx]+helper+repo[idx:]
-write(repo_path,repo)
+idx=s.find(marker)
+if idx<0: raise SystemExit('R37 caseProjection marker missing')
+if 'private function activeAssignmentHasScope' not in s:
+    s=s[:idx]+helper+s[idx:]
+old="""        if ($staff && !$context->hasAnyCapability('case.sensitive.read', 'case.specialist.read')) {
+            $visibility = \"visibility IN ('requester','internal')\";
+        }
+"""
+new="""        if ($staff) {
+            $restrictedScope = ($context->hasCapability('case.sensitive.read')
+                    && $this->activeAssignmentHasScope($caseId, $context, 'case.sensitive.read'))
+                || ($context->hasCapability('case.specialist.read')
+                    && $this->activeAssignmentHasScope($caseId, $context, 'case.specialist.read'));
+            if (!$restrictedScope) {
+                $visibility = \"visibility IN ('requester','internal')\";
+            }
+        }
+"""
+if old not in s: raise SystemExit('R37 restricted visibility block missing')
+s=s.replace(old,new,1)
+old2="""        if ($staff && (!$context->hasCapability('case.sensitive.read')
+            || !$context->recentlyAuthenticated(new DateTimeImmutable('now', new DateTimeZone('UTC'))))) {
+"""
+new2="""        if ($staff && (!$context->hasCapability('case.sensitive.read')
+            || !$this->activeAssignmentHasScope($caseId, $context, 'case.sensitive.read')
+            || !$context->recentlyAuthenticated(new DateTimeImmutable('now', new DateTimeZone('UTC'))))) {
+"""
+if old2 not in s: raise SystemExit('R37 attachment gate missing')
+s=s.replace(old2,new2,1)
+old3="""            if (!$context->hasCapability('case.sensitive.read')
+                || !$context->recentlyAuthenticated(new DateTimeImmutable('now', new DateTimeZone('UTC')))) {
+"""
+new3="""            if (!$context->hasCapability('case.sensitive.read')
+                || !$this->activeAssignmentHasScope($caseId, $context, 'case.sensitive.read')
+                || !$context->recentlyAuthenticated(new DateTimeImmutable('now', new DateTimeZone('UTC')))) {
+"""
+if old3 not in s: raise SystemExit('R37 link gate missing')
+s=s.replace(old3,new3,1)
+write(p,s)
 
-test_path='tests/c2q-r36-r45.php'
-test=r'''<?php
-declare(strict_types=1);
-ini_set('assert.exception','1');
-assert_options(ASSERT_ACTIVE,1);
-assert_options(ASSERT_EXCEPTION,1);
-$root=dirname(__DIR__);$failures=[];
-$test=static function(int $r,string $n,callable $c)use(&$failures):void{try{$c();fwrite(STDOUT,sprintf("PASS REVIEW %02d %s\n",$r,$n));}catch(Throwable $e){$failures[]=sprintf('%02d %s: %s',$r,$n,$e->getMessage());fwrite(STDERR,end($failures)."\n");}};
-$read=static fn(string $p):string=>(string)file_get_contents($root.'/'.$p);
-
-$test(36,'event replay binds actor purpose version and repairs missing audit evidence',static function()use($read):void{
+tp='tests/c2q-r36-r45.php'
+t=read(tp)
+needle='if($failures!==[]){exit(1);}'
+block=r'''
+$test(37,'sensitive case projections require the active assignment to carry the same JIT scope',static function()use($read):void{
     $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
-    assert(str_contains($repo,'SELECT aggregate_type,aggregate_ref,actor_ref,purpose,payload_hash,event_hash'));
-    assert(str_contains($repo,"hash_equals((string) \$existing['actor_ref'], \$context->actorReference())"));
-    assert(str_contains($repo,"hash_equals((string) \$existing['purpose'], \$purpose)"));
-    assert(str_contains($repo,'private function ensureEventAudit('));
-    assert(str_contains($repo,'Event replay object version differs from recorded audit evidence.'));
-    assert(substr_count($repo,'$this->ensureEventAudit(')>=2);
+    assert(str_contains($repo,'private function activeAssignmentHasScope('));
+    assert(substr_count($repo,"activeAssignmentHasScope(\$caseId, \$context, 'case.sensitive.read')")>=2);
+    assert(str_contains($repo,"activeAssignmentHasScope(\$caseId, \$context, 'case.specialist.read')"));
+    assert(str_contains($repo,"WHERE case_uuid=%s AND agent_ref=%s AND ended_at IS NULL"));
 });
-if($failures!==[]){exit(1);}fwrite(STDOUT,"CF-02 new ten-review register passed through R36.\n");
 '''
-write(test_path,test)
-print('R36 corrections materialized')
+if needle not in t: raise SystemExit('R37 test marker missing')
+t=t.replace(needle,block+needle,1).replace('passed through R36','passed through R37',1)
+write(tp,t)
+print('R37 corrections materialized')
