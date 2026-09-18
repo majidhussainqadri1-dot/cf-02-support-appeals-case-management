@@ -37,6 +37,11 @@ if oldc not in c: raise SystemExit('R45 composer insertion marker missing')
 c=c.replace(oldc,newc,1)
 write(cp,c)
 
+warnp='tests/c2n-r24-r33.php'
+warn=read(warnp)
+warn=warn.replace("assert(!str_contains($ctl,\"'verified' => (bool) $request->get_param('verified')\"));","assert(!str_contains($ctl,\"'verified' => (bool) \\$request->get_param('verified')\"));")
+write(warnp,warn)
+
 tp='tests/c2q-r36-r45.php'
 t=read(tp); needle='if($failures!==[]){exit(1);}'
 block=r'''
