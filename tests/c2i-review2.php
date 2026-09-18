@@ -56,7 +56,7 @@ $test('native callback and worker preserve terminal result immutability definiti
     foreach(['A terminal native command result cannot be changed','nativeResultEvidence','redaction-result'] as $needle){assert(str_contains($provider,$needle),$needle);}
     assert(str_contains($repo,'SupportAttachmentRedacted'));
     assert(str_contains($worker, '$state === \'failed\''));
-    assert(str_contains($worker, "updateCommandResult((string) \$command['command_uuid'], 'failed'"));
+    assert(str_contains($worker, "updateCommandResult(\$commandId, 'failed'"));
     assert(str_contains($worker,'SupportNativeCommandResultRecorded'));
 });
 

@@ -103,6 +103,8 @@ jobs:
         run: php -d zend.assertions=1 tests/c2m-review1.php
       - name: C2-M Future24 fresh adversarial review 2
         run: php -d zend.assertions=1 tests/c2m-review2.php
+      - name: C2-N fresh 40-round review regressions
+        run: php -d zend.assertions=1 tests/c2n-fresh40.php
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
       - name: Public repository safety scan

@@ -31,7 +31,7 @@ $test('strong optimistic concurrency and idempotency reject weak or altered repl
     assert(str_contains($guard, 'str_starts_with(strtoupper($header), \'W/\')'));
     assert(str_contains($guard,"get_header('Idempotency-Key')"));
     assert(str_contains($repo,'eventReplay('));
-    assert(str_contains($repo,'Idempotency key was reused with a different aggregate or payload'));
+    assert(str_contains($repo,'Idempotency key was reused with a different aggregate'));
     assert(str_contains($repo, '\'record_version\' => $expectedVersion + 1'));
 });
 

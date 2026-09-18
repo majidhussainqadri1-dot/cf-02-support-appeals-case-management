@@ -50,7 +50,7 @@ final class ProviderWebhookController
     public function inbound(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
         return $this->run(function () use ($request): array {
-            $this->verifySignature($request, 'inbound');
+            $keyId = $this->verifySignature($request, 'inbound');
             $payload = $this->payload($request);
             $sourceOwner = sanitize_text_field((string) ($payload['source_owner'] ?? ''));
             $externalId = sanitize_text_field((string) ($payload['external_event_id'] ?? ''));
@@ -60,6 +60,7 @@ final class ProviderWebhookController
                 || !in_array($senderTrust, ['verified','unverified','system'], true)) {
                 throw new RuntimeException('Inbound adapter metadata is incomplete.');
             }
+            $this->assertProviderOwner($keyId, $sourceOwner, 'inbound');
             $body = trim((string) ($payload['body'] ?? ''));
             if ($body === '' || strlen($body) > 20000 || SensitiveContentDetector::containsProhibitedSecret($body)) {
                 throw new RuntimeException('Inbound message is empty, too long or contains prohibited secrets.');
@@ -117,10 +118,12 @@ final class ProviderWebhookController
     public function scanResult(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
         return $this->run(function () use ($request): array {
-            $this->verifySignature($request, 'attachment_scan');
+            $keyId = $this->verifySignature($request, 'attachment_scan');
+            $attachmentId = (string) $request['id'];
+            $this->assertProviderAttachment($keyId, $attachmentId, 'attachment_scan');
             $payload = $this->payload($request);
             return $this->operations->recordAttachmentScan(
-                (string) $request['id'],
+                $attachmentId,
                 sanitize_text_field((string) ($payload['provider_ref'] ?? '')),
                 sanitize_key((string) ($payload['verdict'] ?? '')),
                 strtolower(sanitize_text_field((string) ($payload['sha256'] ?? ''))),
@@ -134,14 +137,16 @@ final class ProviderWebhookController
     public function redactionResult(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
         return $this->run(function () use ($request): array {
-            $this->verifySignature($request, 'attachment_redaction');
+            $keyId = $this->verifySignature($request, 'attachment_redaction');
+            $attachmentId = (string) $request['id'];
+            $this->assertProviderAttachment($keyId, $attachmentId, 'attachment_redaction');
             $payload = $this->payload($request);
             $redactedRef = sanitize_text_field((string) ($payload['redacted_ref'] ?? ''));
             if ($redactedRef === '' || strlen($redactedRef) > 191) {
                 throw new RuntimeException('Redacted provider reference is invalid.');
             }
             return $this->operations->recordAttachmentRedaction(
-                (string) $request['id'], $redactedRef,
+                $attachmentId, $redactedRef,
                 'redaction-' . substr(hash('sha256', $request->get_body()), 0, 48), $this->now()
             );
         });
@@ -150,11 +155,12 @@ final class ProviderWebhookController
     public function nativeResult(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
         return $this->run(function () use ($request): array {
-            $this->verifySignature($request, 'native_result');
+            $keyId = $this->verifySignature($request, 'native_result');
             $payload = $this->payload($request);
             $commandId = sanitize_text_field((string) ($payload['command_id'] ?? ''));
             $owner = sanitize_key((string) $request['owner']);
             \Sabri\CF02\Contracts\SupportContractCatalog::assertNativeOwnerKey($owner);
+            $this->assertProviderOwner($keyId, $owner, 'native_result');
             $command = $this->operations->command($commandId);
             if ($command === null || !hash_equals((string) $command['native_owner'], $owner)) {
                 throw new RuntimeException('Native command was not found.');
@@ -201,22 +207,32 @@ final class ProviderWebhookController
             if (preg_match('/^[A-Za-z0-9_-]{40,80}$/', $token) !== 1) {
                 throw new RuntimeException('Attachment token is invalid or expired.');
             }
-            $evidence = $this->operations->consumeAttachmentToken($token, $this->now());
-            /** @var mixed $delivery */
-            $delivery = apply_filters('cf02_attachment_secure_delivery', null, [
-                'attachment_ref' => $evidence['attachment_uuid'],
-                'provider_ref' => $evidence['state'] === 'redacted' ? $evidence['redacted_ref'] : $evidence['provider_ref'],
-                'purpose' => $evidence['purpose'],
-                'actor_ref' => $evidence['actor_ref'],
-            ]);
-            if (!is_array($delivery) || ($delivery['authorized'] ?? false) !== true) {
-                throw new RuntimeException('Secure attachment provider is unavailable.');
+            $leaseId = hash('sha256', $token);
+            if (!$this->operations->acquireWorkerLease('attachment_token', $leaseId)) {
+                throw new RuntimeException('Attachment token is already being consumed.');
             }
-            return ['delivery' => array_intersect_key($delivery, array_flip(['authorized','expires_at','delivery_url','content_disposition']))];
+            try {
+                $evidence = $this->operations->inspectAttachmentToken($token, $this->now());
+                /** @var mixed $delivery */
+                $delivery = apply_filters('cf02_attachment_secure_delivery', null, [
+                    'attachment_ref' => $evidence['attachment_uuid'],
+                    'provider_ref' => $evidence['state'] === 'redacted' ? $evidence['redacted_ref'] : $evidence['provider_ref'],
+                    'purpose' => $evidence['purpose'],
+                    'actor_ref' => $evidence['actor_ref'],
+                ]);
+                if (!is_array($delivery) || ($delivery['authorized'] ?? false) !== true) {
+                    throw new RuntimeException('Secure attachment provider is unavailable.');
+                }
+                // Consume only after the provider has produced an authorized delivery response.
+                $this->operations->consumeAttachmentToken($token, $this->now());
+                return ['delivery' => array_intersect_key($delivery, array_flip(['authorized','expires_at','delivery_url','content_disposition']))];
+            } finally {
+                $this->operations->releaseWorkerLease('attachment_token', $leaseId);
+            }
         });
     }
 
-    private function verifySignature(\WP_REST_Request $request, string $purpose): void
+    private function verifySignature(\WP_REST_Request $request, string $purpose): string
     {
         $timestamp = trim((string) $request->get_header('X-CF02-Timestamp'));
         $signature = strtolower(trim((string) $request->get_header('X-CF02-Signature')));
@@ -236,6 +252,25 @@ final class ProviderWebhookController
         $expected = hash_hmac('sha256', $timestamp . '.' . $request->get_body(), $key);
         if (!hash_equals($expected, $signature)) {
             throw new RuntimeException('Provider signature verification failed.');
+        }
+        return $keyId;
+    }
+
+    private function assertProviderAttachment(string $keyId, string $attachmentId, string $purpose): void
+    {
+        /** @var mixed $authorized */
+        $authorized = apply_filters('cf02_provider_key_authorizes_attachment', false, $keyId, $attachmentId, $purpose);
+        if ($authorized !== true) {
+            throw new RuntimeException('Provider signing identity is not authorized for the attachment.');
+        }
+    }
+
+    private function assertProviderOwner(string $keyId, string $owner, string $purpose): void
+    {
+        /** @var mixed $authorized */
+        $authorized = apply_filters('cf02_provider_key_authorizes_owner', false, $keyId, $owner, $purpose);
+        if ($authorized !== true) {
+            throw new RuntimeException('Provider signing identity is not authorized for the claimed owner.');
         }
     }
 
@@ -266,9 +301,17 @@ final class ProviderWebhookController
         try {
             return new \WP_REST_Response($callback(), $status, ['Cache-Control' => 'no-store']);
         } catch (Throwable $error) {
-            return new \WP_Error('cf02_provider_request_rejected', $error instanceof RuntimeException ? $error->getMessage() : 'Provider request failed.', [
-                'status' => 422, 'trace_id' => RequestGuard::traceId(),
+            $trace = RequestGuard::traceId();
+            do_action('cf02_provider_request_failed', [
+                'trace_id' => $trace,
+                'error_class' => $error::class,
+                'error' => $error,
             ]);
+            return new \WP_Error(
+                'cf02_provider_request_rejected',
+                __('The signed provider request was rejected or could not be processed.', 'cf-02-support-appeals-case-management'),
+                ['status' => 422, 'trace_id' => $trace]
+            );
         }
     }
 }
