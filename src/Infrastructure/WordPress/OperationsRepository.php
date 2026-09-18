@@ -1885,37 +1885,50 @@ final class OperationsRepository
         SupportContractCatalog::assertEvent($eventType);
         $payloadJson = $this->json($payload);
         $payloadHash = hash('sha256', $payloadJson);
-        $previous = $this->value($this->wpdb->prepare(
-            "SELECT event_hash FROM {$this->tables['events']} WHERE aggregate_type=%s AND aggregate_ref=%s ORDER BY id DESC LIMIT 1",
-            $aggregateType, $aggregateRef
-        ));
-        $previousHash = is_string($previous) && $previous !== '' ? $previous : null;
         $eventId = 'CF02-EVT-' . strtoupper(substr(hash('sha256', $aggregateType . "\0" . $aggregateRef . "\0" . $eventType . "\0" . $idempotencyKey), 0, 20));
-        $role = $context->roles()[0] ?? 'system';
-        $eventHash = hash('sha256', $this->json([
-            $eventId, $aggregateType, $aggregateRef, $eventType, $context->actorReference(), $role,
-            $purpose, $payloadHash, $objectVersion, $previousHash, $at->format(DATE_ATOM),
-        ]));
-        $existing = $this->row($this->wpdb->prepare("SELECT payload_hash,event_hash FROM {$this->tables['events']} WHERE event_uuid=%s", $eventId));
-        if ($existing !== null) {
-            if (!hash_equals((string) $existing['payload_hash'], $payloadHash)) {
-                throw new RuntimeException('Event idempotency collision.');
+        $chainId = $aggregateType . "\0" . $aggregateRef;
+        if (!$this->acquireWorkerLease('event_chain', $chainId)) {
+            throw new RuntimeException('Event evidence chain is busy; retry the mutation.');
+        }
+        try {
+            $existing = $this->row($this->wpdb->prepare(
+                "SELECT aggregate_type,aggregate_ref,payload_hash,event_hash FROM {$this->tables['events']} WHERE event_uuid=%s",
+                $eventId
+            ));
+            if ($existing !== null) {
+                if (!hash_equals((string) $existing['aggregate_type'], $aggregateType)
+                    || !hash_equals((string) $existing['aggregate_ref'], $aggregateRef)
+                    || !hash_equals((string) $existing['payload_hash'], $payloadHash)) {
+                    throw new RuntimeException('Event idempotency collision.');
+                }
+                return $eventId;
             }
+            $previous = $this->value($this->wpdb->prepare(
+                "SELECT event_hash FROM {$this->tables['events']} WHERE aggregate_type=%s AND aggregate_ref=%s ORDER BY id DESC LIMIT 1",
+                $aggregateType, $aggregateRef
+            ));
+            $previousHash = is_string($previous) && $previous !== '' ? $previous : null;
+            $role = $context->roles()[0] ?? 'system';
+            $eventHash = hash('sha256', $this->json([
+                $eventId, $aggregateType, $aggregateRef, $eventType, $context->actorReference(), $role,
+                $purpose, $payloadHash, $objectVersion, $previousHash, $at->format(DATE_ATOM),
+            ]));
+            $ok = $this->wpdb->insert($this->tables['events'], [
+                'event_uuid' => $eventId, 'aggregate_type' => $aggregateType, 'aggregate_ref' => $aggregateRef,
+                'event_type' => $eventType, 'actor_ref' => $context->actorReference(), 'actor_role' => $role,
+                'purpose' => $purpose, 'payload_json' => $payloadJson, 'payload_hash' => $payloadHash,
+                'idempotency_key' => $idempotencyKey, 'publish_state' => 'pending', 'publish_attempts' => 0,
+                'next_attempt_at' => $this->mysqlTime($at), 'previous_hash' => $previousHash,
+                'event_hash' => $eventHash, 'occurred_at' => $this->mysqlTime($at),
+            ]);
+            if ($ok !== 1) {
+                throw new RuntimeException('Event persistence failed.');
+            }
+            $this->appendAudit($aggregateType, $aggregateRef, $context, $purpose, $eventType, 'accepted', $objectVersion, $payloadHash, $at);
             return $eventId;
+        } finally {
+            $this->releaseWorkerLease('event_chain', $chainId);
         }
-        $ok = $this->wpdb->insert($this->tables['events'], [
-            'event_uuid' => $eventId, 'aggregate_type' => $aggregateType, 'aggregate_ref' => $aggregateRef,
-            'event_type' => $eventType, 'actor_ref' => $context->actorReference(), 'actor_role' => $role,
-            'purpose' => $purpose, 'payload_json' => $payloadJson, 'payload_hash' => $payloadHash,
-            'idempotency_key' => $idempotencyKey, 'publish_state' => 'pending', 'publish_attempts' => 0,
-            'next_attempt_at' => $this->mysqlTime($at), 'previous_hash' => $previousHash,
-            'event_hash' => $eventHash, 'occurred_at' => $this->mysqlTime($at),
-        ]);
-        if ($ok !== 1) {
-            throw new RuntimeException('Event persistence failed.');
-        }
-        $this->appendAudit($aggregateType, $aggregateRef, $context, $purpose, $eventType, 'accepted', $objectVersion, $payloadHash, $at);
-        return $eventId;
     }
 
     private function appendAudit(
@@ -1929,26 +1942,34 @@ final class OperationsRepository
         string $contextHash,
         DateTimeImmutable $at
     ): void {
-        $previous = $this->value($this->wpdb->prepare(
-            "SELECT event_hash FROM {$this->tables['audit']} WHERE object_type=%s AND object_ref=%s ORDER BY id DESC LIMIT 1",
-            $objectType, $objectRef
-        ));
-        $previousHash = is_string($previous) && $previous !== '' ? $previous : null;
-        $trace = RequestGuard::traceId();
-        $eventId = 'CF02-AUD-' . strtoupper(bin2hex(random_bytes(10)));
-        $eventHash = hash('sha256', $this->json([
-            $eventId, $objectType, $objectRef, $context->actorReference(), $purpose, $action,
-            $result, $trace, $objectVersion, $contextHash, $previousHash, $at->format(DATE_ATOM),
-        ]));
-        $ok = $this->wpdb->insert($this->tables['audit'], [
-            'event_uuid' => $eventId, 'object_type' => $objectType, 'object_ref' => $objectRef,
-            'actor_ref' => $context->actorReference(), 'purpose' => $purpose, 'action_key' => $action,
-            'result_code' => $result, 'trace_id' => $trace, 'object_version' => $objectVersion,
-            'context_hash' => $contextHash, 'previous_hash' => $previousHash, 'event_hash' => $eventHash,
-            'occurred_at' => $this->mysqlTime($at),
-        ]);
-        if ($ok !== 1) {
-            throw new RuntimeException('Audit evidence persistence failed.');
+        $chainId = $objectType . "\0" . $objectRef;
+        if (!$this->acquireWorkerLease('audit_chain', $chainId)) {
+            throw new RuntimeException('Audit evidence chain is busy; retry the mutation.');
+        }
+        try {
+            $previous = $this->value($this->wpdb->prepare(
+                "SELECT event_hash FROM {$this->tables['audit']} WHERE object_type=%s AND object_ref=%s ORDER BY id DESC LIMIT 1",
+                $objectType, $objectRef
+            ));
+            $previousHash = is_string($previous) && $previous !== '' ? $previous : null;
+            $trace = RequestGuard::traceId();
+            $eventId = 'CF02-AUD-' . strtoupper(bin2hex(random_bytes(10)));
+            $eventHash = hash('sha256', $this->json([
+                $eventId, $objectType, $objectRef, $context->actorReference(), $purpose, $action,
+                $result, $trace, $objectVersion, $contextHash, $previousHash, $at->format(DATE_ATOM),
+            ]));
+            $ok = $this->wpdb->insert($this->tables['audit'], [
+                'event_uuid' => $eventId, 'object_type' => $objectType, 'object_ref' => $objectRef,
+                'actor_ref' => $context->actorReference(), 'purpose' => $purpose, 'action_key' => $action,
+                'result_code' => $result, 'trace_id' => $trace, 'object_version' => $objectVersion,
+                'context_hash' => $contextHash, 'previous_hash' => $previousHash, 'event_hash' => $eventHash,
+                'occurred_at' => $this->mysqlTime($at),
+            ]);
+            if ($ok !== 1) {
+                throw new RuntimeException('Audit evidence persistence failed.');
+            }
+        } finally {
+            $this->releaseWorkerLease('audit_chain', $chainId);
         }
     }
 
