@@ -2,7 +2,7 @@
 
 ## Entry conditions
 
-- Exact `1.0.0-rc.6` package checksum is recorded.
+- Exact `1.0.0-rc.7` package checksum is recorded.
 - Exact repository commit and package manifest/SBOM/provenance are recorded.
 - Sanitized production-like backup and isolated restore location exist.
 - Required companion/provider versions are inventoried.
