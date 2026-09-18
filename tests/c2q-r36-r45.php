@@ -69,4 +69,16 @@ $test(43,'requester reply events use case ownership or verified representation r
     assert(str_contains($block,"hash_equals((string) \$case['requester_ref'], \$context->actorReference())"));
     assert(str_contains($block,"\$context->represents((string) \$case['requester_ref'])"));
 });
-if($failures!==[]){exit(1);}fwrite(STDOUT,"CF-02 new ten-review register passed through R43.\n");
+
+$test(44,'retention purge completion evidence is written inside the same transaction before canonical deletion',static function()use($read):void{
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    $start=strpos($repo,'public function purgeCase(');
+    $end=strpos($repo,'public function dueRetention(',$start);
+    $block=substr($repo,$start,$end-$start);
+    $tx=strpos($block,'$this->transaction(');
+    $event=strpos($block,"'SupportRetentionPurgeCompleted'");
+    $delete=strpos($block,"$this->wpdb->delete($this->tables['cases']");
+    assert($tx!==false && $event!==false && $delete!==false && $tx<$event && $event<$delete);
+    assert(!str_contains(substr($block,$delete),'$this->appendEvent('));
+});
+if($failures!==[]){exit(1);}fwrite(STDOUT,"CF-02 new ten-review register passed through R44.\n");

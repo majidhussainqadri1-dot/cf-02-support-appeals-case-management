@@ -1424,7 +1424,10 @@ final class OperationsRepository
         if (($providerResults['all_targets_reconciled'] ?? false) !== true) {
             throw new RuntimeException('Provider/cache/search deletion reconciliation is incomplete.');
         }
-        $this->transaction(function () use ($caseId): void {
+        $system = $this->systemContext($at);
+        $providerHash = hash('sha256', $this->json($providerResults));
+        $eventKey = 'retention-purge-' . substr(hash('sha256', $caseId . "\0" . $this->json($providerResults)), 0, 40);
+        $this->transaction(function () use ($caseId, $system, $providerHash, $eventKey, $at): void {
             $this->lockCaseForLifecycle($caseId, ['closed']);
             $activeHolds = (int) $this->value($this->wpdb->prepare(
                 "SELECT COUNT(*) FROM {$this->tables['holds']} WHERE case_uuid=%s AND state='active'", $caseId
@@ -1442,7 +1445,6 @@ final class OperationsRepository
             foreach ($appeals as $appeal) {
                 $this->wpdb->delete($this->tables['dossiers'], ['appeal_uuid' => (string) $appeal['appeal_uuid']]);
             }
-            // Purge case-linked derivative records before deleting their canonical parents.
             $this->wpdb->query($this->wpdb->prepare(
                 "DELETE nr FROM {$this->tables['note_revisions']} nr JOIN {$this->tables['messages']} m ON m.message_uuid=nr.message_uuid WHERE m.case_uuid=%s",
                 $caseId
@@ -1458,15 +1460,15 @@ final class OperationsRepository
             $this->wpdb->query("DELETE p FROM {$this->tables['command_payloads']} p LEFT JOIN {$this->tables['commands']} c ON c.command_uuid=p.command_uuid WHERE c.command_uuid IS NULL");
             $this->wpdb->query("DELETE p FROM {$this->tables['outbox_payloads']} p LEFT JOIN {$this->tables['outbox']} o ON o.message_uuid=p.message_uuid WHERE o.message_uuid IS NULL");
             $this->wpdb->query($this->wpdb->prepare("DELETE FROM {$this->tables['merge_redirects']} WHERE source_case_uuid=%s OR target_case_uuid=%s", $caseId, $caseId));
+            $this->appendEvent(
+                'case', $caseId, 'SupportRetentionPurgeCompleted', $system, 'retention_purge',
+                $eventKey, ['provider_results_hash' => $providerHash], 0, $at
+            );
             $deleted = $this->wpdb->delete($this->tables['cases'], ['case_uuid' => $caseId]);
             if ($deleted !== 1) {
                 throw new RuntimeException('Canonical case purge failed.');
             }
         });
-        $system = $this->systemContext($at);
-        $this->appendEvent('case', $caseId, 'SupportRetentionPurgeCompleted', $system, 'retention_purge',
-            'retention-purge-' . substr(hash('sha256', $caseId . "\0" . $this->json($providerResults)), 0, 40),
-            ['provider_results_hash' => hash('sha256', $this->json($providerResults))], 0, $at);
     }
 
     /** @return list<array<string,mixed>> */
