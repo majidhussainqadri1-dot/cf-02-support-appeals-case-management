@@ -49,6 +49,18 @@ $test('progressive rate control challenges then blocks abuse without hiding emer
     assert(!$last['allowed']);assert($last['challenge_required']);assert($last['emergency_diversion_visible']);
 });
 
+$test('staff case reads are queue-scoped and sensitive attachment grants require step-up',static function()use($root):void{
+    $principal=(string)file_get_contents($root.'/src/Authorization/PrincipalContext.php');
+    $factory=(string)file_get_contents($root.'/src/Authorization/WordPressPrincipalContextFactory.php');
+    $ops=(string)file_get_contents($root.'/src/Infrastructure/WordPress/OperationsRepository.php');
+    $overlay=(string)file_get_contents($root.'/src/Infrastructure/WordPress/CompleteRestOverlay.php');
+    assert(str_contains($principal,'queueScopes'));
+    assert(str_contains($factory,"'queue_scopes'"));
+    assert(str_contains($ops,'inQueueScope'));
+    assert(str_contains($ops,'Sensitive attachment access requires specialist authority and recent authentication.'));
+    assert(str_contains($overlay,'Scoped queue authority is required.'));
+});
+
 $test('case tasks require explicit dependency outcome and optimistic concurrency',static function():void{
     $at=new DateTimeImmutable('2026-08-04T06:50:00+05:00');
     $task=CaseTask::create(SupportCaseId::generate(),'native_owner_check','agent:1','command:1',$at,$at->modify('+1 day'));
