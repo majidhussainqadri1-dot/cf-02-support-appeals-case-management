@@ -2,81 +2,56 @@ from pathlib import Path
 ROOT=Path('.')
 def read(p): return (ROOT/p).read_text()
 def write(p,s): (ROOT/p).write_text(s)
-p='src/Infrastructure/WordPress/OperationsRepository.php'
+
+p='build/package.py'
 s=read(p)
-start=s.index('    public function purgeCase(string $caseId, array $providerResults, DateTimeImmutable $at): void\n')
-end=s.index('    /** @return list<array<string,mixed>> */\n    public function dueRetention',start)
-replacement=r'''    public function purgeCase(string $caseId, array $providerResults, DateTimeImmutable $at): void
-    {
-        if (($providerResults['all_targets_reconciled'] ?? false) !== true) {
-            throw new RuntimeException('Provider/cache/search deletion reconciliation is incomplete.');
-        }
-        $system = $this->systemContext($at);
-        $providerHash = hash('sha256', $this->json($providerResults));
-        $eventKey = 'retention-purge-' . substr(hash('sha256', $caseId . "\0" . $this->json($providerResults)), 0, 40);
-        $this->transaction(function () use ($caseId, $system, $providerHash, $eventKey, $at): void {
-            $this->lockCaseForLifecycle($caseId, ['closed']);
-            $activeHolds = (int) $this->value($this->wpdb->prepare(
-                "SELECT COUNT(*) FROM {$this->tables['holds']} WHERE case_uuid=%s AND state='active'", $caseId
-            ));
-            if ($activeHolds > 0) {
-                throw new RuntimeException('Active legal or appeal hold blocks purge.');
-            }
-            $unresolvedAppeals = (int) $this->value($this->wpdb->prepare(
-                "SELECT COUNT(*) FROM {$this->tables['appeals']} WHERE case_uuid=%s AND state<>'closed'", $caseId
-            ));
-            if ($unresolvedAppeals > 0) {
-                throw new RuntimeException('Open or unresolved appeal blocks purge until appeal closure.');
-            }
-            $appeals = $this->rows($this->wpdb->prepare("SELECT appeal_uuid FROM {$this->tables['appeals']} WHERE case_uuid=%s", $caseId));
-            foreach ($appeals as $appeal) {
-                $this->wpdb->delete($this->tables['dossiers'], ['appeal_uuid' => (string) $appeal['appeal_uuid']]);
-            }
-            $this->wpdb->query($this->wpdb->prepare(
-                "DELETE nr FROM {$this->tables['note_revisions']} nr JOIN {$this->tables['messages']} m ON m.message_uuid=nr.message_uuid WHERE m.case_uuid=%s",
-                $caseId
-            ));
-            $this->wpdb->query($this->wpdb->prepare(
-                "DELETE t FROM {$this->tables['tokens']} t JOIN {$this->tables['attachments']} a ON a.attachment_uuid=t.attachment_uuid WHERE a.case_uuid=%s",
-                $caseId
-            ));
-            $this->wpdb->delete($this->tables['inbound'], ['case_uuid' => $caseId]);
-            foreach (['messages','attachments','assignments','sla','tasks','appeals','commands','outbox','case_links','incident_links','feedback'] as $table) {
-                $this->wpdb->delete($this->tables[$table], ['case_uuid' => $caseId]);
-            }
-            $this->wpdb->query("DELETE p FROM {$this->tables['command_payloads']} p LEFT JOIN {$this->tables['commands']} c ON c.command_uuid=p.command_uuid WHERE c.command_uuid IS NULL");
-            $this->wpdb->query("DELETE p FROM {$this->tables['outbox_payloads']} p LEFT JOIN {$this->tables['outbox']} o ON o.message_uuid=p.message_uuid WHERE o.message_uuid IS NULL");
-            $this->wpdb->query($this->wpdb->prepare("DELETE FROM {$this->tables['merge_redirects']} WHERE source_case_uuid=%s OR target_case_uuid=%s", $caseId, $caseId));
-            $this->appendEvent(
-                'case', $caseId, 'SupportRetentionPurgeCompleted', $system, 'retention_purge',
-                $eventKey, ['provider_results_hash' => $providerHash], 0, $at
-            );
-            $deleted = $this->wpdb->delete($this->tables['cases'], ['case_uuid' => $caseId]);
-            if ($deleted !== 1) {
-                throw new RuntimeException('Canonical case purge failed.');
-            }
-        });
-    }
+marker='''def source_timestamp(source_sha: str) -> tuple[int, str]:\n'''
+helper='''def validate_source_checkout(source_sha: str) -> None:
+    head = git_value("rev-parse", "HEAD")
+    if head is None:
+        fail("release packaging requires an exact Git checkout")
+    if head != source_sha:
+        fail("source SHA does not match the checked-out commit")
+    dirty = git_value("status", "--porcelain", "--untracked-files=no")
+    if dirty is None:
+        fail("tracked working-tree state could not be verified")
+    if dirty != "":
+        fail("tracked working tree is dirty; commit corrections before packaging")
+
 
 '''
-s=s[:start]+replacement+s[end:]
+if 'def validate_source_checkout(source_sha: str)' not in s:
+    idx=s.index(marker)
+    s=s[:idx]+helper+s[idx:]
+old='''    source_sha = resolve_source_sha(args.source_sha)\n    _, created = source_timestamp(source_sha)\n'''
+new='''    source_sha = resolve_source_sha(args.source_sha)\n    validate_source_checkout(source_sha)\n    _, created = source_timestamp(source_sha)\n'''
+if old not in s: raise SystemExit('R45 package main marker missing')
+s=s.replace(old,new,1)
 write(p,s)
+
+cp='composer.json'
+c=read(cp)
+oldc='''      "php -d zend.assertions=1 tests/c2n-r24-r33.php",\n      "php -d zend.assertions=1 tests/release.php"'''
+newc='''      "php -d zend.assertions=1 tests/c2n-r24-r33.php",\n      "php -d zend.assertions=1 tests/c2q-r36-r45.php",\n      "php -d zend.assertions=1 tests/release.php"'''
+if oldc not in c: raise SystemExit('R45 composer insertion marker missing')
+c=c.replace(oldc,newc,1)
+write(cp,c)
+
 tp='tests/c2q-r36-r45.php'
 t=read(tp); needle='if($failures!==[]){exit(1);}'
 block=r'''
-$test(44,'retention purge completion evidence is written inside the same transaction before canonical deletion',static function()use($read):void{
-    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
-    $start=strpos($repo,'public function purgeCase(');
-    $end=strpos($repo,'public function dueRetention(',$start);
-    $block=substr($repo,$start,$end-$start);
-    $tx=strpos($block,'$this->transaction(');
-    $event=strpos($block,"'SupportRetentionPurgeCompleted'");
-    $delete=strpos($block,"$this->wpdb->delete($this->tables['cases']");
-    assert($tx!==false && $event!==false && $delete!==false && $tx<$event && $event<$delete);
-    assert(!str_contains(substr($block,$delete),'$this->appendEvent('));
+$test(45,'standard CI executes this review register and packaging cannot label a dirty or different checkout as an exact source SHA',static function()use($read):void{
+    $composer=$read('composer.json');
+    $package=$read('build/package.py');
+    assert(str_contains($composer,'php -d zend.assertions=1 tests/c2q-r36-r45.php'));
+    assert(str_contains($package,'def validate_source_checkout(source_sha: str) -> None:'));
+    assert(str_contains($package,'git_value("rev-parse", "HEAD")'));
+    assert(str_contains($package,'git_value("status", "--porcelain", "--untracked-files=no")'));
+    assert(str_contains($package,'tracked working tree is dirty; commit corrections before packaging'));
+    assert(str_contains($package,'validate_source_checkout(source_sha)'));
 });
 '''
-if needle not in t: raise SystemExit('R44 test marker missing')
-t=t.replace(needle,block+needle,1).replace('passed through R43','passed through R44',1)
+if needle not in t: raise SystemExit('R45 test marker missing')
+t=t.replace(needle,block+needle,1).replace('passed through R44','passed through R45',1)
 write(tp,t)
-print('R44 correction materialized')
+print('R45 corrections materialized')
