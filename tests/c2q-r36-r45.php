@@ -32,4 +32,12 @@ $test(38,'appeal queue readers receive queue metadata but not the evidence dossi
     assert(str_contains($repo,"return ['appeal' => \$appeal, 'dossier' => null];"));
     assert(str_contains($repo,"hasAnyCapability('appeal.review', 'appeal.decision', 'appeal.native.request', 'appeal.implementation.confirm')"));
 });
-if($failures!==[]){exit(1);}fwrite(STDOUT,"CF-02 new ten-review register passed through R38.\n");
+
+$test(40,'quality rubric compares normalized key sets instead of rejecting a complete valid rubric by ordering',static function()use($read):void{
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    $posRequired=strpos($repo,'$required = [\'accuracy\',\'accessibility\',\'compliance\',\'empathy\',\'security\'];');
+    $posSort=strpos($repo,'sort($required);',$posRequired);
+    $posKeys=strpos($repo,'$keys = array_keys($scores);',$posRequired);
+    assert($posRequired!==false && $posSort!==false && $posKeys!==false && $posRequired<$posSort && $posSort<$posKeys);
+});
+if($failures!==[]){exit(1);}fwrite(STDOUT,"CF-02 new ten-review register passed through R40.\n");

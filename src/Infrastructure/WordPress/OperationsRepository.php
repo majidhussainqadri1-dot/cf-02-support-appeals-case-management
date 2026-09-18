@@ -2255,6 +2255,7 @@ final class OperationsRepository
     ): array {
         $this->caseForActor($caseId, $context);
         $required = ['accuracy','accessibility','compliance','empathy','security'];
+        sort($required);
         $keys = array_keys($scores);
         sort($keys);
         if ($keys !== $required || !in_array($sampleBasis, ['random','risk','breach','reopen','complaint'], true)) {
