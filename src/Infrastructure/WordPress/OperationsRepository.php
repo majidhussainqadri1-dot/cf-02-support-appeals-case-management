@@ -918,32 +918,39 @@ final class OperationsRepository
         $originalHash = hash('sha256', $originalDecisionRef . "\0" . $policyVersion);
         $submissions = [['actor_ref' => $context->actorReference(), 'grounds' => $grounds, 'at' => $at->format(DATE_ATOM)]];
         $dossierHash = hash('sha256', $this->json([$originalHash, $policyVersion, $evidenceRefs, $submissions]));
-        $this->transaction(function () use ($appealId, $caseId, $context, $originalDecisionRef, $policyVersion, $evidenceRefs, $submissions, $originalHash, $dossierHash, $idempotencyKey, $at): void {
-            $this->lockCaseForLifecycle($caseId->value(), ['resolved','closed']);
-            $ok = $this->wpdb->insert($this->tables['appeals'], [
-                'appeal_uuid' => $appealId, 'case_uuid' => $caseId->value(),
-                'appellant_ref' => $context->actorReference(), 'original_decision_ref' => $originalDecisionRef,
-                'dossier_hash' => $dossierHash, 'reviewer_ref' => null, 'state' => 'submitted',
-                'outcome' => null, 'native_command_ref' => null, 'implementation_ref' => null,
-                'record_version' => 1, 'submitted_at' => $this->mysqlTime($at), 'updated_at' => $this->mysqlTime($at),
-            ]);
-            if ($ok !== 1) {
-                throw new RuntimeException('Appeal persistence failed.');
-            }
-            $ok = $this->wpdb->insert($this->tables['dossiers'], [
-                'dossier_uuid' => 'CF02-DOS-' . substr($appealId, -20), 'appeal_uuid' => $appealId,
-                'original_decision_ref' => $originalDecisionRef, 'original_decision_hash' => $originalHash,
-                'policy_version' => $policyVersion, 'evidence_refs_json' => $this->json(array_values($evidenceRefs)),
-                'submissions_json' => $this->json($submissions), 'dossier_hash' => $dossierHash,
-                'record_version' => 1, 'created_at' => $this->mysqlTime($at), 'updated_at' => $this->mysqlTime($at),
-            ]);
-            if ($ok !== 1) {
-                throw new RuntimeException('Appeal dossier persistence failed.');
-            }
-            $this->appendEvent('appeal', $appealId, 'AppealSubmitted', $context, 'appeal_submission', $idempotencyKey, [
-                'case_ref' => $caseId->value(), 'original_decision_ref' => $originalDecisionRef,
-            ], 1, $at);
-        });
+        if (!$this->acquireWorkerLease('retention', $caseId->value())) {
+            throw new RuntimeException('Case retention transition is already in progress.');
+        }
+        try {
+            $this->transaction(function () use ($appealId, $caseId, $context, $originalDecisionRef, $policyVersion, $evidenceRefs, $submissions, $originalHash, $dossierHash, $idempotencyKey, $at): void {
+                $this->lockCaseForLifecycle($caseId->value(), ['resolved','closed']);
+                $ok = $this->wpdb->insert($this->tables['appeals'], [
+                    'appeal_uuid' => $appealId, 'case_uuid' => $caseId->value(),
+                    'appellant_ref' => $context->actorReference(), 'original_decision_ref' => $originalDecisionRef,
+                    'dossier_hash' => $dossierHash, 'reviewer_ref' => null, 'state' => 'submitted',
+                    'outcome' => null, 'native_command_ref' => null, 'implementation_ref' => null,
+                    'record_version' => 1, 'submitted_at' => $this->mysqlTime($at), 'updated_at' => $this->mysqlTime($at),
+                ]);
+                if ($ok !== 1) {
+                    throw new RuntimeException('Appeal persistence failed.');
+                }
+                $ok = $this->wpdb->insert($this->tables['dossiers'], [
+                    'dossier_uuid' => 'CF02-DOS-' . substr($appealId, -20), 'appeal_uuid' => $appealId,
+                    'original_decision_ref' => $originalDecisionRef, 'original_decision_hash' => $originalHash,
+                    'policy_version' => $policyVersion, 'evidence_refs_json' => $this->json(array_values($evidenceRefs)),
+                    'submissions_json' => $this->json($submissions), 'dossier_hash' => $dossierHash,
+                    'record_version' => 1, 'created_at' => $this->mysqlTime($at), 'updated_at' => $this->mysqlTime($at),
+                ]);
+                if ($ok !== 1) {
+                    throw new RuntimeException('Appeal dossier persistence failed.');
+                }
+                $this->appendEvent('appeal', $appealId, 'AppealSubmitted', $context, 'appeal_submission', $idempotencyKey, [
+                    'case_ref' => $caseId->value(), 'original_decision_ref' => $originalDecisionRef,
+                ], 1, $at);
+            });
+        } finally {
+            $this->releaseWorkerLease('retention', $caseId->value());
+        }
         return $this->appealForActor($appealId, $context);
     }
 
@@ -1112,21 +1119,28 @@ final class OperationsRepository
             }
             return $existing;
         }
-        $this->transaction(function () use ($id, $caseId, $context, $reason, $authorityRef, $reviewDue, $idempotencyKey, $at): void {
-            $this->lockCaseForLifecycle($caseId->value());
-            $ok = $this->wpdb->insert($this->tables['holds'], [
-                'hold_uuid' => $id, 'case_uuid' => $caseId->value(), 'category' => null,
-                'reason_code' => $reason, 'authority_ref' => $authorityRef, 'state' => 'active',
-                'review_due_at' => $this->mysqlTime($reviewDue), 'placed_at' => $this->mysqlTime($at),
-                'released_at' => null, 'record_version' => 1,
-            ]);
-            if ($ok !== 1) {
-                throw new RuntimeException('Hold persistence failed.');
-            }
-            $this->appendEvent('case', $caseId->value(), 'SupportCaseHoldApplied', $context, 'case_hold', $idempotencyKey, [
-                'hold_ref' => $id, 'reason_code' => $reason, 'authority_ref' => $authorityRef, 'review_due_at' => $reviewDue->format(DATE_ATOM),
-            ], 1, $at);
-        });
+        if (!$this->acquireWorkerLease('retention', $caseId->value())) {
+            throw new RuntimeException('Case retention transition is already in progress.');
+        }
+        try {
+            $this->transaction(function () use ($id, $caseId, $context, $reason, $authorityRef, $reviewDue, $idempotencyKey, $at): void {
+                $this->lockCaseForLifecycle($caseId->value());
+                $ok = $this->wpdb->insert($this->tables['holds'], [
+                    'hold_uuid' => $id, 'case_uuid' => $caseId->value(), 'category' => null,
+                    'reason_code' => $reason, 'authority_ref' => $authorityRef, 'state' => 'active',
+                    'review_due_at' => $this->mysqlTime($reviewDue), 'placed_at' => $this->mysqlTime($at),
+                    'released_at' => null, 'record_version' => 1,
+                ]);
+                if ($ok !== 1) {
+                    throw new RuntimeException('Hold persistence failed.');
+                }
+                $this->appendEvent('case', $caseId->value(), 'SupportCaseHoldApplied', $context, 'case_hold', $idempotencyKey, [
+                    'hold_ref' => $id, 'reason_code' => $reason, 'authority_ref' => $authorityRef, 'review_due_at' => $reviewDue->format(DATE_ATOM),
+                ], 1, $at);
+            });
+        } finally {
+            $this->releaseWorkerLease('retention', $caseId->value());
+        }
         return $this->row($this->wpdb->prepare("SELECT * FROM {$this->tables['holds']} WHERE hold_uuid=%s", $id)) ?? [];
     }
 
@@ -1395,6 +1409,45 @@ final class OperationsRepository
             }
         }
         return $due;
+    }
+
+    public function retentionEligibleForPurge(string $caseId): bool
+    {
+        $case = $this->row($this->wpdb->prepare(
+            "SELECT case_uuid,category,state,closed_at FROM {$this->tables['cases']} WHERE case_uuid=%s LIMIT 1",
+            $caseId
+        ));
+        if ($case === null || (string) $case['state'] !== 'closed' || $case['closed_at'] === null) {
+            return false;
+        }
+        $activeHolds = (int) $this->value($this->wpdb->prepare(
+            "SELECT COUNT(*) FROM {$this->tables['holds']} WHERE case_uuid=%s AND state='active'",
+            $caseId
+        ));
+        $unresolvedAppeals = (int) $this->value($this->wpdb->prepare(
+            "SELECT COUNT(*) FROM {$this->tables['appeals']} WHERE case_uuid=%s AND state<>'closed'",
+            $caseId
+        ));
+        if ($activeHolds > 0 || $unresolvedAppeals > 0) {
+            return false;
+        }
+        $config = $this->row(
+            "SELECT config_json FROM {$this->tables['configuration']} WHERE config_key='retention_schedule' AND status='active' ORDER BY config_version DESC LIMIT 1"
+        );
+        if ($config === null) {
+            return false;
+        }
+        $schedule = json_decode((string) $config['config_json'], true);
+        if (!is_array($schedule) || !is_int($schedule['default_days'] ?? null)) {
+            return false;
+        }
+        $categoryDays = is_array($schedule['category_days'] ?? null) ? $schedule['category_days'] : [];
+        $days = $categoryDays[(string) $case['category']] ?? $schedule['default_days'];
+        if (!is_int($days) || $days < 1 || $days > 3650) {
+            return false;
+        }
+        $closed = new DateTimeImmutable((string) $case['closed_at'], new DateTimeZone('UTC'));
+        return $closed->modify('+' . $days . ' days') <= new DateTimeImmutable('now', new DateTimeZone('UTC'));
     }
 
     public function acquireWorkerLease(string $scope, string $objectId): bool
