@@ -266,9 +266,17 @@ final class ProviderWebhookController
         try {
             return new \WP_REST_Response($callback(), $status, ['Cache-Control' => 'no-store']);
         } catch (Throwable $error) {
-            return new \WP_Error('cf02_provider_request_rejected', $error instanceof RuntimeException ? $error->getMessage() : 'Provider request failed.', [
-                'status' => 422, 'trace_id' => RequestGuard::traceId(),
+            $trace = RequestGuard::traceId();
+            do_action('cf02_provider_request_failed', [
+                'trace_id' => $trace,
+                'error_class' => $error::class,
+                'error' => $error,
             ]);
+            return new \WP_Error(
+                'cf02_provider_request_rejected',
+                __('The provider request was rejected.', 'cf-02-support-appeals-case-management'),
+                ['status' => 422, 'trace_id' => $trace]
+            );
         }
     }
 }
