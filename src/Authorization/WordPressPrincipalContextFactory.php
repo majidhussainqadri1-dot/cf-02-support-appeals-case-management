@@ -61,6 +61,7 @@ final class WordPressPrincipalContextFactory
         $roles = $this->stringList($assertion['roles'] ?? null, 'roles', 32, '/^[a-z][a-z0-9_.-]{1,63}$/');
         $capabilities = $this->stringList($assertion['capabilities'] ?? null, 'capabilities', 256, '/^[a-z][a-z0-9_.-]{1,95}$/');
         $represented = $this->stringList($assertion['represented_requesters'] ?? [], 'represented requesters', 64, '/^(?:user|guardian|representative):[A-Za-z0-9._-]{1,128}$/');
+        $queueScopes = $this->stringList($assertion['queue_scopes'] ?? [], 'queue scopes', 64, '/^[a-z][a-z0-9_]{1,63}$/');
 
         return new PrincipalContext(
             $actorReference,
@@ -75,7 +76,8 @@ final class WordPressPrincipalContextFactory
             'File 00',
             (string) ($assertion['contract_version'] ?? ''),
             $assertedAt,
-            $expiresAt
+            $expiresAt,
+            $queueScopes
         );
     }
 
