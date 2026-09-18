@@ -80,5 +80,18 @@ $test(41,'staff cannot manufacture requester confirmation to close a case',stati
     assert(str_contains($api,"hash('sha256', \$confirmationRef)"));
 });
 
+$test(42,'case-aggregate audit evidence records canonical case version rather than child-object versions',static function()use($read):void{
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    assert(str_contains($repo,'private function caseRecordVersion(string $caseId): int'));
+    assert(str_contains($repo,"SupportTaskCompleted', \$context, \$purpose, \$idempotencyKey, \$payload, \$this->caseRecordVersion(\$caseId->value())"));
+    assert(str_contains($repo,"SupportNativeCommandRequested', \$context"));
+    assert(str_contains($repo,"SupportCaseHoldReleased', \$context, 'case_hold_release', \$idempotencyKey, \$payload, \$this->caseRecordVersion(\$caseId->value())"));
+    assert(str_contains($repo,"SupportQualityReviewRecorded"));
+    assert(str_contains($repo,"], (int) \$case['record_version'], \$at);"));
+    assert(str_contains($repo,'$purgedCaseVersion = (int) $case[\'record_version\'];'));
+    assert(str_contains($repo,"SupportRetentionPurgeCompleted"));
+    assert(str_contains($repo,"], \$purgedCaseVersion, \$at);"));
+});
+
 if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}
-fwrite(STDOUT,"CF-02 R34-R43 regression register passed through R41.\n");
+fwrite(STDOUT,"CF-02 R34-R43 regression register passed through R42.\n");
