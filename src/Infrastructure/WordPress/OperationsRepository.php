@@ -2098,6 +2098,14 @@ final class OperationsRepository
     public function appealProjection(string $appealId, PrincipalContext $context): array
     {
         $appeal = $this->appealForActor($appealId, $context);
+        $appellantAccess = hash_equals((string) $appeal['appellant_ref'], $context->actorReference())
+            || $context->represents((string) $appeal['appellant_ref']);
+        $assignedReviewerAccess = is_string($appeal['reviewer_ref'] ?? null)
+            && hash_equals((string) $appeal['reviewer_ref'], $context->actorReference())
+            && $context->hasAnyCapability('appeal.review', 'appeal.decision', 'appeal.native.request', 'appeal.implementation.confirm');
+        if (!$appellantAccess && !$assignedReviewerAccess) {
+            return ['appeal' => $appeal, 'dossier' => null];
+        }
         $dossier = $this->row($this->wpdb->prepare(
             "SELECT dossier_uuid,appeal_uuid,original_decision_ref,original_decision_hash,policy_version,evidence_refs_json,submissions_json,dossier_hash,record_version,created_at,updated_at
              FROM {$this->tables['dossiers']} WHERE appeal_uuid=%s LIMIT 1",

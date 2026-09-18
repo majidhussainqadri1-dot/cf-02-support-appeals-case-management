@@ -24,4 +24,12 @@ $test(37,'sensitive case projections require the active assignment to carry the 
     assert(str_contains($repo,"activeAssignmentHasScope(\$caseId, \$context, 'case.specialist.read')"));
     assert(str_contains($repo,"WHERE case_uuid=%s AND agent_ref=%s AND ended_at IS NULL"));
 });
-if($failures!==[]){exit(1);}fwrite(STDOUT,"CF-02 new ten-review register passed through R37.\n");
+
+$test(38,'appeal queue readers receive queue metadata but not the evidence dossier unless appellant or assigned reviewer',static function()use($read):void{
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    assert(str_contains($repo,'$appellantAccess = hash_equals'));
+    assert(str_contains($repo,'$assignedReviewerAccess = is_string'));
+    assert(str_contains($repo,"return ['appeal' => \$appeal, 'dossier' => null];"));
+    assert(str_contains($repo,"hasAnyCapability('appeal.review', 'appeal.decision', 'appeal.native.request', 'appeal.implementation.confirm')"));
+});
+if($failures!==[]){exit(1);}fwrite(STDOUT,"CF-02 new ten-review register passed through R38.\n");
