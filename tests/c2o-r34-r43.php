@@ -57,5 +57,13 @@ $test(38,'attachment scan and redaction callbacks are bound to an attachment-aut
     assert(str_contains($provider,"verifySignature(\$request, 'attachment_redaction')"));
 });
 
+$test(39,'requester reply events use canonical requester or representative identity rather than actor-name prefix',static function()use($read):void{
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    assert(!str_contains($repo,"str_starts_with(\$context->actorReference(), 'user:')"));
+    assert(str_contains($repo,"hash_equals((string) \$case['requester_ref'], \$context->actorReference())"));
+    assert(str_contains($repo,"\$context->represents((string) \$case['requester_ref'])"));
+    assert(str_contains($repo,"? 'SupportUserReplied' : 'SupportAgentReplied'"));
+});
+
 if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}
-fwrite(STDOUT,"CF-02 R34-R43 regression register passed through R38.\n");
+fwrite(STDOUT,"CF-02 R34-R43 regression register passed through R39.\n");
