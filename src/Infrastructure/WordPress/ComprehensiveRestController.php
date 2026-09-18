@@ -831,6 +831,10 @@ final class ComprehensiveRestController
             RequestGuard::requireCapability($context, $this->now(), 'appeal.decision');
             $appeal = $this->operations->appealForActor((string) $request['id'], $context);
             RuntimeWorkflowPolicy::assertAppeal((string) $appeal['state'], 'decided');
+            $command = $this->operations->appealNativeCommandStatus((string) $request['id'], $context);
+            if (!hash_equals((string) $command['state'], 'succeeded') || trim((string) ($command['outcome_ref'] ?? '')) === '') {
+                throw new RuntimeException('Appeal decision requires a reconciled signed native-owner result.');
+            }
             $outcome = sanitize_key((string) $request->get_param('outcome'));
             if (!in_array($outcome, ['uphold','modify','overturn','remand','withdraw'], true)
                 || trim((string) $request->get_param('findings')) === ''
@@ -855,8 +859,12 @@ final class ComprehensiveRestController
             $appeal = $this->operations->appealForActor((string) $request['id'], $context);
             RuntimeWorkflowPolicy::assertAppeal((string) $appeal['state'], 'implemented');
             $ref = sanitize_text_field((string) $request->get_param('implementation_ref'));
-            if ($ref === '' || !(bool) $request->get_param('native_version_matches')) {
-                throw new RuntimeException('Native implementation evidence is incomplete or drifted.');
+            $command = $this->operations->appealNativeCommandStatus((string) $request['id'], $context);
+            if ($ref === '' || !(bool) $request->get_param('native_version_matches')
+                || !hash_equals((string) $command['state'], 'succeeded')
+                || trim((string) ($command['outcome_ref'] ?? '')) === ''
+                || !hash_equals((string) $command['outcome_ref'], $ref)) {
+                throw new RuntimeException('Native implementation evidence is incomplete, unsigned, unreconciled or drifted.');
             }
             return $this->operations->mutateAppeal((string) $request['id'], $context, RequestGuard::expectedVersion($request), ['state' => 'implemented','implementation_ref' => $ref], 'AppealImplemented', 'appeal_implementation', RequestGuard::idempotencyKey($request), ['implementation_ref' => $ref], $this->now());
         });
