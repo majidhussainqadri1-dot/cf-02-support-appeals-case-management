@@ -270,7 +270,7 @@ final class OperationsRepository
             }
             return $messageId;
         }
-        $this->transaction(function () use ($messageId, $caseId, $context, $visibility, $channel, $ciphertext, $contentHash, $idempotencyKey, $purpose, $at): void {
+        $this->transaction(function () use ($messageId, $caseId, $case, $context, $visibility, $channel, $ciphertext, $contentHash, $idempotencyKey, $purpose, $at): void {
             $ok = $this->wpdb->insert($this->tables['messages'], [
                 'message_uuid' => $messageId,
                 'case_uuid' => $caseId->value(),
@@ -285,7 +285,9 @@ final class OperationsRepository
             if ($ok !== 1) {
                 throw new RuntimeException('Message persistence failed.');
             }
-            $event = $visibility === 'requester' && str_starts_with($context->actorReference(), 'user:')
+            $isRequesterActor = hash_equals((string) $case['requester_ref'], $context->actorReference())
+                || $context->represents((string) $case['requester_ref']);
+            $event = $visibility === 'requester' && $isRequesterActor
                 ? 'SupportUserReplied' : 'SupportAgentReplied';
             $this->appendEvent('case', $caseId->value(), $event, $context, $purpose, $idempotencyKey, [
                 'message_ref' => $messageId, 'visibility' => $visibility, 'channel' => $channel,
