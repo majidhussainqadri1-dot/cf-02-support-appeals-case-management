@@ -843,7 +843,7 @@ final class OperationsRepository
             }
             $this->appendEvent('case', $caseId->value(), 'SupportTaskCreated', $context, $purpose, $idempotencyKey, [
                 'task_ref' => $id, 'task_type' => $taskType, 'assignee_ref' => $assigneeRef, 'dependency_ref' => $dependencyRef,
-            ], 1, $at);
+            ], $this->caseRecordVersion($caseId->value()), $at);
         });
         return $this->row($this->wpdb->prepare("SELECT * FROM {$this->tables['tasks']} WHERE task_uuid=%s", $id)) ?? [];
     }
@@ -875,7 +875,7 @@ final class OperationsRepository
             if ($updated !== 1) {
                 throw new RuntimeException('Task completion conflicted.');
             }
-            $this->appendEvent('case', $caseId->value(), 'SupportTaskCompleted', $context, $purpose, $idempotencyKey, $payload, $expectedVersion + 1, $at);
+            $this->appendEvent('case', $caseId->value(), 'SupportTaskCompleted', $context, $purpose, $idempotencyKey, $payload, $this->caseRecordVersion($caseId->value()), $at);
         });
         return $this->row($this->wpdb->prepare("SELECT * FROM {$this->tables['tasks']} WHERE task_uuid=%s", $taskId)) ?? [];
     }
@@ -1083,7 +1083,7 @@ final class OperationsRepository
                 }
                 $this->appendEvent('case', $caseId->value(), 'SupportNativeCommandRequested', $context, $purpose, $idempotencyKey, [
                     'command_ref' => $id, 'native_owner' => $nativeOwner, 'action' => $action, 'object_ref' => $objectRef,
-                ], 1, $at);
+                ], $this->caseRecordVersion($caseId->value()), $at);
             });
         } catch (RuntimeException $error) {
             $replayed = $this->row($this->wpdb->prepare(
@@ -1138,7 +1138,7 @@ final class OperationsRepository
                 }
                 $this->appendEvent('case', $caseId->value(), 'SupportCaseHoldApplied', $context, 'case_hold', $idempotencyKey, [
                     'hold_ref' => $id, 'reason_code' => $reason, 'authority_ref' => $authorityRef, 'review_due_at' => $reviewDue->format(DATE_ATOM),
-                ], 1, $at);
+                ], $this->caseRecordVersion($caseId->value()), $at);
             });
         } finally {
             $this->releaseWorkerLease('retention', $caseId->value());
@@ -1164,7 +1164,7 @@ final class OperationsRepository
             if ($updated !== 1) {
                 throw new RuntimeException('Hold release is invalid or stale.');
             }
-            $this->appendEvent('case', $caseId->value(), 'SupportCaseHoldReleased', $context, 'case_hold_release', $idempotencyKey, $payload, $expectedVersion + 1, $at);
+            $this->appendEvent('case', $caseId->value(), 'SupportCaseHoldReleased', $context, 'case_hold_release', $idempotencyKey, $payload, $this->caseRecordVersion($caseId->value()), $at);
         });
         return $this->row($this->wpdb->prepare("SELECT * FROM {$this->tables['holds']} WHERE hold_uuid=%s", $holdId)) ?? [];
     }
@@ -1333,8 +1333,10 @@ final class OperationsRepository
         if (($providerResults['all_targets_reconciled'] ?? false) !== true) {
             throw new RuntimeException('Provider/cache/search deletion reconciliation is incomplete.');
         }
-        $this->transaction(function () use ($caseId): void {
-            $this->lockCaseForLifecycle($caseId, ['closed']);
+        $purgedCaseVersion = 0;
+        $this->transaction(function () use ($caseId, &$purgedCaseVersion): void {
+            $case = $this->lockCaseForLifecycle($caseId, ['closed']);
+            $purgedCaseVersion = (int) $case['record_version'];
             $activeHolds = (int) $this->value($this->wpdb->prepare(
                 "SELECT COUNT(*) FROM {$this->tables['holds']} WHERE case_uuid=%s AND state='active'", $caseId
             ));
@@ -1375,7 +1377,7 @@ final class OperationsRepository
         $system = $this->systemContext($at);
         $this->appendEvent('case', $caseId, 'SupportRetentionPurgeCompleted', $system, 'retention_purge',
             'retention-purge-' . substr(hash('sha256', $caseId . "\0" . $this->json($providerResults)), 0, 40),
-            ['provider_results_hash' => hash('sha256', $this->json($providerResults))], 0, $at);
+            ['provider_results_hash' => hash('sha256', $this->json($providerResults))], $purgedCaseVersion, $at);
     }
 
     /** @return list<array<string,mixed>> */
@@ -2178,7 +2180,7 @@ final class OperationsRepository
         }
         $this->appendEvent('case', $caseId->value(), 'SupportQualityReviewRecorded', $context, 'quality_review', 'quality-' . substr(hash('sha256', $id), 0, 32), [
             'review_ref' => $id, 'sample_basis' => $sampleBasis, 'identity_suppressed' => $identitySuppressed,
-        ], 1, $at);
+        ], (int) $case['record_version'], $at);
         return $this->row($this->wpdb->prepare("SELECT * FROM {$this->tables['quality']} WHERE review_uuid=%s", $id)) ?? [];
     }
 
@@ -2332,7 +2334,7 @@ final class OperationsRepository
             }
             $this->appendEvent('case', $caseId->value(), 'SupportMajorIncidentLinked', $context, 'major_incident_link', $idempotencyKey, [
                 'incident_ref' => $incidentRef, 'native_owner' => $nativeOwner, 'public_status' => $publicStatus,
-            ], 1, $at);
+            ], $this->caseRecordVersion($caseId->value()), $at);
         });
         return $this->row($this->wpdb->prepare("SELECT * FROM {$this->tables['incident_links']} WHERE incident_ref=%s AND case_uuid=%s", $incidentRef, $caseId->value())) ?? [];
     }
@@ -2387,6 +2389,18 @@ final class OperationsRepository
             throw new RuntimeException('Idempotency key was reused with a different aggregate type, aggregate, or payload.');
         }
         return true;
+    }
+
+    private function caseRecordVersion(string $caseId): int
+    {
+        $version = $this->value($this->wpdb->prepare(
+            "SELECT record_version FROM {$this->tables['cases']} WHERE case_uuid=%s",
+            $caseId
+        ));
+        if (!is_numeric($version) || (int) $version < 1) {
+            throw new RuntimeException('Case aggregate version is unavailable.');
+        }
+        return (int) $version;
     }
 
     /** @return list<string> */
