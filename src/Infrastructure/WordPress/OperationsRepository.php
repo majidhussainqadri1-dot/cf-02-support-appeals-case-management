@@ -1758,6 +1758,24 @@ final class OperationsRepository
     }
 
     /** @return array<string,mixed> */
+    public function appealNativeCommandStatus(string $appealId, PrincipalContext $context): array
+    {
+        $appeal = $this->appealForActor($appealId, $context);
+        $commandId = trim((string) ($appeal['native_command_ref'] ?? ''));
+        if ($commandId === '') {
+            throw new RuntimeException('Appeal has no native-owner command to reconcile.');
+        }
+        $row = $this->command($commandId);
+        if ($row === null || !hash_equals((string) $row['case_uuid'], (string) $appeal['case_uuid'])) {
+            throw new RuntimeException('Appeal native-owner command was not found or is out of scope.');
+        }
+        return array_intersect_key($row, array_flip([
+            'command_uuid','case_uuid','native_owner','action_key','object_ref','expected_native_version',
+            'state','attempts','outcome_ref','record_version','created_at','updated_at'
+        ]));
+    }
+
+    /** @return array<string,mixed> */
     public function commandStatus(string $commandId, PrincipalContext $context): array
     {
         $row = $this->command($commandId);
@@ -1775,6 +1793,12 @@ final class OperationsRepository
         /** @var mixed $facts */
         $facts = apply_filters('cf02_appeal_reviewer_facts', null, $reviewerRef, $appealId, (string) $appeal['original_decision_ref']);
         $available = is_array($facts) && is_string($facts['contract_version'] ?? null) && $facts['contract_version'] !== '';
+        $reviewerUnit = $available && is_string($facts['reviewer_unit'] ?? null) ? trim((string) $facts['reviewer_unit']) : '';
+        $originalUnit = $available && is_string($facts['original_decision_unit'] ?? null) ? trim((string) $facts['original_decision_unit']) : '';
+        $unitPattern = '/^[A-Za-z0-9][A-Za-z0-9_.:@-]{1,63}$/';
+        $organizationallySeparate = $reviewerUnit !== '' && $originalUnit !== ''
+            && preg_match($unitPattern, $reviewerUnit) === 1 && preg_match($unitPattern, $originalUnit) === 1
+            && !hash_equals($reviewerUnit, $originalUnit);
         return [
             'appeal_id' => $appealId,
             'reviewer_ref' => $reviewerRef,
@@ -1783,10 +1807,12 @@ final class OperationsRepository
             'conflicted' => $available ? (bool) ($facts['conflicted'] ?? true) : true,
             'competent' => $available && (bool) ($facts['competent'] ?? false),
             'available' => $available && (bool) ($facts['available'] ?? false),
+            'organizationally_separate' => $organizationallySeparate,
             'facts_contract_available' => $available,
             'eligible' => $available && !hash_equals((string) $appeal['appellant_ref'], $reviewerRef)
                 && ($facts['prior_involvement'] ?? true) === false && ($facts['conflicted'] ?? true) === false
-                && ($facts['competent'] ?? false) === true && ($facts['available'] ?? false) === true,
+                && ($facts['competent'] ?? false) === true && ($facts['available'] ?? false) === true
+                && $organizationallySeparate,
         ];
     }
 
