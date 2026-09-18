@@ -79,7 +79,8 @@ final class OperationsRepository
         )) {
             throw new RuntimeException('Case not found.');
         }
-        if ($context->hasAnyCapability('queue.manage', 'audit.sample.read')) {
+        if ($context->hasAnyCapability('queue.manage', 'audit.sample.read')
+            && $context->inQueueScope((string) $row['queue_key'])) {
             return $row;
         }
         $assigned = $this->value($this->wpdb->prepare(
@@ -165,7 +166,14 @@ final class OperationsRepository
                 $args[] = $filters[$field];
             }
         }
-        if (!$context->hasCapability('queue.manage')) {
+        if ($context->hasAnyCapability('queue.manage', 'audit.sample.read')) {
+            $queueScopes = $context->queueScopes();
+            if ($queueScopes === []) {
+                throw new RuntimeException('Scoped queue authority is required for case search.');
+            }
+            $clauses[] = 'c.queue_key IN (' . implode(',', array_fill(0, count($queueScopes), '%s')) . ')';
+            array_push($args, ...$queueScopes);
+        } else {
             $clauses[] = 'EXISTS (SELECT 1 FROM ' . $this->tables['assignments'] . ' a WHERE a.case_uuid=c.case_uuid AND a.agent_ref=%s AND a.ended_at IS NULL)';
             $args[] = $context->actorReference();
         }
@@ -1320,11 +1328,20 @@ final class OperationsRepository
     {
         $this->caseForActor($caseId, $context);
         $attachment = $this->row($this->wpdb->prepare(
-            "SELECT attachment_uuid,case_uuid,state,expires_at FROM {$this->tables['attachments']} WHERE attachment_uuid=%s AND case_uuid=%s LIMIT 1",
+            "SELECT attachment_uuid,case_uuid,state,privacy_class,expires_at FROM {$this->tables['attachments']} WHERE attachment_uuid=%s AND case_uuid=%s LIMIT 1",
             $attachmentId, $caseId->value()
         ));
         if ($attachment === null || !in_array((string) $attachment['state'], ['available','redacted'], true)) {
             throw new RuntimeException('Attachment is not available.');
+        }
+        $case = $this->caseForActor($caseId, $context);
+        $isRequester = hash_equals((string) $case['requester_ref'], $context->actorReference())
+            || $context->represents((string) $case['requester_ref']);
+        if (in_array((string) $attachment['privacy_class'], ['C4','C5'], true) && !$isRequester) {
+            if (!$context->hasAnyCapability('evidence.restricted.read', 'case.sensitive.read')
+                || !$context->recentlyAuthenticated($at)) {
+                throw new RuntimeException('Sensitive attachment access requires specialist authority and recent authentication.');
+            }
         }
         $expires = $at->modify('+5 minutes');
         $token = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
