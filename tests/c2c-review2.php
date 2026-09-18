@@ -9,10 +9,13 @@ assert_options(ASSERT_EXCEPTION, 1);
 require_once dirname(__DIR__) . '/src/Autoload.php';
 \Sabri\CF02\Autoload::register(dirname(__DIR__) . '/src');
 
+$root = dirname(__DIR__);
+
 use Sabri\CF02\Assignment\AgentProfile;
 use Sabri\CF02\Assignment\AssignmentRequest;
 use Sabri\CF02\Assignment\AssignmentRouter;
 use Sabri\CF02\Assignment\CaseAssignment;
+use Sabri\CF02\Domain\CaseState;
 use Sabri\CF02\Domain\SupportCaseId;
 use Sabri\CF02\Escalation\BreachPredictor;
 use Sabri\CF02\Incident\MajorIncident;
