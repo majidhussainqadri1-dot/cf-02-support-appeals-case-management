@@ -45,17 +45,18 @@ final class EvidenceChannelIntelligence
     }
 
     /** @param list<array{index:int,sha256:string,size:int}> $chunks @return array<string,mixed> */
-    public function resumableUpload(string $uploadId,int $expectedSize,array $chunks,?string $finalSha256,bool $scanPassed): array
+    public function resumableUpload(string $uploadId,int $expectedSize,array $chunks,?string $finalSha256,bool $scanPassed,bool $finalChecksumVerified=false): array
     {
         if (trim($uploadId)==='' || $expectedSize<1) throw new InvalidArgumentException('Resumable upload ID and expected size are required.');
-        $size=0;$expectedIndex=0;$seen=[];
+        $size=0;$expectedIndex=0;
         foreach ($chunks as $chunk) {
             $index=$chunk['index'] ?? null;$hash=$chunk['sha256'] ?? null;$chunkSize=$chunk['size'] ?? null;
             if (!is_int($index)||$index!==$expectedIndex||!is_string($hash)||preg_match('/^[a-f0-9]{64}$/',$hash)!==1||!is_int($chunkSize)||$chunkSize<1) throw new InvalidArgumentException('Malformed or non-contiguous upload chunk.');
-            if (isset($seen[$hash])) throw new InvalidArgumentException('Duplicate chunk hash detected.');
-            $seen[$hash]=true;$size+=$chunkSize;++$expectedIndex;
+            $size+=$chunkSize;++$expectedIndex;
+            if ($size>$expectedSize) throw new InvalidArgumentException('Resumable upload exceeds the declared expected size.');
         }
         $complete=$size===$expectedSize && $finalSha256!==null && preg_match('/^[a-f0-9]{64}$/',$finalSha256)===1;
-        return ['feature_id'=>'CF02-FUT-014','upload_id'=>$uploadId,'received_size'=>$size,'expected_size'=>$expectedSize,'chunk_count'=>count($chunks),'complete'=>$complete,'scan_passed'=>$scanPassed,'evidence_accessible'=>$complete && $scanPassed,'final_sha256'=>$finalSha256];
+        if ($finalChecksumVerified && !$complete) throw new InvalidArgumentException('A final checksum cannot be verified before structural upload completion.');
+        return ['feature_id'=>'CF02-FUT-014','upload_id'=>$uploadId,'received_size'=>$size,'expected_size'=>$expectedSize,'chunk_count'=>count($chunks),'complete'=>$complete,'scan_passed'=>$scanPassed,'checksum_verified'=>$finalChecksumVerified,'evidence_accessible'=>$complete && $finalChecksumVerified && $scanPassed,'final_sha256'=>$finalSha256];
     }
 }
