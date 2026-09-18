@@ -62,11 +62,12 @@ final class Installer
         );
     }
 
-    private static function assertSchema(string $prefix): void
+    /** @return list<string> */
+    public static function schemaDefects(string $prefix): array
     {
         global $wpdb;
-        if (preg_match('/^[A-Za-z0-9_]+$/', $prefix) !== 1 || !method_exists($wpdb, 'get_col')) {
-            throw new RuntimeException('CF-02 schema verification adapter is unavailable.');
+        if (preg_match('/^[A-Za-z0-9_]+$/', $prefix) !== 1 || !is_object($wpdb) || !method_exists($wpdb, 'get_col')) {
+            return ['schema-verification-adapter-unavailable'];
         }
         $defects = [];
         foreach (self::statements($prefix, '') as $key => $sql) {
@@ -88,6 +89,12 @@ final class Installer
                 }
             }
         }
+        return array_values(array_unique($defects));
+    }
+
+    private static function assertSchema(string $prefix): void
+    {
+        $defects = self::schemaDefects($prefix);
         if ($defects !== []) {
             throw new RuntimeException('CF-02 schema verification failed: ' . implode(', ', $defects));
         }
