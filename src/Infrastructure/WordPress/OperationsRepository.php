@@ -2039,7 +2039,17 @@ final class OperationsRepository
         bool $identitySuppressed,
         DateTimeImmutable $at
     ): array {
-        $this->caseForActor($caseId, $context);
+        $case = $this->caseForActor($caseId, $context);
+        $reviewer = $context->actorReference();
+        $activeAssignment = (int) $this->value($this->wpdb->prepare(
+            "SELECT COUNT(*) FROM {$this->tables['assignments']} WHERE case_uuid=%s AND agent_ref=%s AND ended_at IS NULL",
+            $caseId->value(), $reviewer
+        ));
+        if (hash_equals((string) $case['requester_ref'], $reviewer)
+            || (is_string($case['owner_ref'] ?? null) && hash_equals((string) $case['owner_ref'], $reviewer))
+            || $activeAssignment > 0) {
+            throw new RuntimeException('Quality review must be independent from the requester and active case handler.');
+        }
         $required = ['accuracy','accessibility','compliance','empathy','security'];
         $keys = array_keys($scores);
         sort($keys);
