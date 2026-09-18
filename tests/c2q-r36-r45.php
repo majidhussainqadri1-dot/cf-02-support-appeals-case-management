@@ -49,4 +49,14 @@ $test(41,'feedback replay returns the same minimized public projection and never
     $block=substr($repo,$start,$end-$start);
     assert(!str_contains($block,'return $existing;'));
 });
-if($failures!==[]){exit(1);}fwrite(STDOUT,"CF-02 new ten-review register passed through R41.\n");
+
+$test(42,'quality review rejects the active case owner or active assigned handler',static function()use($read):void{
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    $start=strpos($repo,'public function recordQuality(');
+    $end=strpos($repo,'public function qualitySample(',$start);
+    $block=substr($repo,$start,$end-$start);
+    assert(str_contains($block,"WHERE case_uuid=%s AND agent_ref=%s AND ended_at IS NULL"));
+    assert(str_contains($block,"Quality reviewer must be independent from active case handling."));
+    assert(str_contains($block,"hash_equals((string) \$case['owner_ref'], \$context->actorReference())"));
+});
+if($failures!==[]){exit(1);}fwrite(STDOUT,"CF-02 new ten-review register passed through R42.\n");
