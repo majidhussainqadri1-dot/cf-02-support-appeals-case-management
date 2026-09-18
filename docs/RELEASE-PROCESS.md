@@ -3,7 +3,7 @@
 ## Candidate identity
 
 - Package slug: `cf-02-support-appeals-case-management`
-- Candidate version: `1.0.0-rc.6`
+- Candidate version: `1.0.0-rc.7`
 - Schema: `1.3.0`
 - Contract: `1.1.0`
 - Plan: `1.0`
@@ -28,9 +28,9 @@ A second clean checkout of the same commit must produce the same ZIP SHA-256 whe
 
 ## Artifact set
 
-- `cf-02-support-appeals-case-management-1.0.0-rc.6.zip`
-- `cf-02-support-appeals-case-management-1.0.0-rc.6.spdx.json`
-- `cf-02-support-appeals-case-management-1.0.0-rc.6.provenance.json`
+- `cf-02-support-appeals-case-management-1.0.0-rc.7.zip`
+- `cf-02-support-appeals-case-management-1.0.0-rc.7.spdx.json`
+- `cf-02-support-appeals-case-management-1.0.0-rc.7.provenance.json`
 - `SHA256SUMS`
 
 The provenance JSON is generated evidence, not a cryptographic signature or independent attestation. Formal signing requires an approved private signing process outside the public repository.
