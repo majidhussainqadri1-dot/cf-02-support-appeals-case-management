@@ -395,7 +395,7 @@ final class ComprehensiveRestController
 
     public function reopenOwnCase(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
-        return $this->caseTransition($request, 'reopened', 'ReopenCase', 'SupportCaseReopened', ['case.own.reopen','case.represented.reopen'], 'case_reopen');
+        return $this->reopenCase($request, 'ReopenCase', ['case.own.reopen','case.represented.reopen']);
     }
 
     public function submitFeedback(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
@@ -558,6 +558,9 @@ final class ComprehensiveRestController
             $context = $this->context();
             RequestGuard::requireCapability($context, $this->now(), 'case.assigned.reply','case.specialist.reply');
             $waitingFor = sanitize_key((string) $request->get_param('waiting_for'));
+            if (!in_array($waitingFor, ['user', 'provider'], true)) {
+                throw new RuntimeException('Waiting target must be user or provider.');
+            }
             $to = $waitingFor === 'provider' ? 'waiting_provider' : 'waiting_user';
             $caseId = $this->caseId($request);
             $case = $this->operations->caseForActor($caseId, $context);
@@ -642,13 +645,22 @@ final class ComprehensiveRestController
             }
             $caseId = $this->caseId($request);
             $key = RequestGuard::idempotencyKey($request);
+            $now = $this->now();
+            try {
+                $reopenUntil = new DateTimeImmutable((string) $request->get_param('reopen_until'));
+            } catch (\Throwable) {
+                throw new RuntimeException('A valid reopen-window deadline is required.');
+            }
+            if ($reopenUntil <= $now) {
+                throw new RuntimeException('Reopen window must extend into the future.');
+            }
             $resolved = $this->operations->mutateCase(
                 $caseId, $context, RequestGuard::expectedVersion($request), ['state' => 'resolved'],
                 'ResolveCase', 'SupportCaseResolved', RequestGuard::purpose($request, true), $key,
-                ['resolution_code' => $resolutionCode, 'native_outcome_ref' => $nativeRef, 'verified' => (bool) $request->get_param('verified'), 'closure_notice_sent' => (bool) $request->get_param('closure_notice_sent')], $this->now()
+                ['resolution_code' => $resolutionCode, 'native_outcome_ref' => $nativeRef, 'verified' => (bool) $request->get_param('verified'), 'closure_notice_sent' => (bool) $request->get_param('closure_notice_sent'), 'reopen_until' => $reopenUntil->format(DATE_ATOM)], $now
             );
-            $this->operations->markSlaStatus($caseId->value(), 'resolved', $this->now());
-            $notice = ['case_id' => $caseId->value(), 'resolution_code' => $resolutionCode, 'instructions' => $instructions, 'reopen_available' => true];
+            $this->operations->markSlaStatus($caseId->value(), 'resolved', $now);
+            $notice = ['case_id' => $caseId->value(), 'resolution_code' => $resolutionCode, 'instructions' => $instructions, 'reopen_available' => true, 'reopen_until' => $reopenUntil->format(DATE_ATOM)];
             $this->operations->enqueueDelivery($caseId, (string) $resolved['requester_ref'], 'in_app', 'support_case_resolved', $notice, $this->cipher->encrypt(wp_json_encode($notice, JSON_THROW_ON_ERROR)), $key . ':notice', $this->now());
             return $resolved;
         });
@@ -674,7 +686,7 @@ final class ComprehensiveRestController
 
     public function reopenResolvedCase(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
-        return $this->caseTransition($request, 'reopened', 'ReopenResolvedCase', 'SupportCaseReopened', ['case.assigned.resolve','queue.manage'], 'case_reopen');
+        return $this->reopenCase($request, 'ReopenResolvedCase', ['case.assigned.resolve','queue.manage']);
     }
 
     public function applyHold(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
@@ -996,6 +1008,32 @@ final class ComprehensiveRestController
             $context = $this->context();
             RequestGuard::requireCapability($context, $this->now(), 'retention.review');
             return ['items' => $this->operations->dueRetention($this->limit($request))];
+        });
+    }
+
+    /** @param list<string> $capabilities */
+    private function reopenCase(\WP_REST_Request $request, string $command, array $capabilities): \WP_REST_Response|\WP_Error
+    {
+        return $this->run(function () use ($request, $command, $capabilities): array {
+            $context = $this->context();
+            RequestGuard::requireCapability($context, $this->now(), ...$capabilities);
+            $caseId = $this->caseId($request);
+            $case = $this->operations->caseForActor($caseId, $context);
+            RuntimeWorkflowPolicy::assertCase((string) $case['state'], 'reopened');
+            $now = $this->now();
+            if (in_array((string) $case['state'], ['resolved', 'closed'], true)) {
+                $reopenUntil = $this->operations->resolutionReopenUntil($caseId->value());
+                if (!$reopenUntil instanceof DateTimeImmutable || $reopenUntil <= $now) {
+                    throw new RuntimeException('The governed reopen window is missing or expired.');
+                }
+            }
+            $result = $this->operations->mutateCase(
+                $caseId, $context, RequestGuard::expectedVersion($request), ['state' => 'reopened', 'closed_at' => null],
+                $command, 'SupportCaseReopened', 'case_reopen', RequestGuard::idempotencyKey($request),
+                ['reason' => sanitize_textarea_field((string) $request->get_param('reason'))], $now
+            );
+            $this->operations->restartSla($caseId, (string) $case['priority'], $now);
+            return $result;
         });
     }
 
