@@ -4,38 +4,34 @@ def read(p): return (ROOT/p).read_text()
 def write(p,s): (ROOT/p).write_text(s)
 p='src/Infrastructure/WordPress/OperationsRepository.php'
 s=read(p)
-old="""        $this->caseForActor($caseId, $context);
-        $required = ['accuracy','accessibility','compliance','empathy','security'];
+s=s.replace(
+"            $this->transaction(function () use ($messageId, $caseId, $context, $visibility, $channel, $ciphertext, $contentHash, $idempotencyKey, $purpose, $at): void {",
+"            $this->transaction(function () use ($messageId, $caseId, $case, $context, $visibility, $channel, $ciphertext, $contentHash, $idempotencyKey, $purpose, $at): void {",1)
+old="""                $event = $visibility === 'requester' && str_starts_with($context->actorReference(), 'user:')
+                    ? 'SupportUserReplied' : 'SupportAgentReplied';
 """
-new="""        $case = $this->caseForActor($caseId, $context);
-        $activeAssignment = $this->value($this->wpdb->prepare(
-            \"SELECT COUNT(*) FROM {$this->tables['assignments']}
-             WHERE case_uuid=%s AND agent_ref=%s AND ended_at IS NULL\",
-            $caseId->value(), $context->actorReference()
-        ));
-        if (($case['owner_ref'] !== null && hash_equals((string) $case['owner_ref'], $context->actorReference()))
-            || (int) $activeAssignment > 0) {
-            throw new RuntimeException('Quality reviewer must be independent from active case handling.');
-        }
-        $required = ['accuracy','accessibility','compliance','empathy','security'];
+new="""                $requesterActor = hash_equals((string) $case['requester_ref'], $context->actorReference())
+                    || $context->represents((string) $case['requester_ref']);
+                $event = $visibility === 'requester' && $requesterActor
+                    ? 'SupportUserReplied' : 'SupportAgentReplied';
 """
-if old not in s: raise SystemExit('R42 recordQuality preamble missing')
+if old not in s: raise SystemExit('R43 requester event classification block missing')
 s=s.replace(old,new,1)
 write(p,s)
 tp='tests/c2q-r36-r45.php'
 t=read(tp); needle='if($failures!==[]){exit(1);}'
 block=r'''
-$test(42,'quality review rejects the active case owner or active assigned handler',static function()use($read):void{
+$test(43,'requester reply events use case ownership or verified representation rather than a user-prefix heuristic',static function()use($read):void{
     $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
-    $start=strpos($repo,'public function recordQuality(');
-    $end=strpos($repo,'public function qualitySample(',$start);
+    $start=strpos($repo,'public function appendMessage(');
+    $end=strpos($repo,'public function linkObject(',$start);
     $block=substr($repo,$start,$end-$start);
-    assert(str_contains($block,"WHERE case_uuid=%s AND agent_ref=%s AND ended_at IS NULL"));
-    assert(str_contains($block,"Quality reviewer must be independent from active case handling."));
-    assert(str_contains($block,"hash_equals((string) \$case['owner_ref'], \$context->actorReference())"));
+    assert(!str_contains($block,"str_starts_with(\$context->actorReference(), 'user:')"));
+    assert(str_contains($block,"hash_equals((string) \$case['requester_ref'], \$context->actorReference())"));
+    assert(str_contains($block,"\$context->represents((string) \$case['requester_ref'])"));
 });
 '''
-if needle not in t: raise SystemExit('R42 test marker missing')
-t=t.replace(needle,block+needle,1).replace('passed through R41','passed through R42',1)
+if needle not in t: raise SystemExit('R43 test marker missing')
+t=t.replace(needle,block+needle,1).replace('passed through R42','passed through R43',1)
 write(tp,t)
-print('R42 correction materialized')
+print('R43 correction materialized')
