@@ -557,15 +557,30 @@ final class OperationsRepository
         if (!in_array($status, ['at_risk','breached','running','resolved'], true)) {
             throw new RuntimeException('Invalid SLA status.');
         }
-        $row = $this->row($this->wpdb->prepare("SELECT record_version FROM {$this->tables['sla']} WHERE case_uuid=%s", $caseId));
+        $row = $this->row($this->wpdb->prepare(
+            "SELECT status,record_version FROM {$this->tables['sla']} WHERE case_uuid=%s",
+            $caseId
+        ));
         if ($row === null) {
             throw new RuntimeException('SLA timer not found.');
+        }
+        $current = (string) $row['status'];
+        if (hash_equals($current, $status)) {
+            return (int) $row['record_version'];
+        }
+        if (in_array($status, ['at_risk','breached'], true)
+            && !in_array($current, ['running','at_risk'], true)) {
+            return 0;
         }
         $version = (int) $row['record_version'] + 1;
         $updated = $this->wpdb->update($this->tables['sla'], [
             'status' => $status, 'evidence_ref' => 'worker:' . $at->format(DATE_ATOM),
             'record_version' => $version,
-        ], ['case_uuid' => $caseId, 'record_version' => (int) $row['record_version']]);
+        ], [
+            'case_uuid' => $caseId,
+            'status' => $current,
+            'record_version' => (int) $row['record_version'],
+        ]);
         if ($updated !== 1) {
             throw new RuntimeException('SLA status update conflicted.');
         }
