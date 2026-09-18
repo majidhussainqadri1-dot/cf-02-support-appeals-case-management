@@ -695,17 +695,33 @@ final class ComprehensiveRestController
             RequestGuard::requireCapability($context, $this->now(), 'case.assigned.resolve','queue.manage');
             $case = $this->operations->caseForActor($this->caseId($request), $context);
             RuntimeWorkflowPolicy::assertCase((string) $case['state'], 'closed');
+            $caseId = $this->caseId($request);
             $userConfirmed = (bool) $request->get_param('user_confirmed');
-            if (!$userConfirmed) {
-                $deliveryStatus = $this->operations->outcomeDeliveryStatus($this->caseId($request));
+            $confirmationRef = sanitize_text_field((string) $request->get_param('confirmation_ref'));
+            if ($userConfirmed) {
+                /** @var mixed $verifiedConfirmation */
+                $verifiedConfirmation = apply_filters('cf02_verify_user_close_confirmation', false, [
+                    'case_id' => $caseId->value(),
+                    'requester_ref' => (string) $case['requester_ref'],
+                    'confirmation_ref' => $confirmationRef,
+                ]);
+                if ($confirmationRef === '' || $verifiedConfirmation !== true) {
+                    throw new RuntimeException('User-confirmed closure requires server-verified requester confirmation.');
+                }
+            } else {
+                $deliveryStatus = $this->operations->outcomeDeliveryStatus($caseId);
                 if ($deliveryStatus !== 'sent') {
                     throw new RuntimeException('Automatic closure requires confirmed outcome-notification delivery.');
                 }
             }
             return $this->operations->mutateCase(
-                $this->caseId($request), $context, RequestGuard::expectedVersion($request), ['state' => 'closed', 'closed_at' => $this->now()->format('Y-m-d H:i:s.u')],
+                $caseId, $context, RequestGuard::expectedVersion($request), ['state' => 'closed', 'closed_at' => $this->now()->format('Y-m-d H:i:s.u')],
                 'CloseCase', 'SupportCaseClosed', RequestGuard::purpose($request, true), RequestGuard::idempotencyKey($request),
-                ['user_confirmed' => $userConfirmed, 'outcome_delivery_status' => $userConfirmed ? 'confirmed_by_user' : 'sent'], $this->now()
+                [
+                    'user_confirmed' => $userConfirmed,
+                    'user_confirmation_ref_hash' => $userConfirmed ? hash('sha256', $confirmationRef) : null,
+                    'outcome_delivery_status' => $userConfirmed ? 'confirmed_by_user' : 'sent',
+                ], $this->now()
             );
         });
     }
