@@ -22,6 +22,32 @@ $test('Review2 security primitives and local-only deep-link boundary are permane
     assert(str_contains($source,"hash_hmac('sha256'"));assert(str_contains($source,'hash_equals('));assert(str_contains($source,"str_starts_with(\$relativePath,'/')"));assert(str_contains($source,"str_starts_with(\$relativePath,'//')"));
 });
 
+$test('Review2 evidence access requires verified checksum and repeated-content chunks remain valid',static function():void{
+    $svc=new \Sabri\CF02\Future\EvidenceChannelIntelligence();
+    $chunks=[['index'=>0,'sha256'=>str_repeat('a',64),'size'=>5],['index'=>1,'sha256'=>str_repeat('a',64),'size'=>5]];
+    $notVerified=$svc->resumableUpload('UP-R8',10,$chunks,str_repeat('b',64),true,false);
+    assert($notVerified['complete']===true);assert($notVerified['checksum_verified']===false);assert($notVerified['evidence_accessible']===false);
+    $verified=$svc->resumableUpload('UP-R8',10,$chunks,str_repeat('b',64),true,true);
+    assert($verified['evidence_accessible']===true);
+});
+
+$test('Review2 problem knowledge rejects optional secret material',static function():void{
+    $svc=new \Sabri\CF02\Future\ProblemKnowledgeIntelligence();$blocked=false;
+    try{$svc->problemFingerprint('portal','technical',['timeout'],'password: Xy!123456');}catch(InvalidArgumentException){$blocked=true;}
+    assert($blocked);
+});
+
+$test('Review2 institutional API scopes are non-empty unique and allowlisted',static function():void{
+    $svc=new \Sabri\CF02\Future\IntegrationSecurityIntelligence(str_repeat('S',32));$now=new DateTimeImmutable('2026-09-08T00:00:00+00:00');
+    foreach([[],['case.read','case.read']] as $scopes){$blocked=false;try{$svc->institutionalApiPolicy('client',$scopes,'IdempotencyKey_12345','{}',$now,'NonceValue_123456');}catch(InvalidArgumentException){$blocked=true;}assert($blocked);}
+});
+
+$test('Review2 public transparency rejects impossible metric values',static function():void{
+    $svc=new \Sabri\CF02\Future\OperationsTransparencyIntelligence();$blocked=false;
+    try{$svc->transparencyCenter('2026-08',['case_count'=>100,'reopen_rate'=>1.5],['cohort_size'=>50,'metrics'=>[]],['cohort_size'=>50,'metrics'=>[]]);}catch(InvalidArgumentException){$blocked=true;}
+    assert($blocked);
+});
+
 $test('Review2 future catalog preserves canonical-owner and activation boundaries',static function():void{
     foreach(FeatureCatalog::all() as $feature){assert($feature['activation']==='feature-gated');assert(str_contains($feature['owner'],'CF-02')||str_contains($feature['owner'],'identity/preferences'));assert(trim($feature['guardrail'])!=='');}
 });
