@@ -4,79 +4,52 @@ def read(p): return (ROOT/p).read_text()
 def write(p,s): (ROOT/p).write_text(s)
 p='src/Infrastructure/WordPress/OperationsRepository.php'
 s=read(p)
-marker="    /** @return array<string,mixed> */\n    public function caseProjection("
-helper="""    private function activeAssignmentHasScope(SupportCaseId $caseId, PrincipalContext $context, string $scope): bool
+old="""    public function appealProjection(string $appealId, PrincipalContext $context): array
     {
-        $row = $this->row($this->wpdb->prepare(
-            \"SELECT scopes_json FROM {$this->tables['assignments']}
-             WHERE case_uuid=%s AND agent_ref=%s AND ended_at IS NULL
-             ORDER BY id DESC LIMIT 1\",
-            $caseId->value(), $context->actorReference()
+        $appeal = $this->appealForActor($appealId, $context);
+        $dossier = $this->row($this->wpdb->prepare(
+            \"SELECT dossier_uuid,appeal_uuid,original_decision_ref,original_decision_hash,policy_version,evidence_refs_json,submissions_json,dossier_hash,record_version,created_at,updated_at
+             FROM {$this->tables['dossiers']} WHERE appeal_uuid=%s LIMIT 1\",
+            $appealId
         ));
-        if ($row === null || !is_string($row['scopes_json'] ?? null)) {
-            return false;
-        }
-        $decoded = json_decode((string) $row['scopes_json'], true);
-        if (!is_array($decoded)) {
-            return false;
-        }
-        return in_array($scope, array_values(array_filter($decoded, 'is_string')), true);
+        return ['appeal' => $appeal, 'dossier' => $dossier];
     }
-
 """
-idx=s.find(marker)
-if idx<0: raise SystemExit('R37 caseProjection marker missing')
-if 'private function activeAssignmentHasScope' not in s:
-    s=s[:idx]+helper+s[idx:]
-old="""        if ($staff && !$context->hasAnyCapability('case.sensitive.read', 'case.specialist.read')) {
-            $visibility = \"visibility IN ('requester','internal')\";
+new="""    public function appealProjection(string $appealId, PrincipalContext $context): array
+    {
+        $appeal = $this->appealForActor($appealId, $context);
+        $appellantAccess = hash_equals((string) $appeal['appellant_ref'], $context->actorReference())
+            || $context->represents((string) $appeal['appellant_ref']);
+        $assignedReviewerAccess = is_string($appeal['reviewer_ref'] ?? null)
+            && hash_equals((string) $appeal['reviewer_ref'], $context->actorReference())
+            && $context->hasAnyCapability('appeal.review', 'appeal.decision', 'appeal.native.request', 'appeal.implementation.confirm');
+        if (!$appellantAccess && !$assignedReviewerAccess) {
+            return ['appeal' => $appeal, 'dossier' => null];
         }
+        $dossier = $this->row($this->wpdb->prepare(
+            \"SELECT dossier_uuid,appeal_uuid,original_decision_ref,original_decision_hash,policy_version,evidence_refs_json,submissions_json,dossier_hash,record_version,created_at,updated_at
+             FROM {$this->tables['dossiers']} WHERE appeal_uuid=%s LIMIT 1\",
+            $appealId
+        ));
+        return ['appeal' => $appeal, 'dossier' => $dossier];
+    }
 """
-new="""        if ($staff) {
-            $restrictedScope = ($context->hasCapability('case.sensitive.read')
-                    && $this->activeAssignmentHasScope($caseId, $context, 'case.sensitive.read'))
-                || ($context->hasCapability('case.specialist.read')
-                    && $this->activeAssignmentHasScope($caseId, $context, 'case.specialist.read'));
-            if (!$restrictedScope) {
-                $visibility = \"visibility IN ('requester','internal')\";
-            }
-        }
-"""
-if old not in s: raise SystemExit('R37 restricted visibility block missing')
+if old not in s: raise SystemExit('R38 appealProjection block missing')
 s=s.replace(old,new,1)
-old2="""        if ($staff && (!$context->hasCapability('case.sensitive.read')
-            || !$context->recentlyAuthenticated(new DateTimeImmutable('now', new DateTimeZone('UTC'))))) {
-"""
-new2="""        if ($staff && (!$context->hasCapability('case.sensitive.read')
-            || !$this->activeAssignmentHasScope($caseId, $context, 'case.sensitive.read')
-            || !$context->recentlyAuthenticated(new DateTimeImmutable('now', new DateTimeZone('UTC'))))) {
-"""
-if old2 not in s: raise SystemExit('R37 attachment gate missing')
-s=s.replace(old2,new2,1)
-old3="""            if (!$context->hasCapability('case.sensitive.read')
-                || !$context->recentlyAuthenticated(new DateTimeImmutable('now', new DateTimeZone('UTC')))) {
-"""
-new3="""            if (!$context->hasCapability('case.sensitive.read')
-                || !$this->activeAssignmentHasScope($caseId, $context, 'case.sensitive.read')
-                || !$context->recentlyAuthenticated(new DateTimeImmutable('now', new DateTimeZone('UTC')))) {
-"""
-if old3 not in s: raise SystemExit('R37 link gate missing')
-s=s.replace(old3,new3,1)
 write(p,s)
-
 tp='tests/c2q-r36-r45.php'
 t=read(tp)
 needle='if($failures!==[]){exit(1);}'
 block=r'''
-$test(37,'sensitive case projections require the active assignment to carry the same JIT scope',static function()use($read):void{
+$test(38,'appeal queue readers receive queue metadata but not the evidence dossier unless appellant or assigned reviewer',static function()use($read):void{
     $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
-    assert(str_contains($repo,'private function activeAssignmentHasScope('));
-    assert(substr_count($repo,"activeAssignmentHasScope(\$caseId, \$context, 'case.sensitive.read')")>=2);
-    assert(str_contains($repo,"activeAssignmentHasScope(\$caseId, \$context, 'case.specialist.read')"));
-    assert(str_contains($repo,"WHERE case_uuid=%s AND agent_ref=%s AND ended_at IS NULL"));
+    assert(str_contains($repo,'$appellantAccess = hash_equals'));
+    assert(str_contains($repo,'$assignedReviewerAccess = is_string'));
+    assert(str_contains($repo,"return ['appeal' => \$appeal, 'dossier' => null];"));
+    assert(str_contains($repo,"hasAnyCapability('appeal.review', 'appeal.decision', 'appeal.native.request', 'appeal.implementation.confirm')"));
 });
 '''
-if needle not in t: raise SystemExit('R37 test marker missing')
-t=t.replace(needle,block+needle,1).replace('passed through R36','passed through R37',1)
+if needle not in t: raise SystemExit('R38 test marker missing')
+t=t.replace(needle,block+needle,1).replace('passed through R37','passed through R38',1)
 write(tp,t)
-print('R37 corrections materialized')
+print('R38 corrections materialized')
