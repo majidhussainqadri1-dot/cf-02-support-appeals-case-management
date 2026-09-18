@@ -19,8 +19,12 @@ final class Installer
 
         $prefix = (string) $wpdb->prefix;
         $installed = (string) get_option(self::OPTION_SCHEMA_VERSION, '0.0.0');
-        if (version_compare($installed, SchemaCompletion::VERSION, '>=')) {
+        if (version_compare($installed, SchemaCompletion::VERSION, '>')) {
+            throw new RuntimeException('Installed CF-02 schema is newer than this runtime; downgrade is refused.');
+        }
+        if (version_compare($installed, SchemaCompletion::VERSION, '==')) {
             self::assertSchema($prefix);
+            update_option('cf02_schema_last_verified_at', gmdate(DATE_ATOM), false);
             return;
         }
 
@@ -61,15 +65,44 @@ final class Installer
     private static function assertSchema(string $prefix): void
     {
         global $wpdb;
-        $missing = [];
-        foreach (self::tableNames($prefix) as $table) {
+        if (preg_match('/^[A-Za-z0-9_]+$/', $prefix) !== 1 || !method_exists($wpdb, 'get_col')) {
+            throw new RuntimeException('CF-02 schema verification adapter is unavailable.');
+        }
+        $defects = [];
+        foreach (self::statements($prefix, '') as $key => $sql) {
+            $table = $prefix . 'cf02_' . $key;
             $found = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table));
             if (!is_string($found) || !hash_equals($table, $found)) {
-                $missing[] = $table;
+                $defects[] = $table . ':missing-table';
+                continue;
+            }
+            $actualColumns = $wpdb->get_col("SHOW COLUMNS FROM `{$table}`", 0);
+            if (!is_array($actualColumns)) {
+                $defects[] = $table . ':columns-unreadable';
+                continue;
+            }
+            $actualColumns = array_values(array_filter($actualColumns, 'is_string'));
+            foreach (self::requiredColumns($sql) as $column) {
+                if (!in_array($column, $actualColumns, true)) {
+                    $defects[] = $table . ':missing-column:' . $column;
+                }
             }
         }
-        if ($missing !== []) {
-            throw new RuntimeException('CF-02 schema verification failed: ' . implode(', ', $missing));
+        if ($defects !== []) {
+            throw new RuntimeException('CF-02 schema verification failed: ' . implode(', ', $defects));
         }
+    }
+
+    /** @return list<string> */
+    private static function requiredColumns(string $createSql): array
+    {
+        $columns = [];
+        foreach (preg_split('/\R/', $createSql) ?: [] as $line) {
+            $line = trim($line);
+            if (preg_match('/^([a-z][a-z0-9_]*)\s+(?:bigint|smallint|tinyint|int|varchar|char|datetime|longtext|text)\b/i', $line, $matches) === 1) {
+                $columns[] = strtolower($matches[1]);
+            }
+        }
+        return array_values(array_unique($columns));
     }
 }
