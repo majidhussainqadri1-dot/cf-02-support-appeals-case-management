@@ -43,7 +43,9 @@ warn=warn.replace("assert(!str_contains($ctl,\"'verified' => (bool) $request->ge
 write(warnp,warn)
 
 tp='tests/c2q-r36-r45.php'
-t=read(tp); needle='if($failures!==[]){exit(1);}'
+t=read(tp)
+t=t.replace("$delete=strpos($block,\"$this->wpdb->delete($this->tables['cases']\");","$delete=strpos($block,'$this->wpdb->delete($this->tables[\\'cases\\']');")
+needle='if($failures!==[]){exit(1);}'
 block=r'''
 $test(45,'standard CI executes this review register and packaging cannot label a dirty or different checkout as an exact source SHA',static function()use($read):void{
     $composer=$read('composer.json');
