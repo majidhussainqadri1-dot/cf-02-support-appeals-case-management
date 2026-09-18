@@ -192,7 +192,7 @@ $test('canonical case-state slugs and reopen lifecycle stay aligned with runtime
     assert(CaseState::Withdrawn->value === 'withdrawn');
     $controller=(string)file_get_contents($root.'/src/Infrastructure/WordPress/ComprehensiveRestController.php');
     assert(str_contains($controller,"Waiting target must be user or provider."));
-    assert(str_contains($controller,"'reopen_until' => $reopenUntil->format(DATE_ATOM)"));
+    assert(str_contains($controller,"'reopen_until' => \$reopenUntil->format(DATE_ATOM)"));
     assert(str_contains($controller,'resolutionReopenUntil'));
     assert(str_contains($controller,'restartSla'));
 });
