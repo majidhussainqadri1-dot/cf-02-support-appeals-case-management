@@ -49,5 +49,13 @@ $test(37,'retention external purge is blocked by current hold or unresolved appe
     assert(strpos($worker,'retentionEligibleForPurge($caseId)') < strpos($worker,'cf02_retention_purge_request'));
 });
 
+$test(38,'attachment scan and redaction callbacks are bound to an attachment-authorized signing identity',static function()use($read):void{
+    $provider=$read('src/Infrastructure/WordPress/ProviderWebhookController.php');
+    assert(str_contains($provider,'cf02_provider_key_authorizes_attachment'));
+    assert(substr_count($provider,'assertProviderAttachment($keyId, $attachmentId')>=2);
+    assert(str_contains($provider,"verifySignature(\$request, 'attachment_scan')"));
+    assert(str_contains($provider,"verifySignature(\$request, 'attachment_redaction')"));
+});
+
 if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}
-fwrite(STDOUT,"CF-02 R34-R43 regression register passed through R37.\n");
+fwrite(STDOUT,"CF-02 R34-R43 regression register passed through R38.\n");
