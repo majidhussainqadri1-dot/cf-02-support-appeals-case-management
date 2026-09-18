@@ -218,6 +218,9 @@ final class RuntimeWorker
                     continue;
                 }
                 $version = $this->repository->markSlaStatus($caseId, $status, $now);
+                if ($version === 0) {
+                    continue;
+                }
                 $this->repository->appendWorkerEvent(
                     'case', $caseId, $status === 'breached' ? 'SupportSlaBreached' : 'SupportSlaAtRisk',
                     ['status' => $status, 'priority' => (string) $timer['priority'], 'policy_id' => (string) $timer['policy_id'], 'policy_version' => (string) $timer['policy_version']],
