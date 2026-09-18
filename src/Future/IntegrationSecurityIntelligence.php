@@ -41,7 +41,9 @@ final class IntegrationSecurityIntelligence
     {
         if (preg_match('/^[a-zA-Z0-9._-]{3,80}$/',$clientId)!==1 || preg_match('/^[A-Za-z0-9_-]{16,128}$/',$idempotencyKey)!==1 || preg_match('/^[A-Za-z0-9_-]{16,128}$/',$nonce)!==1) throw new InvalidArgumentException('Institutional API identity/idempotency/nonce is invalid.');
         $allowed=['case.create','case.read','case.reply','case.status','appeal.create','incident.read'];
-        foreach ($scopes as $scope) if (!in_array($scope,$allowed,true)) throw new InvalidArgumentException('Institutional API scope is not permitted.');
+        if ($scopes===[] || count($scopes)>count($allowed)) throw new InvalidArgumentException('Institutional API requires a bounded non-empty scope set.');
+        foreach ($scopes as $scope) if (!is_string($scope) || !in_array($scope,$allowed,true)) throw new InvalidArgumentException('Institutional API scope is not permitted.');
+        if (count($scopes)!==count(array_unique($scopes))) throw new InvalidArgumentException('Institutional API scopes must be unique.');
         $bodyHash=hash('sha256',$payload);
         $canonical=$clientId.'|'.implode(',',array_values(array_unique($scopes))).'|'.$idempotencyKey.'|'.$nonce.'|'.$issuedAt->getTimestamp().'|'.$bodyHash;
         $signature=hash_hmac('sha256',$canonical,$this->signingKey);
