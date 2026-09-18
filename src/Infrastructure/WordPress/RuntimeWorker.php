@@ -109,24 +109,29 @@ final class RuntimeWorker
                 if ($nativeVersion < (int) $command['expected_native_version']) {
                     throw new RuntimeException('Native owner result is stale.');
                 }
-                if ($state === 'succeeded' && $outcomeRef !== '') {
-                    $this->repository->updateCommandResult((string) $command['command_uuid'], 'succeeded', $outcomeRef, $attempts, null, $this->now());
-                    ++$succeeded;
-                } elseif ($state === 'failed') {
-                    $this->repository->updateCommandResult((string) $command['command_uuid'], 'failed', $outcomeRef === '' ? null : $outcomeRef, $attempts, null, $this->now());
-                    ++$failed;
-                } elseif ($state === 'outcome_uncertain') {
-                    $this->repository->updateCommandResult((string) $command['command_uuid'], 'outcome_uncertain', null, $attempts, $this->nextAttempt($attempts), $this->now());
-                    ++$uncertain;
-                } else {
+                if (!in_array($state, ['succeeded','failed','outcome_uncertain'], true)) {
                     throw new RuntimeException('Native owner did not return a supported result state.');
                 }
-                $this->repository->appendWorkerEvent(
-                    'case', (string) $command['case_uuid'], 'SupportNativeCommandResultRecorded', [
-                        'command_ref' => (string) $command['command_uuid'], 'status' => $state,
-                        'outcome_ref' => $outcomeRef, 'native_version' => $nativeVersion,
-                    ], (int) $command['record_version'] + 1, $this->now()
+                $evidence = [
+                    'command_ref' => (string) $command['command_uuid'],
+                    'status' => $state,
+                    'outcome_ref' => $outcomeRef,
+                    'native_version' => $nativeVersion,
+                ];
+                $this->repository->recordCommandResultWithEvidence(
+                    (string) $command['command_uuid'],
+                    $state,
+                    $outcomeRef === '' ? null : $outcomeRef,
+                    $attempts,
+                    $state === 'outcome_uncertain' ? $this->nextAttempt($attempts) : null,
+                    $evidence,
+                    'worker-native-result-' . substr(hash('sha256', (string) $command['command_uuid'] . "\0" . $state . "\0" . $outcomeRef . "\0" . $nativeVersion), 0, 40),
+                    'native_result_reconciliation',
+                    $this->now()
                 );
+                if ($state === 'succeeded') { ++$succeeded; }
+                elseif ($state === 'failed') { ++$failed; }
+                else { ++$uncertain; }
             } catch (Throwable) {
                 $dead = $attempts >= 8;
                 $this->repository->updateCommandResult(
