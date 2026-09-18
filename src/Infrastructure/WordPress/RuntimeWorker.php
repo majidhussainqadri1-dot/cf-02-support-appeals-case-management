@@ -270,6 +270,9 @@ final class RuntimeWorker
                 continue;
             }
             try {
+                if (!$this->repository->retentionEligibleForPurge($caseId)) {
+                    continue;
+                }
                 ++$processed;
                 /** @var mixed $result */
                 $result = apply_filters('cf02_retention_purge_request', null, [
