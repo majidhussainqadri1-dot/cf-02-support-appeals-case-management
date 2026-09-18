@@ -54,6 +54,17 @@ $test('CEN-04 appeal reviewer is capability competent conflict-free and organiza
     assert($result['reviewer_reference']==='reviewer:independent');
 });
 
+$test('CEN-04 runtime enforces organizational separation and signed native reconciliation',static function()use($root):void{
+    $ops=(string)file_get_contents($root.'/src/Infrastructure/WordPress/OperationsRepository.php');
+    $controller=(string)file_get_contents($root.'/src/Infrastructure/WordPress/ComprehensiveRestController.php');
+    $workflow=(string)file_get_contents($root.'/src/Application/RuntimeWorkflowPolicy.php');
+    assert(str_contains($ops,"'organizationally_separate'"));
+    assert(str_contains($ops,'appealNativeCommandStatus'));
+    assert(str_contains($controller,'reconciled signed native-owner result'));
+    assert(str_contains($controller,'incomplete, unsigned, unreconciled or drifted'));
+    assert(str_contains($workflow,"'under_review' => ['native_decision_pending']"));
+});
+
 $test('CEN-05 has six separate public-safe emergency runbook boundaries',static function():void{
     assert(EmergencyRunbookRegistry::types()===['clinical_red_flag','imminent_harm','account_takeover','child_safety','privacy_breach','financial_fraud']);
     foreach(EmergencyRunbookRegistry::types() as $type){$runbook=EmergencyRunbookRegistry::forType($type);assert($runbook['ordinary_sla']===false);assert($runbook['auto_close']===false);}
