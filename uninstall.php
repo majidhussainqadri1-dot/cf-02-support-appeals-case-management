@@ -21,6 +21,7 @@ foreach ([
     'cf02_process_retention',
     'cf02_process_reconciliation',
     'cf02_process_key_rotation',
+    'cf02_support_parity_monthly',
 ] as $hook) {
     wp_clear_scheduled_hook($hook);
 }
