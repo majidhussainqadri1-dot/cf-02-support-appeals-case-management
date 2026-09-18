@@ -16,4 +16,12 @@ $test(36,'event replay binds actor purpose version and repairs missing audit evi
     assert(str_contains($repo,'Event replay object version differs from recorded audit evidence.'));
     assert(substr_count($repo,'$this->ensureEventAudit(')>=2);
 });
-if($failures!==[]){exit(1);}fwrite(STDOUT,"CF-02 new ten-review register passed through R36.\n");
+
+$test(37,'sensitive case projections require the active assignment to carry the same JIT scope',static function()use($read):void{
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    assert(str_contains($repo,'private function activeAssignmentHasScope('));
+    assert(substr_count($repo,"activeAssignmentHasScope(\$caseId, \$context, 'case.sensitive.read')")>=2);
+    assert(str_contains($repo,"activeAssignmentHasScope(\$caseId, \$context, 'case.specialist.read')"));
+    assert(str_contains($repo,"WHERE case_uuid=%s AND agent_ref=%s AND ended_at IS NULL"));
+});
+if($failures!==[]){exit(1);}fwrite(STDOUT,"CF-02 new ten-review register passed through R37.\n");

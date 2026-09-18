@@ -2002,6 +2002,24 @@ final class OperationsRepository
         }
     }
 
+    private function activeAssignmentHasScope(SupportCaseId $caseId, PrincipalContext $context, string $scope): bool
+    {
+        $row = $this->row($this->wpdb->prepare(
+            "SELECT scopes_json FROM {$this->tables['assignments']}
+             WHERE case_uuid=%s AND agent_ref=%s AND ended_at IS NULL
+             ORDER BY id DESC LIMIT 1",
+            $caseId->value(), $context->actorReference()
+        ));
+        if ($row === null || !is_string($row['scopes_json'] ?? null)) {
+            return false;
+        }
+        $decoded = json_decode((string) $row['scopes_json'], true);
+        if (!is_array($decoded)) {
+            return false;
+        }
+        return in_array($scope, array_values(array_filter($decoded, 'is_string')), true);
+    }
+
     /** @return array<string,mixed> */
     public function caseProjection(SupportCaseId $caseId, PrincipalContext $context): array
     {
@@ -2009,8 +2027,14 @@ final class OperationsRepository
         $staff = !hash_equals((string) $case['requester_ref'], $context->actorReference())
             && !$context->represents((string) $case['requester_ref']);
         $visibility = $staff ? "visibility IN ('requester','internal','restricted')" : "visibility='requester'";
-        if ($staff && !$context->hasAnyCapability('case.sensitive.read', 'case.specialist.read')) {
-            $visibility = "visibility IN ('requester','internal')";
+        if ($staff) {
+            $restrictedScope = ($context->hasCapability('case.sensitive.read')
+                    && $this->activeAssignmentHasScope($caseId, $context, 'case.sensitive.read'))
+                || ($context->hasCapability('case.specialist.read')
+                    && $this->activeAssignmentHasScope($caseId, $context, 'case.specialist.read'));
+            if (!$restrictedScope) {
+                $visibility = "visibility IN ('requester','internal')";
+            }
         }
         $messages = $this->rows($this->wpdb->prepare(
             "SELECT message_uuid,author_ref,visibility,channel,body_ciphertext,body_hash,record_version,created_at,edited_at
@@ -2023,6 +2047,7 @@ final class OperationsRepository
             $caseId->value()
         ));
         if ($staff && (!$context->hasCapability('case.sensitive.read')
+            || !$this->activeAssignmentHasScope($caseId, $context, 'case.sensitive.read')
             || !$context->recentlyAuthenticated(new DateTimeImmutable('now', new DateTimeZone('UTC'))))) {
             $attachments = array_values(array_filter(
                 $attachments,
@@ -2053,6 +2078,7 @@ final class OperationsRepository
                 $caseId->value()
             ));
             if (!$context->hasCapability('case.sensitive.read')
+                || !$this->activeAssignmentHasScope($caseId, $context, 'case.sensitive.read')
                 || !$context->recentlyAuthenticated(new DateTimeImmutable('now', new DateTimeZone('UTC')))) {
                 $result['links'] = array_values(array_filter(
                     $result['links'],
