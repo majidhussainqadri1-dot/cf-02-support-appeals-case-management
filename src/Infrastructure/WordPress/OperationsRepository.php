@@ -1407,11 +1407,18 @@ final class OperationsRepository
             throw new RuntimeException('Invalid command result state.');
         }
         $row = $this->row($this->wpdb->prepare(
-            "SELECT record_version FROM {$this->tables['commands']} WHERE command_uuid=%s LIMIT 1",
+            "SELECT record_version,state,outcome_ref FROM {$this->tables['commands']} WHERE command_uuid=%s LIMIT 1",
             $commandId
         ));
         if ($row === null) {
             throw new RuntimeException('Native command was not found.');
+        }
+        if (in_array((string) $row['state'], ['succeeded','failed','dead_letter'], true)) {
+            $sameOutcome = hash_equals((string) ($row['outcome_ref'] ?? ''), (string) ($outcomeRef ?? ''));
+            if (hash_equals((string) $row['state'], $state) && $sameOutcome) {
+                return;
+            }
+            throw new RuntimeException('A terminal native command result cannot be changed.');
         }
         $updated = $this->wpdb->update($this->tables['commands'], [
             'state' => $state, 'outcome_ref' => $outcomeRef, 'attempts' => $attempts,
@@ -1422,6 +1429,65 @@ final class OperationsRepository
         if ($updated !== 1) {
             throw new RuntimeException('Native command result update conflicted.');
         }
+    }
+
+    /**
+     * Atomically records a native-owner outcome and its immutable reconciliation event.
+     * @param array<string,mixed> $evidencePayload
+     */
+    public function recordCommandResultWithEvidence(
+        string $commandId,
+        string $state,
+        ?string $outcomeRef,
+        int $attempts,
+        ?DateTimeImmutable $next,
+        array $evidencePayload,
+        string $idempotencyKey,
+        string $purpose,
+        DateTimeImmutable $at,
+        ?PrincipalContext $context = null
+    ): void {
+        if (!in_array($state, ['succeeded','retry','failed','outcome_uncertain','dead_letter'], true)) {
+            throw new RuntimeException('Invalid command result state.');
+        }
+        $row = $this->command($commandId);
+        if ($row === null) {
+            throw new RuntimeException('Native command was not found.');
+        }
+        $context ??= $this->systemContext($at);
+        if (in_array((string) $row['state'], ['succeeded','failed','dead_letter'], true)) {
+            $existing = $this->nativeResultEvidence($commandId);
+            $sameOutcome = hash_equals((string) ($row['outcome_ref'] ?? ''), (string) ($outcomeRef ?? ''));
+            if ($existing === $evidencePayload && hash_equals((string) $row['state'], $state) && $sameOutcome) {
+                return;
+            }
+            throw new RuntimeException('A terminal native command result cannot be changed.');
+        }
+        $this->transaction(function () use ($row, $commandId, $state, $outcomeRef, $attempts, $next, $evidencePayload, $idempotencyKey, $purpose, $at, $context): void {
+            $newVersion = (int) $row['record_version'] + 1;
+            $updated = $this->wpdb->update($this->tables['commands'], [
+                'state' => $state,
+                'outcome_ref' => $outcomeRef,
+                'attempts' => $attempts,
+                'next_attempt_at' => $next ? $this->mysqlTime($next) : null,
+                'record_version' => $newVersion,
+                'updated_at' => $this->mysqlTime($at),
+            ], ['command_uuid' => $commandId, 'record_version' => (int) $row['record_version']]);
+            if ($updated !== 1) {
+                throw new RuntimeException('Native command result update conflicted.');
+            }
+            $this->appendEvent(
+                'case',
+                (string) $row['case_uuid'],
+                'SupportNativeCommandResultRecorded',
+                $context,
+                $purpose,
+                $idempotencyKey,
+                $evidencePayload,
+                $newVersion,
+                $at
+            );
+        });
     }
 
     /** @return array<string,mixed>|null */
