@@ -118,10 +118,12 @@ final class ProviderWebhookController
     public function scanResult(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
         return $this->run(function () use ($request): array {
-            $this->verifySignature($request, 'attachment_scan');
+            $keyId = $this->verifySignature($request, 'attachment_scan');
+            $attachmentId = (string) $request['id'];
+            $this->assertProviderAttachment($keyId, $attachmentId, 'attachment_scan');
             $payload = $this->payload($request);
             return $this->operations->recordAttachmentScan(
-                (string) $request['id'],
+                $attachmentId,
                 sanitize_text_field((string) ($payload['provider_ref'] ?? '')),
                 sanitize_key((string) ($payload['verdict'] ?? '')),
                 strtolower(sanitize_text_field((string) ($payload['sha256'] ?? ''))),
@@ -135,14 +137,16 @@ final class ProviderWebhookController
     public function redactionResult(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
         return $this->run(function () use ($request): array {
-            $this->verifySignature($request, 'attachment_redaction');
+            $keyId = $this->verifySignature($request, 'attachment_redaction');
+            $attachmentId = (string) $request['id'];
+            $this->assertProviderAttachment($keyId, $attachmentId, 'attachment_redaction');
             $payload = $this->payload($request);
             $redactedRef = sanitize_text_field((string) ($payload['redacted_ref'] ?? ''));
             if ($redactedRef === '' || strlen($redactedRef) > 191) {
                 throw new RuntimeException('Redacted provider reference is invalid.');
             }
             return $this->operations->recordAttachmentRedaction(
-                (string) $request['id'], $redactedRef,
+                $attachmentId, $redactedRef,
                 'redaction-' . substr(hash('sha256', $request->get_body()), 0, 48), $this->now()
             );
         });
@@ -250,6 +254,15 @@ final class ProviderWebhookController
             throw new RuntimeException('Provider signature verification failed.');
         }
         return $keyId;
+    }
+
+    private function assertProviderAttachment(string $keyId, string $attachmentId, string $purpose): void
+    {
+        /** @var mixed $authorized */
+        $authorized = apply_filters('cf02_provider_key_authorizes_attachment', false, $keyId, $attachmentId, $purpose);
+        if ($authorized !== true) {
+            throw new RuntimeException('Provider signing identity is not authorized for the attachment.');
+        }
     }
 
     private function assertProviderOwner(string $keyId, string $owner, string $purpose): void
