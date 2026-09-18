@@ -19,5 +19,14 @@ $test(34,'quality review rejects requester owner and active-handler self review'
     assert(str_contains($repo,"hash_equals((string) \$case['owner_ref'], \$reviewer)"));
 });
 
+$test(35,'stale SLA worker cannot overwrite paused or already-resolved timer state',static function()use($read):void{
+    $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
+    $worker=$read('src/Infrastructure/WordPress/RuntimeWorker.php');
+    assert(str_contains($repo,"SELECT status,record_version FROM {\$this->tables['sla']} WHERE case_uuid=%s"));
+    assert(str_contains($repo,"!in_array(\$current, ['running','at_risk'], true)"));
+    assert(str_contains($repo,"'status' => \$current"));
+    assert(str_contains($worker,"if (\$version === 0)"));
+});
+
 if($failures!==[]){fwrite(STDERR,implode("\n",$failures)."\n");exit(1);}
-fwrite(STDOUT,"CF-02 R34-R43 regression register passed through R34.\n");
+fwrite(STDOUT,"CF-02 R34-R43 regression register passed through R35.\n");
