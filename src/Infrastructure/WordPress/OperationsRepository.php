@@ -344,28 +344,7 @@ final class OperationsRepository
         if ($existing !== null) {
             return;
         }
-        $defaults = [
-            'policy_id' => 'cf02-default', 'policy_version' => '1.0.0',
-            'first_response_minutes' => in_array($priority, ['P1','P2'], true) ? 240 : 1440,
-            'update_minutes' => 1440,
-            'resolution_minutes' => match ($priority) { 'P1' => 480, 'P2' => 1440, 'P3' => 4320, default => 7200 },
-        ];
-        /** @var mixed $configured */
-        $configured = apply_filters('cf02_sla_policy_for_case', $defaults, $caseId->value(), $priority);
-        if (!is_array($configured)) {
-            throw new RuntimeException('SLA policy provider returned invalid evidence.');
-        }
-        $policy = array_merge($defaults, $configured);
-        foreach (['policy_id','policy_version'] as $field) {
-            if (!is_string($policy[$field]) || preg_match('/^[A-Za-z0-9._:-]{2,64}$/', $policy[$field]) !== 1) {
-                throw new RuntimeException('SLA policy identity is invalid.');
-            }
-        }
-        foreach (['first_response_minutes','update_minutes','resolution_minutes'] as $field) {
-            if (!is_int($policy[$field]) || $policy[$field] < 1 || $policy[$field] > 525600) {
-                throw new RuntimeException('SLA policy duration is invalid.');
-            }
-        }
+        $policy = $this->slaPolicy($caseId, $priority);
         $ok = $this->wpdb->insert($this->tables['sla'], [
             'case_uuid' => $caseId->value(), 'policy_id' => $policy['policy_id'], 'policy_version' => $policy['policy_version'],
             'status' => 'running', 'first_response_deadline' => $this->mysqlTime($at->modify('+' . $policy['first_response_minutes'] . ' minutes')),
@@ -375,6 +354,51 @@ final class OperationsRepository
         ]);
         if ($ok !== 1) {
             throw new RuntimeException('SLA timer persistence failed.');
+        }
+    }
+
+    public function restartSla(SupportCaseId $caseId, string $priority, DateTimeImmutable $at): void
+    {
+        $policy = $this->slaPolicy($caseId, $priority);
+        $row = $this->row($this->wpdb->prepare("SELECT record_version FROM {$this->tables['sla']} WHERE case_uuid=%s LIMIT 1", $caseId->value()));
+        if ($row === null) {
+            $this->ensureSlaTimer($caseId, $priority, $at);
+            return;
+        }
+        $updated = $this->wpdb->update($this->tables['sla'], [
+            'policy_id' => $policy['policy_id'],
+            'policy_version' => $policy['policy_version'],
+            'status' => 'running',
+            'first_response_deadline' => $this->mysqlTime($at->modify('+' . $policy['first_response_minutes'] . ' minutes')),
+            'update_deadline' => $this->mysqlTime($at->modify('+' . $policy['update_minutes'] . ' minutes')),
+            'resolution_deadline' => $this->mysqlTime($at->modify('+' . $policy['resolution_minutes'] . ' minutes')),
+            'paused_at' => null,
+            'pause_reason' => null,
+            'evidence_ref' => 'reopen:' . $at->format(DATE_ATOM),
+            'record_version' => (int) $row['record_version'] + 1,
+        ], ['case_uuid' => $caseId->value(), 'record_version' => (int) $row['record_version']]);
+        if ($updated !== 1) {
+            throw new RuntimeException('SLA restart after reopen conflicted.');
+        }
+    }
+
+    public function resolutionReopenUntil(string $caseId): ?DateTimeImmutable
+    {
+        $row = $this->row($this->wpdb->prepare(
+            "SELECT payload_json FROM {$this->tables['events']} WHERE aggregate_type='case' AND aggregate_ref=%s AND event_type='SupportCaseResolved' ORDER BY id DESC LIMIT 1",
+            $caseId
+        ));
+        if ($row === null) {
+            return null;
+        }
+        $payload = json_decode((string) $row['payload_json'], true);
+        if (!is_array($payload) || !isset($payload['reopen_until']) || !is_string($payload['reopen_until'])) {
+            return null;
+        }
+        try {
+            return new DateTimeImmutable($payload['reopen_until']);
+        } catch (\Throwable) {
+            return null;
         }
     }
 
@@ -1978,6 +2002,35 @@ final class OperationsRepository
         );
     }
 
+
+    /** @return array{policy_id:string,policy_version:string,first_response_minutes:int,update_minutes:int,resolution_minutes:int} */
+    private function slaPolicy(SupportCaseId $caseId, string $priority): array
+    {
+        $defaults = [
+            'policy_id' => 'cf02-default', 'policy_version' => '1.0.0',
+            'first_response_minutes' => in_array($priority, ['P1','P2'], true) ? 240 : 1440,
+            'update_minutes' => 1440,
+            'resolution_minutes' => match ($priority) { 'P1' => 480, 'P2' => 1440, 'P3' => 4320, default => 7200 },
+        ];
+        /** @var mixed $configured */
+        $configured = apply_filters('cf02_sla_policy_for_case', $defaults, $caseId->value(), $priority);
+        if (!is_array($configured)) {
+            throw new RuntimeException('SLA policy provider returned invalid evidence.');
+        }
+        $policy = array_merge($defaults, $configured);
+        foreach (['policy_id','policy_version'] as $field) {
+            if (!is_string($policy[$field]) || preg_match('/^[A-Za-z0-9._:-]{2,64}$/', $policy[$field]) !== 1) {
+                throw new RuntimeException('SLA policy identity is invalid.');
+            }
+        }
+        foreach (['first_response_minutes','update_minutes','resolution_minutes'] as $field) {
+            if (!is_int($policy[$field]) || $policy[$field] < 1 || $policy[$field] > 525600) {
+                throw new RuntimeException('SLA policy duration is invalid.');
+            }
+        }
+        /** @var array{policy_id:string,policy_version:string,first_response_minutes:int,update_minutes:int,resolution_minutes:int} $policy */
+        return $policy;
+    }
 
     private function systemContext(DateTimeImmutable $at): PrincipalContext
     {
