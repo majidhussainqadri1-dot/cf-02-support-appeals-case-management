@@ -32,6 +32,15 @@ $test('CEN-01 routing consumes severity harm deadline competence and rejects pri
     foreach(['donor_status','popularity','ranking_signal','rank','reach','badge'] as $field){$blocked=false;try{ServiceEqualityPolicy::assertNoPrivilegeSignals([$field=>'x']);}catch(InvalidArgumentException){$blocked=true;}assert($blocked);}
 });
 
+$test('CEN-01 live REST intake uses the same canonical triage policy as domain intake',static function()use($root):void{
+    $controller=(string)file_get_contents($root.'/src/Infrastructure/WordPress/ComprehensiveRestController.php');
+    $policy=(string)file_get_contents($root.'/src/Intake/TriagePolicy.php');
+    assert(str_contains($controller,'(new TriagePolicy())->decideSignals'));
+    assert(str_contains($controller,"'human_review_required' => \$triage->humanReviewRequired()"));
+    assert(str_contains($controller,"'emergency_diversion_required' => \$triage->emergencyDiversionRequired()"));
+    assert(str_contains($policy,"'many_users', 'high' => 'high'"));
+});
+
 $test('CEN-02 linked-domain runtime persists typed reference/version plus projection hash only',static function()use($root):void{
     $source=file_get_contents($root.'/src/Infrastructure/WordPress/OperationsRepository.php');
     assert(str_contains($source,"'projection_hash' => \$projectionHash"));
