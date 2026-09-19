@@ -82,6 +82,8 @@ final class ComprehensiveRestController
             ['/staff/cases/(?P<id>CF02-[0-9A-F-]{36})/reopen', 'POST', 'reopenResolvedCase'],
             ['/staff/cases/(?P<id>CF02-[0-9A-F-]{36})/holds', 'POST', 'applyHold'],
             ['/staff/cases/(?P<id>CF02-[0-9A-F-]{36})/holds/(?P<hold>CF02-HOLD-[A-F0-9]{20})/release', 'POST', 'releaseHold'],
+            ['/staff/retention/category-holds', 'POST', 'applyCategoryHold'],
+            ['/staff/retention/category-holds/(?P<hold>CF02-HOLD-[A-F0-9]{20})/release', 'POST', 'releaseCategoryHold'],
             ['/staff/cases/merge', 'POST', 'mergeCases'],
             ['/staff/cases/(?P<id>CF02-[0-9A-F-]{36})/split', 'POST', 'splitCase'],
             ['/staff/cases/(?P<id>CF02-[0-9A-F-]{36})/quality', 'POST', 'recordQuality'],
@@ -779,6 +781,49 @@ final class ComprehensiveRestController
             RequestGuard::requireRecentAuthentication($context, $this->now());
             RequestGuard::approvalReference($request);
             return $this->operations->releaseHold($this->caseId($request), (string) $request['hold'], $context, RequestGuard::expectedVersion($request), sanitize_text_field((string) $request->get_param('reason')), RequestGuard::idempotencyKey($request), $this->now());
+        });
+    }
+
+    public function applyCategoryHold(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
+    {
+        return $this->run(function () use ($request): array {
+            $context = $this->context();
+            RequestGuard::requireCapability($context, $this->now(), 'hold.apply');
+            RequestGuard::requireRecentAuthentication($context, $this->now());
+            $category = sanitize_key((string) $request->get_param('category'));
+            SupportContractCatalog::assertCategory($category);
+            try {
+                $reviewDue = new DateTimeImmutable((string) $request->get_param('review_due_at'));
+            } catch (\Throwable) {
+                throw new RuntimeException('A valid category-hold review date is required.');
+            }
+            return $this->operations->applyCategoryHold(
+                $category,
+                $context,
+                sanitize_key((string) $request->get_param('reason_code')),
+                RequestGuard::approvalReference($request),
+                $reviewDue,
+                RequestGuard::idempotencyKey($request),
+                $this->now()
+            );
+        }, 201);
+    }
+
+    public function releaseCategoryHold(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
+    {
+        return $this->run(function () use ($request): array {
+            $context = $this->context();
+            RequestGuard::requireCapability($context, $this->now(), 'hold.release');
+            RequestGuard::requireRecentAuthentication($context, $this->now());
+            RequestGuard::approvalReference($request);
+            return $this->operations->releaseCategoryHold(
+                (string) $request['hold'],
+                $context,
+                RequestGuard::expectedVersion($request),
+                ApiInput::safeTextarea($request->get_param('reason'), 2000, true),
+                RequestGuard::idempotencyKey($request),
+                $this->now()
+            );
         });
     }
 
