@@ -14,14 +14,14 @@ use InvalidArgumentException;
  */
 final class SupportContractCatalog
 {
-    public const CONTRACT_VERSION = '1.2.0';
+    public const CONTRACT_VERSION = '1.3.0';
 
     /** @var list<string> */
     private const COMMANDS = [
         'CreateCase', 'AddCaseMessage', 'UploadCaseAttachment', 'WithdrawCase', 'ReopenCase',
         'TriageCase', 'SetPriority', 'AssignCase', 'TransferCase', 'EscalateCase', 'MergeCases', 'SplitMergedCase',
         'AddInternalNote', 'CreateCaseTask', 'CompleteCaseTask', 'RequestUserInfo', 'RequestProviderAction',
-        'ResolveCase', 'CloseCase', 'ReopenResolvedCase', 'ApplyCaseHold', 'ReleaseCaseHold',
+        'ResolveCase', 'CloseCase', 'ReopenResolvedCase', 'ApplyCaseHold', 'ReleaseCaseHold', 'ApplyCategoryHold', 'ReleaseCategoryHold',
         'SubmitAppeal', 'ReopenAppeal', 'DecideAppealEligibility', 'AssignAppealReviewer', 'RecordAppealDecision',
         'RequestNativeDecisionAction', 'ConfirmDecisionImplemented', 'RemandAppeal', 'CloseAppeal',
         'StageSupportConfiguration', 'ActivateSupportConfiguration', 'RollBackSupportConfiguration',
@@ -46,7 +46,7 @@ final class SupportContractCatalog
         'SupportAttachmentQuarantined', 'SupportAttachmentAvailable', 'SupportAttachmentRejected', 'SupportAttachmentRedacted', 'SupportSensitiveDataDetected',
         'SupportCaseWithdrawn', 'SupportCaseClosed', 'SupportTaskCreated',
         'SupportNativeCommandRequested', 'SupportNativeCommandResultRecorded', 'SupportRetentionPurgeCompleted',
-        'SupportTaskCompleted', 'SupportCaseHoldApplied', 'SupportCaseHoldReleased',
+        'SupportTaskCompleted', 'SupportCaseHoldApplied', 'SupportCaseHoldReleased', 'SupportCategoryHoldApplied', 'SupportCategoryHoldReleased',
         'SupportCasesMerged', 'SupportCaseMergeReversed', 'SupportQualityReviewRecorded',
         'SupportDomainObjectLinked', 'SupportConfigurationStaged', 'SupportConfigurationActivated', 'SupportConfigurationRolledBack',
     ];
