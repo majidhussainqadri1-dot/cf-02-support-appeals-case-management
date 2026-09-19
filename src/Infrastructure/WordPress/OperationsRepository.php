@@ -436,10 +436,14 @@ final class OperationsRepository
         }
     }
 
-    public function resumeSla(SupportCaseId $caseId, string $evidenceRef, DateTimeImmutable $at): void
+    /** @param list<string>|null $allowedPauseReasons */
+    public function resumeSla(SupportCaseId $caseId, string $evidenceRef, DateTimeImmutable $at, ?array $allowedPauseReasons = null): void
     {
         $row = $this->row($this->wpdb->prepare("SELECT * FROM {$this->tables['sla']} WHERE case_uuid=%s LIMIT 1", $caseId->value()));
         if ($row === null || (string) $row['status'] !== 'paused') {
+            return;
+        }
+        if ($allowedPauseReasons !== null && !in_array((string) ($row['pause_reason'] ?? ''), $allowedPauseReasons, true)) {
             return;
         }
         if (trim($evidenceRef) === '' || $row['paused_at'] === null) {
@@ -460,17 +464,56 @@ final class OperationsRepository
         }
     }
 
+    public function recordSlaAgentResponse(SupportCaseId $caseId, string $evidenceRef, DateTimeImmutable $at): void
+    {
+        if (trim($evidenceRef) === '') {
+            throw new RuntimeException('SLA response evidence is required.');
+        }
+        $row = $this->row($this->wpdb->prepare(
+            "SELECT s.*,c.priority FROM {$this->tables['sla']} s JOIN {$this->tables['cases']} c ON c.case_uuid=s.case_uuid WHERE s.case_uuid=%s LIMIT 1",
+            $caseId->value()
+        ));
+        if ($row === null || in_array((string) $row['status'], ['resolved'], true)) {
+            return;
+        }
+        $policy = $this->slaPolicy($caseId, (string) $row['priority']);
+        $updates = [
+            'update_deadline' => $this->mysqlTime($at->modify('+' . $policy['update_minutes'] . ' minutes')),
+            'evidence_ref' => $evidenceRef,
+            'record_version' => (int) $row['record_version'] + 1,
+        ];
+        if ((string) $row['status'] === 'at_risk') {
+            $updates['status'] = 'running';
+        }
+        $updated = $this->wpdb->update(
+            $this->tables['sla'],
+            $updates,
+            ['case_uuid' => $caseId->value(), 'record_version' => (int) $row['record_version']]
+        );
+        if ($updated !== 1) {
+            throw new RuntimeException('SLA response update conflicted.');
+        }
+    }
+
     /** @return list<array<string,mixed>> */
     public function dueSla(int $limit): array
     {
         return $this->rows($this->wpdb->prepare(
-            "SELECT s.*,c.state,c.priority,c.owner_ref,c.requester_ref FROM {$this->tables['sla']} s
+            "SELECT s.*,c.state,c.priority,c.owner_ref,c.requester_ref,c.queue_key,
+                    EXISTS(SELECT 1 FROM {$this->tables['events']} e WHERE e.aggregate_type='case' AND e.aggregate_ref=s.case_uuid AND e.event_type='SupportAgentReplied') AS first_response_recorded
+             FROM {$this->tables['sla']} s
              JOIN {$this->tables['cases']} c ON c.case_uuid=s.case_uuid
              WHERE s.status IN ('running','at_risk') AND c.state NOT IN ('resolved','closed','withdrawn')
-             AND (s.first_response_deadline<=DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 30 MINUTE)
-                  OR s.update_deadline<=DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 30 MINUTE)
+             AND (((NOT EXISTS(SELECT 1 FROM {$this->tables['events']} e1 WHERE e1.aggregate_type='case' AND e1.aggregate_ref=s.case_uuid AND e1.event_type='SupportAgentReplied'))
+                       AND s.first_response_deadline<=DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 30 MINUTE))
+                  OR ((EXISTS(SELECT 1 FROM {$this->tables['events']} e2 WHERE e2.aggregate_type='case' AND e2.aggregate_ref=s.case_uuid AND e2.event_type='SupportAgentReplied'))
+                       AND s.update_deadline<=DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 30 MINUTE))
                   OR s.resolution_deadline<=DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 30 MINUTE))
-             ORDER BY LEAST(s.first_response_deadline,s.update_deadline,s.resolution_deadline) ASC LIMIT %d",
+             ORDER BY LEAST(
+                 CASE WHEN EXISTS(SELECT 1 FROM {$this->tables['events']} e3 WHERE e3.aggregate_type='case' AND e3.aggregate_ref=s.case_uuid AND e3.event_type='SupportAgentReplied')
+                      THEN s.update_deadline ELSE s.first_response_deadline END,
+                 s.resolution_deadline
+             ) ASC LIMIT %d",
             max(1, min(250, $limit))
         ));
     }
@@ -1849,7 +1892,11 @@ final class OperationsRepository
     {
         $rows = $this->dueSla($limit);
         if ($context->hasCapability('queue.manage')) {
-            return $rows;
+            $scopes = $context->queueScopes();
+            if ($scopes === []) {
+                throw new RuntimeException('Scoped queue authority is required for SLA visibility.');
+            }
+            return array_values(array_filter($rows, static fn (array $row): bool => in_array((string) ($row['queue_key'] ?? ''), $scopes, true)));
         }
         return array_values(array_filter($rows, static function (array $row) use ($context): bool {
             return isset($row['owner_ref']) && is_string($row['owner_ref']) && hash_equals($row['owner_ref'], $context->actorReference());
