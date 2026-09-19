@@ -393,6 +393,9 @@ final class ComprehensiveRestController
                 'attachment' => $row, 'actor_ref' => $context->actorReference(), 'purpose' => $purpose,
             ]);
             $accepted = is_array($provider) && ($provider['accepted'] ?? false) === true;
+            if ($accepted && (string) $row['privacy_class'] === 'C4' && ($provider['specialized_vault'] ?? false) !== true) {
+                throw new RuntimeException('C4 evidence requires an approved specialized-vault upload session.');
+            }
             $upload = $accepted ? array_intersect_key($provider, array_flip(['provider_ref','upload_url','headers','expires_at'])) : [];
             if ($accepted) {
                 $url = (string) ($upload['upload_url'] ?? '');
