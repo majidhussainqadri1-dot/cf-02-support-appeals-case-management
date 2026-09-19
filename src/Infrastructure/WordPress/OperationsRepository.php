@@ -832,9 +832,15 @@ final class OperationsRepository
         SupportCaseId $caseId,
         PrincipalContext $context,
         string $originalDecisionRef,
+        string $originalDecisionReason,
         string $policyVersion,
-        array $evidenceRefs,
-        string $grounds,
+        string $originalDecisionOwner,
+        string $originalDecisionVersion,
+        DateTimeImmutable $originalDecisionAt,
+        array $originalEvidenceRefs,
+        array $appellantEvidenceRefs,
+        array $grounds,
+        string $groundStatement,
         string $idempotencyKey,
         DateTimeImmutable $at
     ): array {
@@ -842,8 +848,13 @@ final class OperationsRepository
         if (!in_array((string) $case['state'], ['resolved','closed'], true)) {
             throw new RuntimeException('Only a governed decision may be appealed.');
         }
-        if (trim($originalDecisionRef) === '' || trim($policyVersion) === '' || trim($grounds) === '') {
-            throw new RuntimeException('Appeal submission is incomplete.');
+        if (trim($originalDecisionRef) === '' || trim($originalDecisionReason) === '' || trim($policyVersion) === ''
+            || trim($originalDecisionOwner) === '' || trim($originalDecisionVersion) === '' || trim($groundStatement) === ''
+            || $originalEvidenceRefs === [] || $grounds === []) {
+            throw new RuntimeException('Appeal submission or immutable native decision snapshot is incomplete.');
+        }
+        if ($originalDecisionAt > $at) {
+            throw new RuntimeException('Original decision timestamp cannot be in the future.');
         }
         $appealId = 'CF02-APL-' . strtoupper(substr(hash('sha256', $caseId->value() . "\0" . $context->actorReference() . "\0" . $idempotencyKey), 0, 20));
         $existing = $this->row($this->wpdb->prepare("SELECT * FROM {$this->tables['appeals']} WHERE appeal_uuid=%s", $appealId));
@@ -854,20 +865,47 @@ final class OperationsRepository
             ));
             $storedEvidence = is_array($dossier) ? json_decode((string) $dossier['evidence_refs_json'], true) : null;
             $storedSubmissions = is_array($dossier) ? json_decode((string) $dossier['submissions_json'], true) : null;
-            $storedGrounds = is_array($storedSubmissions) && isset($storedSubmissions[0]['grounds']) ? (string) $storedSubmissions[0]['grounds'] : '';
+            $storedOriginal = is_array($storedSubmissions) && is_array($storedSubmissions['original_decision'] ?? null)
+                ? $storedSubmissions['original_decision'] : [];
+            $storedAppellant = is_array($storedSubmissions) && is_array($storedSubmissions['appellant_submissions'][0] ?? null)
+                ? $storedSubmissions['appellant_submissions'][0] : [];
             if ($dossier === null
                 || !hash_equals((string) $existing['original_decision_ref'], $originalDecisionRef)
                 || !hash_equals((string) $dossier['policy_version'], $policyVersion)
-                || !hash_equals($storedGrounds, $grounds)
-                || $storedEvidence !== array_values($evidenceRefs)) {
+                || !hash_equals((string) ($storedOriginal['reason'] ?? ''), $originalDecisionReason)
+                || !hash_equals((string) ($storedOriginal['owner'] ?? ''), $originalDecisionOwner)
+                || !hash_equals((string) ($storedOriginal['decision_version'] ?? ''), $originalDecisionVersion)
+                || !hash_equals((string) ($storedOriginal['decision_at'] ?? ''), $originalDecisionAt->format(DATE_ATOM))
+                || !hash_equals((string) ($storedAppellant['ground_statement'] ?? ''), $groundStatement)
+                || ($storedAppellant['grounds'] ?? null) !== array_values($grounds)
+                || ($storedAppellant['evidence_refs'] ?? null) !== array_values($appellantEvidenceRefs)
+                || $storedEvidence !== array_values($originalEvidenceRefs)) {
                 throw new RuntimeException('Appeal idempotency collision.');
             }
             return $existing;
         }
-        $originalHash = hash('sha256', $originalDecisionRef . "\0" . $policyVersion);
-        $submissions = [['actor_ref' => $context->actorReference(), 'grounds' => $grounds, 'at' => $at->format(DATE_ATOM)]];
-        $dossierHash = hash('sha256', $this->json([$originalHash, $policyVersion, $evidenceRefs, $submissions]));
-        $this->transaction(function () use ($appealId, $caseId, $context, $originalDecisionRef, $policyVersion, $evidenceRefs, $submissions, $originalHash, $dossierHash, $idempotencyKey, $at): void {
+        $originalSnapshot = [
+            'decision_ref' => $originalDecisionRef,
+            'reason' => $originalDecisionReason,
+            'owner' => $originalDecisionOwner,
+            'decision_version' => $originalDecisionVersion,
+            'decision_at' => $originalDecisionAt->format(DATE_ATOM),
+            'policy_version' => $policyVersion,
+            'evidence_refs' => array_values($originalEvidenceRefs),
+        ];
+        $originalHash = hash('sha256', $this->json($originalSnapshot));
+        $submissions = [
+            'original_decision' => $originalSnapshot,
+            'appellant_submissions' => [[
+                'actor_ref' => $context->actorReference(),
+                'grounds' => array_values($grounds),
+                'ground_statement' => $groundStatement,
+                'evidence_refs' => array_values($appellantEvidenceRefs),
+                'at' => $at->format(DATE_ATOM),
+            ]],
+        ];
+        $dossierHash = hash('sha256', $this->json([$originalHash, $policyVersion, $originalEvidenceRefs, $submissions]));
+        $this->transaction(function () use ($appealId, $caseId, $context, $originalDecisionRef, $policyVersion, $originalEvidenceRefs, $submissions, $originalHash, $dossierHash, $idempotencyKey, $at): void {
             $ok = $this->wpdb->insert($this->tables['appeals'], [
                 'appeal_uuid' => $appealId, 'case_uuid' => $caseId->value(),
                 'appellant_ref' => $context->actorReference(), 'original_decision_ref' => $originalDecisionRef,
@@ -881,7 +919,7 @@ final class OperationsRepository
             $ok = $this->wpdb->insert($this->tables['dossiers'], [
                 'dossier_uuid' => 'CF02-DOS-' . substr($appealId, -20), 'appeal_uuid' => $appealId,
                 'original_decision_ref' => $originalDecisionRef, 'original_decision_hash' => $originalHash,
-                'policy_version' => $policyVersion, 'evidence_refs_json' => $this->json(array_values($evidenceRefs)),
+                'policy_version' => $policyVersion, 'evidence_refs_json' => $this->json(array_values($originalEvidenceRefs)),
                 'submissions_json' => $this->json($submissions), 'dossier_hash' => $dossierHash,
                 'record_version' => 1, 'created_at' => $this->mysqlTime($at), 'updated_at' => $this->mysqlTime($at),
             ]);
@@ -1714,6 +1752,52 @@ final class OperationsRepository
             ));
         }
         return $result;
+    }
+
+    /** @return array<string,mixed> */
+    public function appealDossierData(string $appealId, PrincipalContext $context): array
+    {
+        $this->appealForActor($appealId, $context);
+        $row = $this->row($this->wpdb->prepare(
+            "SELECT original_decision_ref,policy_version,evidence_refs_json,submissions_json,dossier_hash,record_version,created_at,updated_at FROM {$this->tables['dossiers']} WHERE appeal_uuid=%s LIMIT 1",
+            $appealId
+        ));
+        if ($row === null) {
+            throw new RuntimeException('Appeal dossier was not found.');
+        }
+        $submissions = json_decode((string) $row['submissions_json'], true);
+        $originalEvidence = json_decode((string) $row['evidence_refs_json'], true);
+        if (!is_array($submissions) || !is_array($originalEvidence)) {
+            throw new RuntimeException('Appeal dossier evidence is malformed.');
+        }
+        $row['submissions'] = $submissions;
+        $row['original_evidence_refs'] = $originalEvidence;
+        unset($row['submissions_json'], $row['evidence_refs_json']);
+        return $row;
+    }
+
+    /** @return array<string,mixed> */
+    public function appealDecisionEvidence(string $appealId): array
+    {
+        $row = $this->row($this->wpdb->prepare(
+            "SELECT payload_json FROM {$this->tables['events']} WHERE aggregate_type='appeal' AND aggregate_ref=%s AND event_type='AppealDecided' ORDER BY id DESC LIMIT 1",
+            $appealId
+        ));
+        $payload = $row === null ? null : json_decode((string) $row['payload_json'], true);
+        if (!is_array($payload)) {
+            throw new RuntimeException('Reasoned appeal decision evidence is unavailable.');
+        }
+        return $payload;
+    }
+
+    public function appealDecisionNoticeSent(string $appealId): bool
+    {
+        $key = 'appeal-notice:' . $appealId;
+        $state = $this->value($this->wpdb->prepare(
+            "SELECT state FROM {$this->tables['outbox']} WHERE idempotency_key=%s LIMIT 1",
+            $key
+        ));
+        return is_string($state) && hash_equals($state, 'sent');
     }
 
     /** @return array<string,mixed> */
