@@ -3,6 +3,7 @@
 declare(strict_types=1);
 ini_set('assert.exception','1');assert_options(ASSERT_ACTIVE,1);assert_options(ASSERT_EXCEPTION,1);
 require_once dirname(__DIR__).'/src/Autoload.php';\Sabri\CF02\Autoload::register(dirname(__DIR__).'/src');
+$root=dirname(__DIR__);
 
 use Sabri\CF02\Automation\AutomationAction;
 use Sabri\CF02\Automation\AutomationGuard;
