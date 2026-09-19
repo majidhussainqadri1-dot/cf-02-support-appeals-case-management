@@ -97,6 +97,6 @@ The CF-02 plan imports 56 Central CV requirements as owner/consumer obligations.
 ## Truthful candidate status
 
 - Runtime candidate: `1.0.0-rc.7`.
-- Schema: `1.3.0`; contract: `1.1.0`; plan: `1.0`.
-- Automated status must be taken only from exact-head workflow evidence after the final C2-L commit.
+- Schema: `1.3.0`; contract: `1.3.0`; plan: `1.0`.
+- Automated status must be taken only from exact-head workflow evidence after the final corrective commit.
 - Hostinger staging, real companion/provider contracts, browser/device/accessibility, independent security, load/soak, migration rehearsal, restore/rollback, staffing, observation and Founder exact-artifact acceptance remain separate gates.
