@@ -45,14 +45,7 @@ final class AppealEligibilityPolicy
         if ($grounds === []) {
             return new AppealEligibilityDecision(false, false, ['No recognized appeal ground was submitted.'], 'Submit a new appeal with at least one recognized ground if the deadline remains open.');
         }
-        foreach ($grounds as $ground) {
-            if (!is_string($ground) || !in_array($ground, self::ALLOWED_GROUNDS, true)) {
-                throw new InvalidArgumentException('Unknown appeal ground.');
-            }
-        }
-        if (count($grounds) !== count(array_unique($grounds))) {
-            throw new InvalidArgumentException('Duplicate appeal grounds are prohibited.');
-        }
+        $grounds = self::normalizeGrounds($grounds);
         if (!$hasStanding) {
             return new AppealEligibilityDecision(false, false, ['Appellant standing or verified representation was not established.'], 'Provide verified authority or use the native-owner correction process.');
         }
@@ -85,4 +78,23 @@ final class AppealEligibilityPolicy
 
         return new AppealEligibilityDecision(true, $exceptionApplied, $reasons, null);
     }
+    /** @param list<mixed> $grounds @return list<string> */
+    public static function normalizeGrounds(array $grounds): array
+    {
+        if ($grounds === []) {
+            throw new InvalidArgumentException('At least one appeal ground is required.');
+        }
+        $normalized = [];
+        foreach ($grounds as $ground) {
+            if (!is_string($ground) || !in_array($ground, self::ALLOWED_GROUNDS, true)) {
+                throw new InvalidArgumentException('Unknown appeal ground.');
+            }
+            $normalized[] = $ground;
+        }
+        if (count($normalized) !== count(array_unique($normalized))) {
+            throw new InvalidArgumentException('Duplicate appeal grounds are prohibited.');
+        }
+        return array_values($normalized);
+    }
+
 }
