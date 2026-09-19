@@ -13,6 +13,7 @@ use Sabri\CF02\Authorization\WordPressPrincipalContextFactory;
 use Sabri\CF02\Configuration\CategoryRoutingPolicy;
 use Sabri\CF02\Contracts\SupportContractCatalog;
 use Sabri\CF02\Domain\SupportCaseId;
+use Sabri\CF02\Intake\TriagePolicy;
 use Sabri\CF02\Security\DataCipher;
 use Sabri\CF02\Security\SensitiveContentDetector;
 use Throwable;
@@ -194,20 +195,38 @@ final class ComprehensiveRestController
                 || !in_array($urgency, ['', 'normal', 'time_sensitive'], true)) {
                 throw new RuntimeException('Impact or urgency is invalid.');
             }
-            // Requesters describe impact/urgency; they never grant themselves P1/P2 authority.
-            $priority = $impact === 'account_blocked' && $urgency === 'time_sensitive' ? 'P2' : 'P3';
-            $queue = $this->queueForCategory($category);
+            $accessibility = trim(sanitize_text_field((string) $request->get_param('accessibility')));
+            $triageFields = [];
+            foreach (['harm_level','deadline_at','domain_competence','safety_indicator','immediacy'] as $field) {
+                $value = trim(sanitize_text_field((string) $request->get_param($field)));
+                if ($value !== '') {
+                    $triageFields[$field] = $value;
+                }
+            }
+            $triage = (new TriagePolicy())->decideSignals(
+                $category,
+                $impact,
+                $urgency,
+                true,
+                $accessibility === '' ? [] : [$accessibility],
+                $triageFields,
+                $this->now()
+            );
+            $priority = $triage->priority();
+            $queue = $triage->queueKey();
             $payload = [
                 'category' => $category,
                 'subcategory' => sanitize_key((string) $request->get_param('subcategory')),
                 'priority' => $priority,
-                'severity' => 'normal',
+                'severity' => $triage->severity(),
                 'queue' => $queue,
                 'locale' => $locale,
                 'subject' => $subject,
                 'impact' => $impact,
                 'urgency' => $urgency,
-                'accessibility' => sanitize_text_field((string) $request->get_param('accessibility')),
+                'accessibility' => $accessibility,
+                'human_review_required' => $triage->humanReviewRequired(),
+                'emergency_diversion_required' => $triage->emergencyDiversionRequired(),
                 'diagnostics_consented' => (bool) $request->get_param('diagnostics_consented'),
             ];
             $key = RequestGuard::idempotencyKey($request);
@@ -215,7 +234,10 @@ final class ComprehensiveRestController
             $caseId = SupportCaseId::fromString((string) $result['case']['case_uuid']);
             $this->operations->ensureSlaTimer($caseId, $priority, $this->now());
             $this->operations->appendEvent('case', $caseId->value(), 'SupportCaseCreated', $context, 'support_intake', $key, [
-                'category' => $category, 'priority' => $priority, 'queue' => $queue,
+                'category' => $category, 'priority' => $priority, 'severity' => $triage->severity(), 'queue' => $queue,
+                'human_review_required' => $triage->humanReviewRequired(),
+                'emergency_diversion_required' => $triage->emergencyDiversionRequired(),
+                'triage_reasons' => $triage->reasons(),
                 'diagnostics_consented' => $payload['diagnostics_consented'],
             ], 1, $this->now());
             if ($description !== '') {
@@ -237,8 +259,10 @@ final class ComprehensiveRestController
             }
             $receiptPayload = [
                 'case_id' => $caseId->value(), 'category' => $category, 'received_at' => $this->now()->format(DATE_ATOM),
-                'status' => 'new', 'next_step' => 'triage', 'sla_range' => $priority === 'P1' ? 'urgent' : 'standard',
+                'status' => 'new', 'next_step' => $triage->humanReviewRequired() ? 'human_triage' : 'queue_assignment',
+                'sla_range' => match ($priority) { 'P1' => 'urgent', 'P2' => 'priority', default => 'standard' },
                 'emergency_boundary' => true,
+                'emergency_diversion_required' => $triage->emergencyDiversionRequired(),
             ];
             $this->operations->enqueueDelivery(
                 $caseId, $context->actorReference(), 'in_app', 'support_case_receipt', $receiptPayload,
