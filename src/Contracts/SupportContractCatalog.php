@@ -14,7 +14,7 @@ use InvalidArgumentException;
  */
 final class SupportContractCatalog
 {
-    public const CONTRACT_VERSION = '1.1.0';
+    public const CONTRACT_VERSION = '1.2.0';
 
     /** @var list<string> */
     private const COMMANDS = [
@@ -22,7 +22,7 @@ final class SupportContractCatalog
         'TriageCase', 'SetPriority', 'AssignCase', 'TransferCase', 'EscalateCase', 'MergeCases', 'SplitMergedCase',
         'AddInternalNote', 'CreateCaseTask', 'CompleteCaseTask', 'RequestUserInfo', 'RequestProviderAction',
         'ResolveCase', 'CloseCase', 'ReopenResolvedCase', 'ApplyCaseHold', 'ReleaseCaseHold',
-        'SubmitAppeal', 'DecideAppealEligibility', 'AssignAppealReviewer', 'RecordAppealDecision',
+        'SubmitAppeal', 'ReopenAppeal', 'DecideAppealEligibility', 'AssignAppealReviewer', 'RecordAppealDecision',
         'RequestNativeDecisionAction', 'ConfirmDecisionImplemented', 'RemandAppeal', 'CloseAppeal',
         'StageSupportConfiguration', 'ActivateSupportConfiguration', 'RollBackSupportConfiguration',
     ];
@@ -42,7 +42,7 @@ final class SupportContractCatalog
         'SupportUserReplied', 'SupportAgentReplied', 'SupportCaseWaiting', 'SupportCaseResolved', 'SupportCaseReopened',
         'SupportSlaAtRisk', 'SupportSlaBreached', 'SupportMajorIncidentLinked',
         'AppealSubmitted', 'AppealAccepted', 'AppealRejected', 'AppealReviewerAssigned',
-        'AppealDecided', 'AppealImplementationRequested', 'AppealImplemented', 'AppealClosed',
+        'AppealDecided', 'AppealImplementationRequested', 'AppealImplemented', 'AppealClosed', 'AppealReopened',
         'SupportAttachmentQuarantined', 'SupportAttachmentAvailable', 'SupportAttachmentRejected', 'SupportAttachmentRedacted', 'SupportSensitiveDataDetected',
         'SupportCaseWithdrawn', 'SupportCaseClosed', 'SupportTaskCreated',
         'SupportNativeCommandRequested', 'SupportNativeCommandResultRecorded', 'SupportRetentionPurgeCompleted',
@@ -82,11 +82,11 @@ final class SupportContractCatalog
     private const ROLE_CAPABILITIES = [
         'user_reporter' => [
             'case.create', 'case.own.read', 'case.own.reply', 'case.own.attach', 'case.own.withdraw',
-            'case.own.reopen', 'appeal.own.submit', 'appeal.own.read', 'feedback.own.submit',
+            'case.own.reopen', 'appeal.own.submit', 'appeal.own.read', 'appeal.own.reopen', 'feedback.own.submit',
         ],
         'guardian_representative' => [
             'case.represented.read', 'case.represented.reply', 'case.represented.attach',
-            'case.represented.reopen', 'appeal.represented.submit', 'appeal.represented.read',
+            'case.represented.reopen', 'appeal.represented.submit', 'appeal.represented.read', 'appeal.represented.reopen',
         ],
         'support_agent' => [
             'queue.assigned.read', 'case.assigned.read', 'case.assigned.reply', 'case.assigned.note',
