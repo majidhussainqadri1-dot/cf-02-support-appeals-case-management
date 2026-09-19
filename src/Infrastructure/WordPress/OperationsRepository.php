@@ -313,7 +313,7 @@ final class OperationsRepository
     ): string {
         $this->caseForActor($caseId, $context);
         if (trim($ownerKey) === '' || trim($objectType) === '' || trim($objectRef) === ''
-            || trim($objectVersion) === '' || !in_array($privacyClass, ['C1','C2','C3','C4','C5'], true)) {
+            || trim($objectVersion) === '' || !in_array($privacyClass, ['C1','C2','C3','C4'], true)) {
             throw new RuntimeException('Linked native object metadata is invalid.');
         }
         $projectionHash = hash('sha256', $this->json($safeProjection));
@@ -1446,10 +1446,12 @@ final class OperationsRepository
         $case = $this->caseForActor($caseId, $context);
         $isRequester = hash_equals((string) $case['requester_ref'], $context->actorReference())
             || $context->represents((string) $case['requester_ref']);
-        if (in_array((string) $attachment['privacy_class'], ['C4','C5'], true) && !$isRequester) {
-            if (!$context->hasAnyCapability('evidence.restricted.read', 'case.sensitive.read')
-                || !$context->recentlyAuthenticated($at)) {
-                throw new RuntimeException('Sensitive attachment access requires specialist authority and recent authentication.');
+        if ((string) $attachment['privacy_class'] === 'C4') {
+            if (!$context->recentlyAuthenticated($at)) {
+                throw new RuntimeException('Sensitive attachment access requires recent authentication.');
+            }
+            if (!$isRequester && !$context->hasAnyCapability('evidence.restricted.read', 'case.sensitive.read')) {
+                throw new RuntimeException('Sensitive attachment access requires specialist authority.');
             }
         }
         $expires = $at->modify('+5 minutes');
@@ -1720,10 +1722,11 @@ final class OperationsRepository
         $case = $this->caseForActor($caseId, $context);
         $staff = !hash_equals((string) $case['requester_ref'], $context->actorReference())
             && !$context->represents((string) $case['requester_ref']);
-        $visibility = $staff ? "visibility IN ('requester','internal','restricted')" : "visibility='requester'";
-        if ($staff && !$context->hasAnyCapability('case.sensitive.read', 'case.specialist.read')) {
-            $visibility = "visibility IN ('requester','internal')";
-        }
+        $sensitiveAuthorized = $context->hasAnyCapability('case.sensitive.read', 'evidence.restricted.read')
+            && $context->recentlyAuthenticated(new DateTimeImmutable('now', new DateTimeZone('UTC')));
+        $visibility = $staff && $sensitiveAuthorized
+            ? "visibility IN ('requester','internal','restricted')"
+            : ($staff ? "visibility IN ('requester','internal')" : "visibility='requester'");
         $messages = $this->rows($this->wpdb->prepare(
             "SELECT message_uuid,author_ref,visibility,channel,body_ciphertext,body_hash,record_version,created_at,edited_at
              FROM {$this->tables['messages']} WHERE case_uuid=%s AND {$visibility} ORDER BY id ASC LIMIT 500",
@@ -1739,6 +1742,11 @@ final class OperationsRepository
                 unset($row['sha256'], $row['redacted_ref']);
                 return $row;
             }, array_filter($attachments, static fn (array $row): bool => in_array((string) $row['state'], ['available','redacted','superseded','expired'], true))));
+        } elseif (!$sensitiveAuthorized) {
+            $attachments = array_values(array_filter(
+                $attachments,
+                static fn (array $row): bool => !hash_equals((string) $row['privacy_class'], 'C4')
+            ));
         }
         $result = ['case' => $case, 'messages' => $messages, 'attachments' => $attachments];
         if ($staff) {
@@ -2079,10 +2087,16 @@ final class OperationsRepository
     public function linkedDomainProjection(SupportCaseId $caseId, PrincipalContext $context): array
     {
         $this->caseForActor($caseId, $context);
-        return $this->rows($this->wpdb->prepare(
+        $rows = $this->rows($this->wpdb->prepare(
             "SELECT link_uuid,owner_key,object_type,object_ref,object_version,privacy_class,projection_hash,state,updated_at FROM {$this->tables['case_links']} WHERE case_uuid=%s AND state='active' ORDER BY id ASC",
             $caseId->value()
         ));
+        $sensitiveAuthorized = $context->hasAnyCapability('case.sensitive.read', 'evidence.restricted.read')
+            && $context->recentlyAuthenticated(new DateTimeImmutable('now', new DateTimeZone('UTC')));
+        if (!$sensitiveAuthorized) {
+            $rows = array_values(array_filter($rows, static fn (array $row): bool => !hash_equals((string) $row['privacy_class'], 'C4')));
+        }
+        return $rows;
     }
 
     /** @return array<string,mixed> */
