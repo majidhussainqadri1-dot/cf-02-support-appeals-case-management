@@ -109,12 +109,20 @@ final class OperationsRepository
             return $row;
         }
         if ($allowStaff && $context->hasAnyCapability('appeal.queue.read', 'appeal.review', 'appeal.decision')) {
-            if ($context->hasCapability('appeal.review') && $row['reviewer_ref'] !== null
-                && !hash_equals((string) $row['reviewer_ref'], $context->actorReference())
-                && !$context->hasCapability('appeal.queue.read')) {
-                throw new RuntimeException('Appeal not found.');
+            $reviewerMatches = $row['reviewer_ref'] !== null
+                && hash_equals((string) $row['reviewer_ref'], $context->actorReference());
+            if ($reviewerMatches && $context->hasAnyCapability('appeal.review', 'appeal.decision')) {
+                return $row;
             }
-            return $row;
+            if ($context->hasCapability('appeal.queue.read')) {
+                $caseRow = $this->row($this->wpdb->prepare(
+                    "SELECT queue_key FROM {$this->tables['cases']} WHERE case_uuid=%s LIMIT 1",
+                    (string) $row['case_uuid']
+                ));
+                if ($caseRow !== null && $context->inQueueScope((string) $caseRow['queue_key'])) {
+                    return $row;
+                }
+            }
         }
         throw new RuntimeException('Appeal not found.');
     }
@@ -1084,18 +1092,26 @@ final class OperationsRepository
     /** @return list<array<string,mixed>> */
     public function appealQueue(PrincipalContext $context, int $limit, int $offset): array
     {
-        $where = '1=1';
         $args = [];
-        if (!$context->hasCapability('appeal.queue.read')) {
-            $where = 'reviewer_ref=%s';
+        if ($context->hasCapability('appeal.queue.read')) {
+            $queueScopes = $context->queueScopes();
+            if ($queueScopes === []) {
+                throw new RuntimeException('Scoped appeal-queue authority is required.');
+            }
+            $where = 'c.queue_key IN (' . implode(',', array_fill(0, count($queueScopes), '%s')) . ')';
+            array_push($args, ...$queueScopes);
+        } else {
+            $where = 'a.reviewer_ref=%s';
             $args[] = $context->actorReference();
         }
         $args[] = max(1, min(100, $limit));
         $args[] = max(0, $offset);
         return $this->rows($this->wpdb->prepare(
-            "SELECT appeal_uuid,case_uuid,original_decision_ref,reviewer_ref,state,outcome,native_command_ref,implementation_ref,record_version,submitted_at,updated_at
-             FROM {$this->tables['appeals']} WHERE {$where}
-             ORDER BY FIELD(state,'submitted','eligibility_review','accepted','under_review','native_decision_pending','decided','implemented','reopened','rejected','closed'),updated_at ASC
+            "SELECT a.appeal_uuid,a.case_uuid,a.original_decision_ref,a.reviewer_ref,a.state,a.outcome,a.native_command_ref,a.implementation_ref,a.record_version,a.submitted_at,a.updated_at
+             FROM {$this->tables['appeals']} a
+             JOIN {$this->tables['cases']} c ON c.case_uuid=a.case_uuid
+             WHERE {$where}
+             ORDER BY FIELD(a.state,'submitted','eligibility_review','accepted','under_review','native_decision_pending','decided','implemented','reopened','rejected','closed'),a.updated_at ASC
              LIMIT %d OFFSET %d",
             ...$args
         ));
