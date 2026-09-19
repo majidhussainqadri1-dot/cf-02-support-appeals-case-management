@@ -859,7 +859,8 @@ final class OperationsRepository
         if ($originalDecisionAt > $at) {
             throw new RuntimeException('Original decision timestamp cannot be in the future.');
         }
-        $appealId = 'CF02-APL-' . strtoupper(substr(hash('sha256', $caseId->value() . "\0" . $context->actorReference() . "\0" . $idempotencyKey), 0, 20));
+        $appellantRef = (string) $case['requester_ref'];
+        $appealId = 'CF02-APL-' . strtoupper(substr(hash('sha256', $caseId->value() . "\0" . $appellantRef . "\0" . $idempotencyKey), 0, 20));
         $existing = $this->row($this->wpdb->prepare("SELECT * FROM {$this->tables['appeals']} WHERE appeal_uuid=%s", $appealId));
         if ($existing !== null) {
             $dossier = $this->row($this->wpdb->prepare(
@@ -904,7 +905,8 @@ final class OperationsRepository
         $submissions = [
             'original_decision' => $originalSnapshot,
             'appellant_submissions' => [[
-                'actor_ref' => $context->actorReference(),
+                'appellant_ref' => $appellantRef,
+                'submitted_by' => $context->actorReference(),
                 'grounds' => array_values($grounds),
                 'ground_statement' => $groundStatement,
                 'exception_requested' => $exceptionRequested,
@@ -915,10 +917,10 @@ final class OperationsRepository
             ]],
         ];
         $dossierHash = hash('sha256', $this->json([$originalHash, $policyVersion, $originalEvidenceRefs, $submissions]));
-        $this->transaction(function () use ($appealId, $caseId, $context, $originalDecisionRef, $policyVersion, $originalEvidenceRefs, $submissions, $originalHash, $dossierHash, $idempotencyKey, $at): void {
+        $this->transaction(function () use ($appealId, $caseId, $appellantRef, $context, $originalDecisionRef, $policyVersion, $originalEvidenceRefs, $submissions, $originalHash, $dossierHash, $idempotencyKey, $at): void {
             $ok = $this->wpdb->insert($this->tables['appeals'], [
                 'appeal_uuid' => $appealId, 'case_uuid' => $caseId->value(),
-                'appellant_ref' => $context->actorReference(), 'original_decision_ref' => $originalDecisionRef,
+                'appellant_ref' => $appellantRef, 'original_decision_ref' => $originalDecisionRef,
                 'dossier_hash' => $dossierHash, 'reviewer_ref' => null, 'state' => 'submitted',
                 'outcome' => null, 'native_command_ref' => null, 'implementation_ref' => null,
                 'record_version' => 1, 'submitted_at' => $this->mysqlTime($at), 'updated_at' => $this->mysqlTime($at),
