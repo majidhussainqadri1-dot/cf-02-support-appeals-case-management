@@ -62,6 +62,30 @@ $test('staff case reads are queue-scoped and sensitive attachment grants require
     assert(str_contains($overlay,'Scoped queue authority is required.'));
 });
 
+$test('sensitive evidence and retention cleanup are purpose-bound end to end',static function()use($root):void{
+    $ops=(string)file_get_contents($root.'/src/Infrastructure/WordPress/OperationsRepository.php');
+    $controller=(string)file_get_contents($root.'/src/Infrastructure/WordPress/ComprehensiveRestController.php');
+    $catalog=(string)file_get_contents($root.'/src/Contracts/SupportContractCatalog.php');
+    assert(str_contains($ops,"['C1','C2','C3','C4']"));
+    assert(!str_contains($ops,"['C1','C2','C3','C4','C5']"));
+    assert(str_contains($ops,'Sensitive attachment access requires recent authentication.'));
+    assert(str_contains($controller,'C4 evidence requires an approved specialized-vault upload session.'));
+    assert(str_contains($ops,"'decision_tombstone'"));
+    foreach(["'note_revisions'","'tokens'","'migration'","'intake_replay'","'quality'","'inbound'"] as $token){assert(str_contains($ops,$token));}
+    assert(str_contains($ops,"aggregate_type='appeal'"));
+    assert(str_contains($ops,'Active case or category legal/appeal hold blocks purge.'));
+    assert(str_contains($ops,'applyCategoryHold'));
+    assert(str_contains($catalog,"'ApplyCategoryHold'"));
+    assert(str_contains($catalog,"'SupportCategoryHoldApplied'"));
+});
+
+$test('restricted projections require explicit sensitive authority plus recent authentication',static function()use($root):void{
+    $ops=(string)file_get_contents($root.'/src/Infrastructure/WordPress/OperationsRepository.php');
+    assert(str_contains($ops,"hasAnyCapability('case.sensitive.read', 'evidence.restricted.read')"));
+    assert(str_contains($ops,'recentlyAuthenticated'));
+    assert(str_contains($ops,"!hash_equals((string) \$row['privacy_class'], 'C4')"));
+});
+
 $test('case tasks require explicit dependency outcome and optimistic concurrency',static function():void{
     $at=new DateTimeImmutable('2026-08-04T06:50:00+05:00');
     $task=CaseTask::create(SupportCaseId::generate(),'native_owner_check','agent:1','command:1',$at,$at->modify('+1 day'));
