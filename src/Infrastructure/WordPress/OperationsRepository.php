@@ -1312,11 +1312,19 @@ final class OperationsRepository
 
     public function purgeCase(string $caseId, array $providerResults, DateTimeImmutable $at): void
     {
+        $caseRow = $this->row($this->wpdb->prepare(
+            "SELECT case_uuid,category FROM {$this->tables['cases']} WHERE case_uuid=%s LIMIT 1",
+            $caseId
+        ));
+        if ($caseRow === null) {
+            throw new RuntimeException('Retention purge target case was not found.');
+        }
         $activeHolds = (int) $this->value($this->wpdb->prepare(
-            "SELECT COUNT(*) FROM {$this->tables['holds']} WHERE case_uuid=%s AND state='active'", $caseId
+            "SELECT COUNT(*) FROM {$this->tables['holds']} WHERE state='active' AND (case_uuid=%s OR category=%s)",
+            $caseId, (string) $caseRow['category']
         ));
         if ($activeHolds > 0) {
-            throw new RuntimeException('Active legal or appeal hold blocks purge.');
+            throw new RuntimeException('Active case or category legal/appeal hold blocks purge.');
         }
         if (($providerResults['all_targets_reconciled'] ?? false) !== true) {
             throw new RuntimeException('Provider/cache/search deletion reconciliation is incomplete.');
@@ -1368,7 +1376,11 @@ final class OperationsRepository
                 continue;
             }
             $closed = new DateTimeImmutable((string) $row['closed_at'], new DateTimeZone('UTC'));
-            if ($closed->modify('+' . $days . ' days') <= $now) {
+            $held = (int) $this->value($this->wpdb->prepare(
+                "SELECT COUNT(*) FROM {$this->tables['holds']} WHERE state='active' AND (case_uuid=%s OR category=%s)",
+                (string) $row['case_uuid'], (string) $row['category']
+            )) > 0;
+            if (!$held && $closed->modify('+' . $days . ' days') <= $now) {
                 $due[] = $row;
                 if (count($due) >= $limit) {
                     break;
