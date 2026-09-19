@@ -842,6 +842,8 @@ final class OperationsRepository
         array $appellantEvidenceRefs,
         array $grounds,
         string $groundStatement,
+        bool $exceptionRequested,
+        ?string $exceptionReason,
         string $idempotencyKey,
         DateTimeImmutable $at
     ): array {
@@ -879,6 +881,8 @@ final class OperationsRepository
                 || !hash_equals((string) ($storedOriginal['decision_at'] ?? ''), $originalDecisionAt->format(DATE_ATOM))
                 || (int) ($storedOriginal['appeal_deadline_days'] ?? 0) !== $deadlineDays
                 || !hash_equals((string) ($storedAppellant['ground_statement'] ?? ''), $groundStatement)
+                || (bool) ($storedAppellant['exception_requested'] ?? false) !== $exceptionRequested
+                || (string) ($storedAppellant['exception_reason'] ?? '') !== (string) ($exceptionReason ?? '')
                 || ($storedAppellant['grounds'] ?? null) !== array_values($grounds)
                 || ($storedAppellant['evidence_refs'] ?? null) !== array_values($appellantEvidenceRefs)
                 || $storedEvidence !== array_values($originalEvidenceRefs)) {
@@ -903,6 +907,9 @@ final class OperationsRepository
                 'actor_ref' => $context->actorReference(),
                 'grounds' => array_values($grounds),
                 'ground_statement' => $groundStatement,
+                'exception_requested' => $exceptionRequested,
+                'exception_reason' => $exceptionReason,
+                'standing_verified' => true,
                 'evidence_refs' => array_values($appellantEvidenceRefs),
                 'at' => $at->format(DATE_ATOM),
             ]],
