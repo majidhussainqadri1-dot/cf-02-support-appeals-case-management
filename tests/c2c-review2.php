@@ -197,6 +197,21 @@ $test('canonical case-state slugs and reopen lifecycle stay aligned with runtime
     assert(str_contains($controller,'restartSla'));
 });
 
+$test('runtime SLA resumes only on matching external evidence and ignores fulfilled first-response deadline', static function () use ($root): void {
+    $ops=(string)file_get_contents($root.'/src/Infrastructure/WordPress/OperationsRepository.php');
+    $controller=(string)file_get_contents($root.'/src/Infrastructure/WordPress/ComprehensiveRestController.php');
+    $worker=(string)file_get_contents($root.'/src/Infrastructure/WordPress/RuntimeWorker.php');
+    $provider=(string)file_get_contents($root.'/src/Infrastructure/WordPress/ProviderWebhookController.php');
+    assert(str_contains($ops,'allowedPauseReasons'));
+    assert(str_contains($ops,'first_response_recorded'));
+    assert(str_contains($ops,'Scoped queue authority is required for SLA visibility.'));
+    assert(str_contains($controller,'recordSlaAgentResponse'));
+    assert(str_contains($controller,"['waiting_user']"));
+    assert(str_contains($provider,"['waiting_provider']"));
+    assert(str_contains($worker,"first_response_recorded"));
+    assert(str_contains($worker,"hash_equals((string) \$timer['status'], \$status)"));
+});
+
 $test('incident public text rejects secrets and projection hides internal notice reference', static function (): void {
     $secret = false;
     try {
