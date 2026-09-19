@@ -340,14 +340,28 @@
             const form = node('form', null, 'cf02-form');
             form.append(node('h4', text('submitAppeal', 'Submit appeal')));
             const decision = input('text', 'original_decision_ref', true);
-            const policy = input('text', 'policy_version', true);
+            const groundCode = select('ground_code', [
+                { value: 'policy_misapplied', label: text('groundPolicy', 'Policy misapplied') },
+                { value: 'new_evidence', label: text('groundEvidence', 'New evidence') },
+                { value: 'procedural_error', label: text('groundProcedure', 'Procedural error') },
+                { value: 'identity_mistake', label: text('groundIdentity', 'Identity mistake') },
+                { value: 'proportionality', label: text('groundProportionality', 'Proportionality') },
+                { value: 'accessibility_barrier', label: text('groundAccessibility', 'Accessibility barrier') },
+                { value: 'guardian_or_representative', label: text('groundRepresentative', 'Guardian/representative issue') }
+            ]);
             const grounds = textarea('grounds', true);
             const evidence = textarea('evidence', false);
+            const exceptionRequested = input('checkbox', 'exception_requested', false);
+            const exceptionReason = textarea('exception_reason', false);
+            const exceptionLabel = node('label', null, 'cf02-check');
+            exceptionLabel.append(exceptionRequested, document.createTextNode(text('deadlineException', 'Request a deadline exception')));
             form.append(
                 field(text('decisionReference', 'Decision reference'), decision),
-                field(text('policyVersion', 'Policy version'), policy),
-                field(text('grounds', 'Grounds'), grounds),
-                field(text('evidenceReferences', 'Evidence references'), evidence)
+                field(text('groundType', 'Appeal ground'), groundCode),
+                field(text('grounds', 'Grounds statement'), grounds),
+                field(text('evidenceReferences', 'Evidence references'), evidence),
+                exceptionLabel,
+                field(text('exceptionReason', 'Deadline exception reason'), exceptionReason)
             );
             const submit = button(text('submitAppeal', 'Submit appeal'), 'appeal');
             submit.type = 'submit';
@@ -362,9 +376,11 @@
                         body: JSON.stringify({
                             case_id: caseId,
                             original_decision_ref: decision.value,
-                            policy_version: policy.value,
+                            ground_codes: [groundCode.value],
                             grounds: grounds.value,
-                            evidence_refs: evidenceRefs
+                            evidence_refs: evidenceRefs,
+                            exception_requested: exceptionRequested.checked,
+                            exception_reason: exceptionReason.value
                         })
                     });
                     const id = response.appeal_uuid || (response.appeal && response.appeal.appeal_uuid) || text('accepted', 'accepted');
