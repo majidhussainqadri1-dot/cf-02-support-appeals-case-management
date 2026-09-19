@@ -15,6 +15,7 @@ use Sabri\CF02\Appeal\AppealEligibilityPolicy;
 use Sabri\CF02\Appeal\ReviewerAssignmentPolicy;
 use Sabri\CF02\Domain\SupportCaseId;
 
+$root = dirname(__DIR__);
 $failures = [];
 $test = static function (string $name, callable $callback) use (&$failures): void {
     try { $callback(); fwrite(STDOUT, "PASS {$name}\n"); }
@@ -44,6 +45,15 @@ $test('modifying outcome requires effective actions', static function (): void {
         AppealDecision::create('modify', 'v1', ['Finding'], ['evidence:1'], [], ['Further right'], 'reviewer:1', new DateTimeImmutable());
     } catch (InvalidArgumentException) { $thrown = true; }
     assert($thrown);
+});
+
+$test('appeal queue visibility is assigned-reviewer or File 00 queue-scope bound', static function () use ($root): void {
+    $repo=(string)file_get_contents($root.'/src/Infrastructure/WordPress/OperationsRepository.php');
+    $overlay=(string)file_get_contents($root.'/src/Infrastructure/WordPress/CompleteRestOverlay.php');
+    assert(str_contains($repo,'Scoped appeal-queue authority is required.'));
+    assert(str_contains($repo,'inQueueScope'));
+    assert(str_contains($overlay,'Scoped appeal-queue authority is required.'));
+    assert(str_contains($overlay,'c.queue_key IN'));
 });
 
 $test('implementation reference mismatch keeps appeal open', static function (): void {
