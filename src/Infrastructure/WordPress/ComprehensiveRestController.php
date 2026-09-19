@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use RuntimeException;
 use Sabri\CF02\Application\RuntimeWorkflowPolicy;
+use Sabri\CF02\Appeal\AppealEligibilityPolicy;
 use Sabri\CF02\Authorization\PrincipalContext;
 use Sabri\CF02\Authorization\WordPressPrincipalContextFactory;
 use Sabri\CF02\Configuration\CategoryRoutingPolicy;
@@ -450,15 +451,34 @@ final class ComprehensiveRestController
         return $this->run(function () use ($request): array {
             $context = $this->context();
             RequestGuard::requireCapability($context, $this->now(), 'appeal.own.submit','appeal.represented.submit');
-            $evidence = ApiInput::referenceList($request->get_param('evidence_refs'));
-            $grounds = ApiInput::safeTextarea($request->get_param('grounds'), 10000, true);
+            $caseId = SupportCaseId::fromString((string) $request->get_param('case_id'));
+            $decisionRef = sanitize_text_field((string) $request->get_param('original_decision_ref'));
+            $snapshot = $this->nativeAppealDecisionSnapshot($caseId, $decisionRef, $context);
+            $groundCodes = $request->get_param('ground_codes');
+            $groundCodes = AppealEligibilityPolicy::normalizeGrounds(is_array($groundCodes) ? array_values($groundCodes) : []);
+            $appellantEvidence = ApiInput::referenceList($request->get_param('evidence_refs'));
+            $groundStatement = ApiInput::safeTextarea($request->get_param('grounds'), 10000, true);
+            $exceptionRequested = (bool) $request->get_param('exception_requested');
+            $exceptionReason = ApiInput::safeTextarea($request->get_param('exception_reason'), 2000, false);
+            if ($exceptionRequested && $exceptionReason === '') {
+                throw new RuntimeException('A deadline-exception reason is required when an exception is requested.');
+            }
             return $this->operations->submitAppeal(
-                SupportCaseId::fromString((string) $request->get_param('case_id')),
+                $caseId,
                 $context,
-                sanitize_text_field((string) $request->get_param('original_decision_ref')),
-                sanitize_text_field((string) $request->get_param('policy_version')),
-                $evidence,
-                $grounds,
+                $decisionRef,
+                (string) $snapshot['reason'],
+                (string) $snapshot['policy_version'],
+                (string) $snapshot['owner'],
+                (string) $snapshot['decision_version'],
+                $snapshot['decision_at'],
+                (int) $snapshot['appeal_deadline_days'],
+                $snapshot['evidence_refs'],
+                $appellantEvidence,
+                $groundCodes,
+                $groundStatement,
+                $exceptionRequested,
+                $exceptionReason === '' ? null : $exceptionReason,
                 RequestGuard::idempotencyKey($request),
                 $this->now()
             );
@@ -790,15 +810,49 @@ final class ComprehensiveRestController
             RequestGuard::requireCapability($context, $this->now(), 'appeal.eligibility');
             $appeal = $this->operations->appealForActor((string) $request['id'], $context);
             RuntimeWorkflowPolicy::assertAppeal((string) $appeal['state'], 'eligibility_review');
-            $first = $this->operations->mutateAppeal((string) $request['id'], $context, RequestGuard::expectedVersion($request), ['state' => 'eligibility_review'], 'AppealSubmitted', 'appeal_eligibility', RequestGuard::idempotencyKey($request) . ':review', [], $this->now());
-            $eligible = (bool) $request->get_param('eligible');
-            $to = $eligible ? 'accepted' : 'rejected';
+            $dossier = $this->operations->appealDossierData((string) $request['id'], $context);
+            $original = is_array($dossier['submissions']['original_decision'] ?? null) ? $dossier['submissions']['original_decision'] : [];
+            $submission = is_array($dossier['submissions']['appellant_submissions'][0] ?? null) ? $dossier['submissions']['appellant_submissions'][0] : [];
+            try {
+                $decisionAt = new DateTimeImmutable((string) ($original['decision_at'] ?? ''));
+            } catch (\Throwable) {
+                throw new RuntimeException('Appeal dossier lacks a valid original decision timestamp.');
+            }
+            $grounds = AppealEligibilityPolicy::normalizeGrounds(is_array($submission['grounds'] ?? null) ? $submission['grounds'] : []);
+            $appellantEvidence = is_array($submission['evidence_refs'] ?? null) ? $submission['evidence_refs'] : [];
+            $decision = (new AppealEligibilityPolicy())->decide(
+                (string) $appeal['original_decision_ref'],
+                (string) $appeal['appellant_ref'],
+                ($submission['standing_verified'] ?? false) === true,
+                $decisionAt,
+                new DateTimeImmutable((string) $appeal['submitted_at'], new DateTimeZone('UTC')),
+                (int) ($original['appeal_deadline_days'] ?? 0),
+                $grounds,
+                $appellantEvidence !== [],
+                ($submission['exception_requested'] ?? false) === true,
+                isset($submission['exception_reason']) ? (string) $submission['exception_reason'] : null,
+                false
+            );
+            $first = $this->operations->mutateAppeal(
+                (string) $request['id'], $context, RequestGuard::expectedVersion($request),
+                ['state' => 'eligibility_review'], 'AppealSubmitted', 'appeal_eligibility',
+                RequestGuard::idempotencyKey($request) . ':review',
+                ['policy_evaluated' => true, 'deadline_days' => (int) ($original['appeal_deadline_days'] ?? 0)],
+                $this->now()
+            );
+            $to = $decision->eligible() ? 'accepted' : 'rejected';
             RuntimeWorkflowPolicy::assertAppeal((string) $first['state'], $to);
-            return $this->operations->mutateAppeal((string) $request['id'], $context, (int) $first['record_version'], ['state' => $to], $eligible ? 'AppealAccepted' : 'AppealRejected', 'appeal_eligibility', RequestGuard::idempotencyKey($request) . ':decision', [
-                'reason' => sanitize_textarea_field((string) $request->get_param('reason')),
-                'further_path' => sanitize_text_field((string) $request->get_param('further_path')),
-                'time_exception' => (bool) $request->get_param('time_exception'),
-            ], $this->now());
+            return $this->operations->mutateAppeal(
+                (string) $request['id'], $context, (int) $first['record_version'], ['state' => $to],
+                $decision->eligible() ? 'AppealAccepted' : 'AppealRejected',
+                'appeal_eligibility', RequestGuard::idempotencyKey($request) . ':decision',
+                [
+                    'reasons' => $decision->reasons(),
+                    'further_path' => $decision->furtherPath(),
+                    'time_exception' => $decision->exceptionApplied(),
+                ],
+                $this->now()
+            );
         });
     }
 
@@ -838,6 +892,7 @@ final class ComprehensiveRestController
             RequestGuard::requireCapability($context, $this->now(), 'appeal.native.request');
             RequestGuard::requireRecentAuthentication($context, $this->now());
             $appeal = $this->operations->appealForActor((string) $request['id'], $context);
+            $this->assertAssignedAppealReviewer($appeal, $context);
             RuntimeWorkflowPolicy::assertAppeal((string) $appeal['state'], 'native_decision_pending');
             $command = $this->operations->createNativeCommand(
                 SupportCaseId::fromString((string) $appeal['case_uuid']), $context,
@@ -858,6 +913,7 @@ final class ComprehensiveRestController
             $context = $this->context();
             RequestGuard::requireCapability($context, $this->now(), 'appeal.decision');
             $appeal = $this->operations->appealForActor((string) $request['id'], $context);
+            $this->assertAssignedAppealReviewer($appeal, $context);
             RuntimeWorkflowPolicy::assertAppeal((string) $appeal['state'], 'decided');
             $command = $this->operations->appealNativeCommandStatus((string) $request['id'], $context);
             if (!hash_equals((string) $command['state'], 'succeeded') || trim((string) ($command['outcome_ref'] ?? '')) === '') {
@@ -885,6 +941,7 @@ final class ComprehensiveRestController
             $context = $this->context();
             RequestGuard::requireCapability($context, $this->now(), 'appeal.implementation.confirm');
             $appeal = $this->operations->appealForActor((string) $request['id'], $context);
+            $this->assertAssignedAppealReviewer($appeal, $context);
             RuntimeWorkflowPolicy::assertAppeal((string) $appeal['state'], 'implemented');
             $ref = sanitize_text_field((string) $request->get_param('implementation_ref'));
             $command = $this->operations->appealNativeCommandStatus((string) $request['id'], $context);
@@ -894,7 +951,33 @@ final class ComprehensiveRestController
                 || !hash_equals((string) $command['outcome_ref'], $ref)) {
                 throw new RuntimeException('Native implementation evidence is incomplete, unsigned, unreconciled or drifted.');
             }
-            return $this->operations->mutateAppeal((string) $request['id'], $context, RequestGuard::expectedVersion($request), ['state' => 'implemented','implementation_ref' => $ref], 'AppealImplemented', 'appeal_implementation', RequestGuard::idempotencyKey($request), ['implementation_ref' => $ref], $this->now());
+            $implemented = $this->operations->mutateAppeal(
+                (string) $request['id'], $context, RequestGuard::expectedVersion($request),
+                ['state' => 'implemented','implementation_ref' => $ref],
+                'AppealImplemented', 'appeal_implementation', RequestGuard::idempotencyKey($request),
+                ['implementation_ref' => $ref], $this->now()
+            );
+            $decision = $this->operations->appealDecisionEvidence((string) $request['id']);
+            $notice = [
+                'appeal_id' => (string) $request['id'],
+                'outcome' => (string) ($implemented['outcome'] ?? ''),
+                'policy_version' => (string) ($decision['policy_version'] ?? ''),
+                'findings' => (string) ($decision['findings'] ?? ''),
+                'effective_actions' => (string) ($decision['effective_actions'] ?? ''),
+                'further_rights' => (string) ($decision['further_rights'] ?? ''),
+                'implementation_ref' => $ref,
+            ];
+            $this->operations->enqueueDelivery(
+                SupportCaseId::fromString((string) $implemented['case_uuid']),
+                (string) $implemented['appellant_ref'],
+                'in_app',
+                'support_appeal_decision',
+                $notice,
+                $this->cipher->encrypt(wp_json_encode($notice, JSON_THROW_ON_ERROR)),
+                'appeal-notice:' . (string) $request['id'],
+                $this->now()
+            );
+            return $implemented + ['decision_notice_queued' => true];
         });
     }
 
@@ -904,8 +987,15 @@ final class ComprehensiveRestController
             $context = $this->context();
             RequestGuard::requireCapability($context, $this->now(), 'appeal.decision');
             $appeal = $this->operations->appealForActor((string) $request['id'], $context);
+            $this->assertAssignedAppealReviewer($appeal, $context);
             RuntimeWorkflowPolicy::assertAppeal((string) $appeal['state'], 'under_review');
-            return $this->operations->mutateAppeal((string) $request['id'], $context, RequestGuard::expectedVersion($request), ['state' => 'under_review','outcome' => 'remand'], 'AppealDecided', 'appeal_remand', RequestGuard::idempotencyKey($request), ['reason' => sanitize_textarea_field((string) $request->get_param('reason'))], $this->now());
+            $reason = ApiInput::safeTextarea($request->get_param('reason'), 5000, true);
+            return $this->operations->mutateAppeal(
+                (string) $request['id'], $context, RequestGuard::expectedVersion($request),
+                ['state' => 'under_review','outcome' => 'remand','native_command_ref' => null,'implementation_ref' => null],
+                'AppealDecided', 'appeal_remand', RequestGuard::idempotencyKey($request),
+                ['outcome' => 'remand', 'reason' => $reason, 'native_cycle_reset' => true], $this->now()
+            );
         });
     }
 
@@ -919,7 +1009,14 @@ final class ComprehensiveRestController
             if (trim((string) $appeal['implementation_ref']) === '') {
                 throw new RuntimeException('Appeal cannot close before native implementation reconciliation.');
             }
-            return $this->operations->mutateAppeal((string) $request['id'], $context, RequestGuard::expectedVersion($request), ['state' => 'closed'], 'AppealClosed', 'appeal_closure', RequestGuard::idempotencyKey($request), ['notice_sent' => (bool) $request->get_param('notice_sent')], $this->now());
+            if (!$this->operations->appealDecisionNoticeSent((string) $request['id'])) {
+                throw new RuntimeException('Appeal cannot close before the accessible reasoned decision notice is delivered.');
+            }
+            return $this->operations->mutateAppeal(
+                (string) $request['id'], $context, RequestGuard::expectedVersion($request), ['state' => 'closed'],
+                'AppealClosed', 'appeal_closure', RequestGuard::idempotencyKey($request),
+                ['notice_delivery_verified' => true], $this->now()
+            );
         });
     }
 
@@ -1112,6 +1209,59 @@ final class ComprehensiveRestController
     private function now(): DateTimeImmutable { return new DateTimeImmutable('now', new DateTimeZone('UTC')); }
     private function caseId(\WP_REST_Request $request): SupportCaseId { return SupportCaseId::fromString((string) $request['id']); }
     private function limit(\WP_REST_Request $request): int { return max(1, min(100, (int) ($request->get_param('limit') ?: 50))); }
+
+    /** @return array{reason:string,policy_version:string,owner:string,decision_version:string,decision_at:DateTimeImmutable,appeal_deadline_days:int,evidence_refs:list<string>} */
+    private function nativeAppealDecisionSnapshot(SupportCaseId $caseId, string $decisionRef, PrincipalContext $context): array
+    {
+        if ($decisionRef === '') {
+            throw new RuntimeException('Original native decision reference is required.');
+        }
+        /** @var mixed $snapshot */
+        $snapshot = apply_filters('cf02_appeal_original_decision_snapshot', null, [
+            'case_id' => $caseId->value(),
+            'decision_ref' => $decisionRef,
+            'actor_ref' => $context->actorReference(),
+        ]);
+        if (!is_array($snapshot) || ($snapshot['verified'] ?? false) !== true
+            || !hash_equals($decisionRef, (string) ($snapshot['decision_ref'] ?? ''))
+            || !hash_equals($caseId->value(), (string) ($snapshot['case_id'] ?? ''))) {
+            throw new RuntimeException('Verified native original-decision evidence is unavailable.');
+        }
+        $owner = sanitize_key((string) ($snapshot['owner'] ?? ''));
+        SupportContractCatalog::assertNativeOwnerKey($owner);
+        $reason = ApiInput::safeTextarea($snapshot['reason'] ?? null, 10000, true);
+        $policyVersion = sanitize_text_field((string) ($snapshot['policy_version'] ?? ''));
+        $decisionVersion = sanitize_text_field((string) ($snapshot['decision_version'] ?? ''));
+        $deadlineDays = (int) ($snapshot['appeal_deadline_days'] ?? 0);
+        $evidenceRefs = ApiInput::referenceList($snapshot['evidence_refs'] ?? null, 50);
+        try {
+            $decisionAt = new DateTimeImmutable((string) ($snapshot['decision_at'] ?? ''));
+        } catch (\Throwable) {
+            throw new RuntimeException('Native original-decision timestamp is invalid.');
+        }
+        if ($policyVersion === '' || $decisionVersion === '' || $deadlineDays < 1 || $deadlineDays > 365
+            || $evidenceRefs === [] || $decisionAt > $this->now()) {
+            throw new RuntimeException('Native original-decision evidence is incomplete or invalid.');
+        }
+        return [
+            'reason' => $reason,
+            'policy_version' => $policyVersion,
+            'owner' => $owner,
+            'decision_version' => $decisionVersion,
+            'decision_at' => $decisionAt,
+            'appeal_deadline_days' => $deadlineDays,
+            'evidence_refs' => $evidenceRefs,
+        ];
+    }
+
+    /** @param array<string,mixed> $appeal */
+    private function assertAssignedAppealReviewer(array $appeal, PrincipalContext $context): void
+    {
+        $reviewer = trim((string) ($appeal['reviewer_ref'] ?? ''));
+        if ($reviewer === '' || !hash_equals($reviewer, $context->actorReference())) {
+            throw new RuntimeException('Only the independently assigned reviewer may perform this appeal-review action.');
+        }
+    }
 
     private function queueForCategory(string $category): string
     {
