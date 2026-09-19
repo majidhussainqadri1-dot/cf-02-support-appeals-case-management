@@ -59,6 +59,7 @@ final class ComprehensiveRestController
             ['/cases/(?P<id>CF02-[0-9A-F-]{36})/feedback', 'POST', 'submitFeedback'],
             ['/appeals', 'POST', 'submitAppeal'],
             ['/appeals/(?P<id>CF02-APL-[A-F0-9]{20})', 'GET', 'getAppeal'],
+            ['/appeals/(?P<id>CF02-APL-[A-F0-9]{20})/reopen', 'POST', 'reopenAppeal'],
             ['/staff/queue', 'GET', 'assignedQueue'],
             ['/staff/cases/search', 'GET', 'searchCases'],
             ['/staff/cases/(?P<id>CF02-[0-9A-F-]{36})', 'GET', 'workbench'],
@@ -488,6 +489,23 @@ final class ComprehensiveRestController
     public function getAppeal(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
         return $this->run(fn (): array => $this->operations->appealProjection((string) $request['id'], $this->context()));
+    }
+
+    public function reopenAppeal(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
+    {
+        return $this->run(function () use ($request): array {
+            $context = $this->context();
+            RequestGuard::requireCapability($context, $this->now(), 'appeal.own.reopen','appeal.represented.reopen');
+            $appeal = $this->operations->appealForActor((string) $request['id'], $context, false);
+            RuntimeWorkflowPolicy::assertAppeal((string) $appeal['state'], 'reopened');
+            $reason = ApiInput::safeTextarea($request->get_param('reason'), 5000, true);
+            return $this->operations->mutateAppeal(
+                (string) $request['id'], $context, RequestGuard::expectedVersion($request),
+                ['state' => 'reopened','reviewer_ref' => null,'native_command_ref' => null,'implementation_ref' => null],
+                'AppealReopened', 'appeal_reopen', RequestGuard::idempotencyKey($request),
+                ['reason' => $reason], $this->now()
+            );
+        });
     }
 
     public function assignedQueue(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
@@ -920,16 +938,21 @@ final class ComprehensiveRestController
                 throw new RuntimeException('Appeal decision requires a reconciled signed native-owner result.');
             }
             $outcome = sanitize_key((string) $request->get_param('outcome'));
+            $dossier = $this->operations->appealDossierData((string) $request['id'], $context);
+            $policyVersion = sanitize_text_field((string) $request->get_param('policy_version'));
+            $evidenceConsidered = ApiInput::referenceList($request->get_param('evidence_considered'));
             if (!in_array($outcome, ['uphold','modify','overturn','remand','withdraw'], true)
+                || $policyVersion === '' || !hash_equals((string) $dossier['policy_version'], $policyVersion)
                 || trim((string) $request->get_param('findings')) === ''
-                || in_array($outcome, ['modify','overturn'], true) && trim((string) $request->get_param('effective_actions')) === '') {
-                throw new RuntimeException('A complete reasoned appeal decision is required.');
+                || $evidenceConsidered === []
+                || in_array($outcome, ['modify','overturn','remand'], true) && trim((string) $request->get_param('effective_actions')) === '') {
+                throw new RuntimeException('A complete reasoned appeal decision matching the immutable dossier policy is required.');
             }
             return $this->operations->mutateAppeal((string) $request['id'], $context, RequestGuard::expectedVersion($request), ['state' => 'decided','outcome' => $outcome], 'AppealDecided', 'appeal_decision', RequestGuard::idempotencyKey($request), [
-                'outcome' => $outcome, 'policy_version' => sanitize_text_field((string) $request->get_param('policy_version')),
+                'outcome' => $outcome, 'policy_version' => $policyVersion,
                 'findings' => ApiInput::safeTextarea($request->get_param('findings'), 20000, true),
-                'evidence_considered' => ApiInput::referenceList($request->get_param('evidence_considered')),
-                'effective_actions' => ApiInput::safeTextarea($request->get_param('effective_actions'), 10000, in_array($outcome, ['modify','overturn'], true)),
+                'evidence_considered' => $evidenceConsidered,
+                'effective_actions' => ApiInput::safeTextarea($request->get_param('effective_actions'), 10000, in_array($outcome, ['modify','overturn','remand'], true)),
                 'further_rights' => ApiInput::safeTextarea($request->get_param('further_rights'), 10000, true),
             ], $this->now());
         });
@@ -945,12 +968,11 @@ final class ComprehensiveRestController
             RuntimeWorkflowPolicy::assertAppeal((string) $appeal['state'], 'implemented');
             $ref = sanitize_text_field((string) $request->get_param('implementation_ref'));
             $command = $this->operations->appealNativeCommandStatus((string) $request['id'], $context);
-            if ($ref === '' || !(bool) $request->get_param('native_version_matches')
-                || !hash_equals((string) $command['state'], 'succeeded')
-                || trim((string) ($command['outcome_ref'] ?? '')) === ''
-                || !hash_equals((string) $command['outcome_ref'], $ref)) {
-                throw new RuntimeException('Native implementation evidence is incomplete, unsigned, unreconciled or drifted.');
+            if ($ref === '' || !hash_equals((string) $command['state'], 'succeeded')
+                || trim((string) ($command['outcome_ref'] ?? '')) === '') {
+                throw new RuntimeException('Native decision evidence is incomplete or unreconciled.');
             }
+            $this->nativeAppealImplementationEvidence($appeal, $command, $ref);
             $implemented = $this->operations->mutateAppeal(
                 (string) $request['id'], $context, RequestGuard::expectedVersion($request),
                 ['state' => 'implemented','implementation_ref' => $ref],
@@ -1005,6 +1027,7 @@ final class ComprehensiveRestController
             $context = $this->context();
             RequestGuard::requireCapability($context, $this->now(), 'appeal.decision');
             $appeal = $this->operations->appealForActor((string) $request['id'], $context);
+            $this->assertAssignedAppealReviewer($appeal, $context);
             RuntimeWorkflowPolicy::assertAppeal((string) $appeal['state'], 'closed');
             if (trim((string) $appeal['implementation_ref']) === '') {
                 throw new RuntimeException('Appeal cannot close before native implementation reconciliation.');
@@ -1252,6 +1275,28 @@ final class ComprehensiveRestController
             'appeal_deadline_days' => $deadlineDays,
             'evidence_refs' => $evidenceRefs,
         ];
+    }
+
+    /** @param array<string,mixed> $appeal @param array<string,mixed> $command */
+    private function nativeAppealImplementationEvidence(array $appeal, array $command, string $implementationRef): void
+    {
+        /** @var mixed $evidence */
+        $evidence = apply_filters('cf02_appeal_implementation_evidence', null, [
+            'appeal_id' => (string) $appeal['appeal_uuid'],
+            'case_id' => (string) $appeal['case_uuid'],
+            'native_owner' => (string) $command['native_owner'],
+            'decision_outcome_ref' => (string) $command['outcome_ref'],
+            'implementation_ref' => $implementationRef,
+        ]);
+        if (!is_array($evidence) || ($evidence['verified'] ?? false) !== true
+            || !hash_equals((string) $appeal['appeal_uuid'], (string) ($evidence['appeal_id'] ?? ''))
+            || !hash_equals((string) $appeal['case_uuid'], (string) ($evidence['case_id'] ?? ''))
+            || !hash_equals((string) $command['native_owner'], sanitize_key((string) ($evidence['native_owner'] ?? '')))
+            || !hash_equals((string) $command['outcome_ref'], (string) ($evidence['decision_outcome_ref'] ?? ''))
+            || !hash_equals($implementationRef, (string) ($evidence['implementation_ref'] ?? ''))
+            || (int) ($evidence['native_version'] ?? 0) < (int) $command['expected_native_version']) {
+            throw new RuntimeException('Verified native implementation evidence is unavailable, stale or out of scope.');
+        }
     }
 
     /** @param array<string,mixed> $appeal */
