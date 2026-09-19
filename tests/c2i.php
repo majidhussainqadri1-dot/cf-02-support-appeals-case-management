@@ -14,7 +14,7 @@ use Sabri\CF02\Infrastructure\WordPress\SchemaCompletion;
 $failures=[];$test=static function(string $n,callable $c)use(&$failures):void{try{$c();fwrite(STDOUT,"PASS {$n}\n");}catch(Throwable $e){$failures[]=$n.': '.$e->getMessage();fwrite(STDERR,"FAIL {$n}: {$e->getMessage()}\n");}};
 
 $test('plan command query event and category catalog is complete and immutable',static function():void{
-    assert(count(SupportContractCatalog::commands())===33);
+    assert(count(SupportContractCatalog::commands())===34);
     assert(count(SupportContractCatalog::queries())===20);
     assert(count(SupportContractCatalog::events())>=24);
     assert(count(SupportContractCatalog::categories())===13);
