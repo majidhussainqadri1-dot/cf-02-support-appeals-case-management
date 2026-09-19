@@ -56,6 +56,8 @@ final class OperationsRepository
             'quality' => $prefix . 'cf02_quality_reviews',
             'feedback' => $prefix . 'cf02_feedback',
             'retention' => $prefix . 'cf02_retention_ledger',
+            'migration' => $prefix . 'cf02_migration',
+            'intake_replay' => $prefix . 'cf02_intake_replay',
         ];
     }
 
@@ -1329,17 +1331,86 @@ final class OperationsRepository
         if (($providerResults['all_targets_reconciled'] ?? false) !== true) {
             throw new RuntimeException('Provider/cache/search deletion reconciliation is incomplete.');
         }
-        $this->transaction(function () use ($caseId): void {
-            $appeals = $this->rows($this->wpdb->prepare("SELECT appeal_uuid FROM {$this->tables['appeals']} WHERE case_uuid=%s", $caseId));
+        $this->transaction(function () use ($caseId, $at): void {
+            $appeals = $this->rows($this->wpdb->prepare(
+                "SELECT appeal_uuid,dossier_hash,outcome,implementation_ref FROM {$this->tables['appeals']} WHERE case_uuid=%s",
+                $caseId
+            ));
+            $attachments = $this->rows($this->wpdb->prepare(
+                "SELECT attachment_uuid FROM {$this->tables['attachments']} WHERE case_uuid=%s",
+                $caseId
+            ));
+            $messages = $this->rows($this->wpdb->prepare(
+                "SELECT message_uuid FROM {$this->tables['messages']} WHERE case_uuid=%s",
+                $caseId
+            ));
+
+            $minimalDecisions = [];
             foreach ($appeals as $appeal) {
-                $this->wpdb->delete($this->tables['dossiers'], ['appeal_uuid' => (string) $appeal['appeal_uuid']]);
+                $appealId = (string) $appeal['appeal_uuid'];
+                $decisionHash = $this->value($this->wpdb->prepare(
+                    "SELECT payload_hash FROM {$this->tables['events']} WHERE aggregate_type='appeal' AND aggregate_ref=%s AND event_type='AppealDecided' ORDER BY id DESC LIMIT 1",
+                    $appealId
+                ));
+                $minimalDecisions[] = [
+                    'appeal_ref_hash' => hash('sha256', $appealId),
+                    'dossier_hash' => (string) $appeal['dossier_hash'],
+                    'outcome' => (string) ($appeal['outcome'] ?? ''),
+                    'implementation_ref_hash' => trim((string) ($appeal['implementation_ref'] ?? '')) === ''
+                        ? null : hash('sha256', (string) $appeal['implementation_ref']),
+                    'decision_payload_hash' => is_string($decisionHash) && $decisionHash !== '' ? $decisionHash : null,
+                ];
+                $this->wpdb->delete($this->tables['dossiers'], ['appeal_uuid' => $appealId]);
             }
-            foreach (['messages','attachments','assignments','sla','tasks','appeals','commands','outbox','case_links','incident_links','feedback'] as $table) {
+            $this->recordRetentionResult(
+                'case', $caseId, 'cf02-retention-v1', 'decision_tombstone',
+                ['appeal_count' => count($minimalDecisions), 'decisions' => $minimalDecisions],
+                $at
+            );
+
+            $messageIds = array_values(array_map(static fn(array $row): string => (string) $row['message_uuid'], $messages));
+            if ($messageIds !== []) {
+                $this->wpdb->query($this->wpdb->prepare(
+                    "DELETE FROM {$this->tables['note_revisions']} WHERE message_uuid IN (" . implode(',', array_fill(0, count($messageIds), '%s')) . ")",
+                    ...$messageIds
+                ));
+            }
+            $attachmentIds = array_values(array_map(static fn(array $row): string => (string) $row['attachment_uuid'], $attachments));
+            if ($attachmentIds !== []) {
+                $this->wpdb->query($this->wpdb->prepare(
+                    "DELETE FROM {$this->tables['tokens']} WHERE attachment_uuid IN (" . implode(',', array_fill(0, count($attachmentIds), '%s')) . ")",
+                    ...$attachmentIds
+                ));
+            }
+
+            foreach (['messages','attachments','assignments','sla','tasks','appeals','commands','outbox','case_links','incident_links','feedback','quality'] as $table) {
                 $this->wpdb->delete($this->tables[$table], ['case_uuid' => $caseId]);
             }
+            $this->wpdb->delete($this->tables['inbound'], ['case_uuid' => $caseId]);
+            $this->wpdb->delete($this->tables['migration'], ['target_case_uuid' => $caseId]);
+            $this->wpdb->delete($this->tables['intake_replay'], ['case_uuid' => $caseId]);
+            $this->wpdb->delete($this->tables['holds'], ['case_uuid' => $caseId]);
+
             $this->wpdb->query("DELETE p FROM {$this->tables['command_payloads']} p LEFT JOIN {$this->tables['commands']} c ON c.command_uuid=p.command_uuid WHERE c.command_uuid IS NULL");
             $this->wpdb->query("DELETE p FROM {$this->tables['outbox_payloads']} p LEFT JOIN {$this->tables['outbox']} o ON o.message_uuid=p.message_uuid WHERE o.message_uuid IS NULL");
             $this->wpdb->query($this->wpdb->prepare("DELETE FROM {$this->tables['merge_redirects']} WHERE source_case_uuid=%s OR target_case_uuid=%s", $caseId, $caseId));
+
+            $appealIds = array_values(array_map(static fn(array $row): string => (string) $row['appeal_uuid'], $appeals));
+            $eventClauses = ["(aggregate_type='case' AND aggregate_ref=%s)"];
+            $eventArgs = [$caseId];
+            if ($appealIds !== []) {
+                $eventClauses[] = "(aggregate_type='appeal' AND aggregate_ref IN (" . implode(',', array_fill(0, count($appealIds), '%s')) . "))";
+                array_push($eventArgs, ...$appealIds);
+            }
+            if ($attachmentIds !== []) {
+                $eventClauses[] = "(aggregate_type='attachment' AND aggregate_ref IN (" . implode(',', array_fill(0, count($attachmentIds), '%s')) . "))";
+                array_push($eventArgs, ...$attachmentIds);
+            }
+            $this->wpdb->query($this->wpdb->prepare(
+                "DELETE FROM {$this->tables['events']} WHERE " . implode(' OR ', $eventClauses),
+                ...$eventArgs
+            ));
+
             $deleted = $this->wpdb->delete($this->tables['cases'], ['case_uuid' => $caseId]);
             if ($deleted !== 1) {
                 throw new RuntimeException('Canonical case purge failed.');
