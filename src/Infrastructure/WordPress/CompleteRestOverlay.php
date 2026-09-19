@@ -90,12 +90,15 @@ final class CompleteRestOverlay
     private function appeals(\WP_REST_Request $request):array
     {
         global $wpdb;$context=$this->context();$this->require($context,'appeal.queue.read','appeal.review');
-        $scope='appeals:'.hash('sha256',$context->actorReference().'|'.($context->hasCapability('appeal.queue.read')?'queue':'reviewer'));
-        $position=$this->decode($request,$scope);$where='1=1';$args=[];
-        if(!$context->hasCapability('appeal.queue.read')){$where='reviewer_ref=%s';$args[]=$context->actorReference();}
-        if($position!==null){$rank=(int)($position['rank']??0);$updated=(string)($position['updated_at']??'');$id=(int)($position['id']??0);if($rank<1||$rank>10||$updated===''||$id<1)throw new RuntimeException('Invalid cursor');$where.=" AND (FIELD(state,'submitted','eligibility_review','accepted','under_review','native_decision_pending','decided','implemented','reopened','rejected','closed')>%d OR (FIELD(state,'submitted','eligibility_review','accepted','under_review','native_decision_pending','decided','implemented','reopened','rejected','closed')=%d AND (updated_at>%s OR (updated_at=%s AND id>%d))))";array_push($args,$rank,$rank,$updated,$updated,$id);}
-        $take=$this->limit($request)+1;$args[]=$take;$table=$wpdb->prefix.'cf02_appeals';
-        $rows=$wpdb->get_results($wpdb->prepare("SELECT id,appeal_uuid,case_uuid,original_decision_ref,reviewer_ref,state,outcome,native_command_ref,implementation_ref,record_version,submitted_at,updated_at FROM {$table} WHERE {$where} ORDER BY FIELD(state,'submitted','eligibility_review','accepted','under_review','native_decision_pending','decided','implemented','reopened','rejected','closed'),updated_at ASC,id ASC LIMIT %d",...$args),ARRAY_A);$rows=is_array($rows)?$rows:[];
+        $queueMode=$context->hasCapability('appeal.queue.read');
+        $queueScopes=$queueMode?$context->queueScopes():[];
+        if($queueMode&&$queueScopes===[])throw new RuntimeException('Scoped appeal-queue authority is required.');
+        $scope='appeals:'.hash('sha256',$context->actorReference().'|'.($queueMode?implode(',',$queueScopes):'reviewer'));
+        $position=$this->decode($request,$scope);$args=[];$clauses=[];
+        if($queueMode){$clauses[]='c.queue_key IN ('.implode(',',array_fill(0,count($queueScopes),'%s')).')';array_push($args,...$queueScopes);}else{$clauses[]='a.reviewer_ref=%s';$args[]=$context->actorReference();}
+        if($position!==null){$rank=(int)($position['rank']??0);$updated=(string)($position['updated_at']??'');$id=(int)($position['id']??0);if($rank<1||$rank>10||$updated===''||$id<1)throw new RuntimeException('Invalid cursor');$clauses[]="(FIELD(a.state,'submitted','eligibility_review','accepted','under_review','native_decision_pending','decided','implemented','reopened','rejected','closed')>%d OR (FIELD(a.state,'submitted','eligibility_review','accepted','under_review','native_decision_pending','decided','implemented','reopened','rejected','closed')=%d AND (a.updated_at>%s OR (a.updated_at=%s AND a.id>%d))))";array_push($args,$rank,$rank,$updated,$updated,$id);}
+        $take=$this->limit($request)+1;$args[]=$take;$table=$wpdb->prefix.'cf02_appeals';$cases=$wpdb->prefix.'cf02_cases';$where=implode(' AND ',$clauses);
+        $rows=$wpdb->get_results($wpdb->prepare("SELECT a.id,a.appeal_uuid,a.case_uuid,a.original_decision_ref,a.reviewer_ref,a.state,a.outcome,a.native_command_ref,a.implementation_ref,a.record_version,a.submitted_at,a.updated_at FROM {$table} a JOIN {$cases} c ON c.case_uuid=a.case_uuid WHERE {$where} ORDER BY FIELD(a.state,'submitted','eligibility_review','accepted','under_review','native_decision_pending','decided','implemented','reopened','rejected','closed'),a.updated_at ASC,a.id ASC LIMIT %d",...$args),ARRAY_A);$rows=is_array($rows)?$rows:[];
         $states=['submitted','eligibility_review','accepted','under_review','native_decision_pending','decided','implemented','reopened','rejected','closed'];
         return $this->finish($rows,$take,$scope,static fn(array $r):array=>['rank'=>array_search((string)$r['state'],$states,true)+1,'updated_at'=>(string)$r['updated_at'],'id'=>(int)$r['id']],true);
     }
