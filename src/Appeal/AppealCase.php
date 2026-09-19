@@ -18,6 +18,7 @@ final class AppealCase
     private ?string $reviewerReference = null;
     private ?AppealDecision $decision = null;
     private ?string $nativeCommandId = null;
+    private ?string $nativeOutcomeReference = null;
     private ?string $implementationReference = null;
     private ?DateTimeImmutable $lastMutationAt = null;
     /** @var list<array<string, string|int>> */
@@ -98,9 +99,10 @@ final class AppealCase
             throw new DomainException('Appeal decision reviewer or native outcome reference does not match.');
         }
         $this->decision = $decision;
-        $this->implementationReference = trim($nativeOutcomeReference);
+        $this->nativeOutcomeReference = trim($nativeOutcomeReference);
+        $this->implementationReference = null;
         $this->state = AppealState::Decided;
-        $this->record('decided', $at, ['outcome' => $decision->outcome(), 'native_outcome' => $this->implementationReference]);
+        $this->record('decided', $at, ['outcome' => $decision->outcome(), 'native_outcome' => $this->nativeOutcomeReference]);
     }
 
     public function confirmImplemented(string $implementationReference, DateTimeImmutable $at, int $expectedVersion): void
@@ -110,16 +112,17 @@ final class AppealCase
         if ($this->state !== AppealState::Decided || $this->decision === null || trim($implementationReference) === '') {
             throw new DomainException('Reasoned decision and implementation reference are required.');
         }
-        if ($this->implementationReference !== null && !hash_equals($this->implementationReference, trim($implementationReference))) {
-            throw new DomainException('Implementation reference does not match the native decision outcome.');
+        if ($this->nativeOutcomeReference !== null && !hash_equals($this->nativeOutcomeReference, trim($implementationReference))) {
+            throw new DomainException('Implementation reference does not match the reconciled native decision outcome.');
         }
+        $this->implementationReference = trim($implementationReference);
         $this->state = AppealState::Implemented;
-        $this->record('implemented', $at, ['implementation_reference' => trim($implementationReference)]);
+        $this->record('implemented', $at, ['implementation_reference' => $this->implementationReference]);
     }
 
     public function close(DateTimeImmutable $at, int $expectedVersion): void
     {
-        $this->transition(AppealState::Closed, [AppealState::Rejected, AppealState::Implemented], 'closed', $at, $expectedVersion);
+        $this->transition(AppealState::Closed, [AppealState::Implemented], 'closed', $at, $expectedVersion);
     }
 
     public function reopen(string $reason, DateTimeImmutable $at, int $expectedVersion): void
@@ -140,6 +143,7 @@ final class AppealCase
     public function dossier(): AppealDossier { return $this->dossier; }
     public function decision(): ?AppealDecision { return $this->decision; }
     public function reviewerReference(): ?string { return $this->reviewerReference; }
+    public function nativeOutcomeReference(): ?string { return $this->nativeOutcomeReference; }
     public function implementationReference(): ?string { return $this->implementationReference; }
     /** @return list<array<string, string|int>> */ public function history(): array { return $this->history; }
 
