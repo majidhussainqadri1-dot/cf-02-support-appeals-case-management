@@ -193,6 +193,14 @@ final class ProviderWebhookController
                 $this->now(),
                 $context
             );
+            if (in_array($state, ['succeeded','failed'], true)) {
+                $this->operations->resumeSla(
+                    SupportCaseId::fromString((string) $command['case_uuid']),
+                    'native-result:' . $commandId,
+                    $this->now(),
+                    ['waiting_provider']
+                );
+            }
             return ['command_id' => $commandId, 'state' => $state, 'reconciled' => $state === 'succeeded', 'replayed' => false];
         });
     }
