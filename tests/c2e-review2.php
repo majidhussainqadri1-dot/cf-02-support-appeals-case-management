@@ -56,6 +56,39 @@ $test('appeal queue visibility is assigned-reviewer or File 00 queue-scope bound
     assert(str_contains($overlay,'c.queue_key IN'));
 });
 
+$test('runtime appeal flow is native-evidence-bound and not caller-approved', static function () use ($root): void {
+    $controller=(string)file_get_contents($root.'/src/Infrastructure/WordPress/ComprehensiveRestController.php');
+    $repo=(string)file_get_contents($root.'/src/Infrastructure/WordPress/OperationsRepository.php');
+    $catalog=(string)file_get_contents($root.'/src/Contracts/SupportContractCatalog.php');
+    assert(str_contains($controller,'cf02_appeal_original_decision_snapshot'));
+    assert(str_contains($controller,'AppealEligibilityPolicy())->decide'));
+    assert(!str_contains($controller,"\$eligible = (bool) \$request->get_param('eligible')"));
+    assert(str_contains($controller,'cf02_appeal_implementation_evidence'));
+    assert(str_contains($controller,'accessible reasoned decision notice is delivered'));
+    assert(str_contains($controller,'Only the independently assigned reviewer may perform this appeal-review action.'));
+    assert(str_contains($repo,"'standing_verified' => true"));
+    assert(str_contains($repo,'appealDecisionNoticeSent'));
+    assert(str_contains($catalog,"'ReopenAppeal'"));
+    assert(str_contains($catalog,"'AppealReopened'"));
+});
+
+$test('domain appeal separates decision outcome from implementation proof and closes only after implementation', static function (): void {
+    $at=new DateTimeImmutable('2026-08-04T04:00:00+05:00');
+    $appeal=AppealCase::submit(SupportCaseId::generate(),'user:9',AppealDossier::create('DEC-9','Reason.','v1',['evidence:9'],$at),$at);
+    $appeal->beginEligibility($at->modify('+1 minute'),1);
+    $appeal->recordEligibility((new AppealEligibilityPolicy())->decide('DEC-9','user:9',true,$at->modify('-1 day'),$at,30,['policy_misapplied'],false,false,null),$at->modify('+2 minutes'),2);
+    $appeal->assignReviewer('reviewer:9',$at->modify('+3 minutes'),3);
+    $appeal->requestNativeDecision('CF02-CMD-CCCCCCCCCCCCCCCCCCCC',$at->modify('+4 minutes'),4);
+    $decision=AppealDecision::create('uphold','v1',['Finding'],['evidence:9'],[],['Further right'],'reviewer:9',$at->modify('+5 minutes'));
+    $appeal->decide($decision,'native:9',$at->modify('+5 minutes'),5);
+    assert($appeal->nativeOutcomeReference()==='native:9');
+    assert($appeal->implementationReference()===null);
+    $blocked=false;try{$appeal->close($at->modify('+6 minutes'),6);}catch(DomainException){$blocked=true;}assert($blocked);
+    $appeal->confirmImplemented('native:9',$at->modify('+7 minutes'),6);
+    assert($appeal->implementationReference()==='native:9');
+    $appeal->close($at->modify('+8 minutes'),7);
+});
+
 $test('implementation reference mismatch keeps appeal open', static function (): void {
     $at = new DateTimeImmutable('2026-08-04T04:00:00+05:00');
     $appeal = AppealCase::submit(SupportCaseId::generate(), 'user:5', AppealDossier::create('DEC-5', 'Reason.', 'v1', ['evidence:5'], $at), $at);
