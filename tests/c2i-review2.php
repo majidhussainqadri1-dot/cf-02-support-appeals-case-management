@@ -29,7 +29,8 @@ $test('native authority remains behind versioned command filters and never direc
     $provider=$read('src/Infrastructure/WordPress/ProviderWebhookController.php');
     assert(str_contains($worker,'cf02_dispatch_native_owner_command'));
     assert(str_contains($repo,'expected_native_version'));
-    assert(str_contains($provider,'SupportNativeCommandResultRecorded'));
+    assert(str_contains($provider,'recordCommandResultWithEvidence'));
+    assert(str_contains($repo,'SupportNativeCommandResultRecorded'));
     foreach(['wp_users','wp_posts','wp_postmeta','smc_','file17_','file21_'] as $forbidden){assert(!str_contains($repo,$forbidden),$forbidden);}
 });
 
@@ -63,8 +64,8 @@ $test('native callback and worker preserve terminal result immutability definiti
     foreach(['A terminal native command result cannot be changed','nativeResultEvidence','redaction-result'] as $needle){assert(str_contains($provider,$needle),$needle);}
     assert(str_contains($repo,'SupportAttachmentRedacted'));
     assert(str_contains($worker, '$state === \'failed\''));
-    assert(str_contains($worker, "updateCommandResult((string) \$command['command_uuid'], 'failed'"));
-    assert(str_contains($worker,'SupportNativeCommandResultRecorded'));
+    assert(str_contains($worker,'recordCommandResultWithEvidence'));
+    assert(str_contains($repo,'SupportNativeCommandResultRecorded'));
 });
 
 $test('native command terminal state and reconciliation event commit atomically',static function()use($read):void{
