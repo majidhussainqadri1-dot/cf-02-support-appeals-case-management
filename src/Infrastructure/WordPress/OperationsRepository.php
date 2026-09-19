@@ -1084,6 +1084,59 @@ final class OperationsRepository
     }
 
     /** @return array<string,mixed> */
+    public function applyCategoryHold(string $category, PrincipalContext $context, string $reason, string $authorityRef, DateTimeImmutable $reviewDue, string $idempotencyKey, DateTimeImmutable $at): array
+    {
+        SupportContractCatalog::assertCategory($category);
+        if ($reviewDue <= $at || $reviewDue > $at->modify('+1 year') || trim($reason) === '' || trim($authorityRef) === '') {
+            throw new RuntimeException('Category hold evidence or review date is invalid.');
+        }
+        $id = 'CF02-HOLD-' . strtoupper(substr(hash('sha256', $category . "\0" . $idempotencyKey), 0, 20));
+        $existing = $this->row($this->wpdb->prepare("SELECT * FROM {$this->tables['holds']} WHERE hold_uuid=%s LIMIT 1", $id));
+        if ($existing !== null) {
+            if (!hash_equals((string) ($existing['category'] ?? ''), $category)
+                || !hash_equals((string) $existing['reason_code'], $reason)
+                || !hash_equals((string) $existing['authority_ref'], $authorityRef)) {
+                throw new RuntimeException('Category hold idempotency collision.');
+            }
+            return $existing;
+        }
+        $this->transaction(function () use ($id, $category, $context, $reason, $authorityRef, $reviewDue, $idempotencyKey, $at): void {
+            $ok = $this->wpdb->insert($this->tables['holds'], [
+                'hold_uuid' => $id, 'case_uuid' => null, 'category' => $category, 'reason_code' => $reason,
+                'authority_ref' => $authorityRef, 'state' => 'active', 'review_due_at' => $this->mysqlTime($reviewDue),
+                'placed_at' => $this->mysqlTime($at), 'released_at' => null, 'record_version' => 1,
+            ]);
+            if ($ok !== 1) throw new RuntimeException('Category hold persistence failed.');
+            $this->appendEvent('retention', $category, 'SupportCategoryHoldApplied', $context, 'category_hold', $idempotencyKey, [
+                'hold_ref' => $id, 'category' => $category, 'reason_code' => $reason,
+                'authority_ref' => $authorityRef, 'review_due_at' => $reviewDue->format(DATE_ATOM),
+            ], 1, $at);
+        });
+        return $this->row($this->wpdb->prepare("SELECT * FROM {$this->tables['holds']} WHERE hold_uuid=%s", $id)) ?? [];
+    }
+
+    /** @return array<string,mixed> */
+    public function releaseCategoryHold(string $holdId, PrincipalContext $context, int $expectedVersion, string $reason, string $idempotencyKey, DateTimeImmutable $at): array
+    {
+        if (trim($reason) === '') throw new RuntimeException('Category hold release reason is required.');
+        $row = $this->row($this->wpdb->prepare("SELECT * FROM {$this->tables['holds']} WHERE hold_uuid=%s LIMIT 1", $holdId));
+        if ($row === null || $row['case_uuid'] !== null || !is_string($row['category']) || $row['category'] === '') {
+            throw new RuntimeException('Category hold was not found.');
+        }
+        $category = (string) $row['category'];
+        $payload = ['hold_ref' => $holdId, 'category' => $category, 'reason' => $reason];
+        if ($this->eventReplay($category, 'SupportCategoryHoldReleased', $idempotencyKey, $payload)) return $row;
+        $this->transaction(function () use ($holdId, $category, $context, $expectedVersion, $payload, $idempotencyKey, $at): void {
+            $updated = $this->wpdb->update($this->tables['holds'], [
+                'state' => 'released', 'released_at' => $this->mysqlTime($at), 'record_version' => $expectedVersion + 1,
+            ], ['hold_uuid' => $holdId, 'category' => $category, 'state' => 'active', 'record_version' => $expectedVersion]);
+            if ($updated !== 1) throw new RuntimeException('Category hold release is invalid or stale.');
+            $this->appendEvent('retention', $category, 'SupportCategoryHoldReleased', $context, 'category_hold_release', $idempotencyKey, $payload, $expectedVersion + 1, $at);
+        });
+        return $this->row($this->wpdb->prepare("SELECT * FROM {$this->tables['holds']} WHERE hold_uuid=%s", $holdId)) ?? [];
+    }
+
+    /** @return array<string,mixed> */
     public function releaseHold(SupportCaseId $caseId, string $holdId, PrincipalContext $context, int $expectedVersion, string $reason, string $idempotencyKey, DateTimeImmutable $at): array
     {
         $this->caseForActor($caseId, $context);
