@@ -346,8 +346,12 @@ final class ComprehensiveRestController
                 $this->cipher->encrypt($body), hash('sha256', $body),
                 $key, $purpose ?: 'case_reply', $this->now()
             );
-            $this->operations->resumeSla($caseId, 'message:' . $id, $this->now());
             if ($visibility === 'requester') {
+                if ($context->hasAnyCapability('case.assigned.reply','case.specialist.reply')) {
+                    $this->operations->recordSlaAgentResponse($caseId, 'message:' . $id, $this->now());
+                } else {
+                    $this->operations->resumeSla($caseId, 'message:' . $id, $this->now(), ['waiting_user']);
+                }
                 $case = $this->operations->caseForActor($caseId, $context);
                 $recipient = hash_equals((string) $case['requester_ref'], $context->actorReference())
                     ? (string) ($case['owner_ref'] ?? '') : (string) $case['requester_ref'];
