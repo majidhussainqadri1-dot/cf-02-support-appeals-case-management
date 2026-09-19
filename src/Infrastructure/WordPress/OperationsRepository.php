@@ -837,6 +837,7 @@ final class OperationsRepository
         string $originalDecisionOwner,
         string $originalDecisionVersion,
         DateTimeImmutable $originalDecisionAt,
+        int $deadlineDays,
         array $originalEvidenceRefs,
         array $appellantEvidenceRefs,
         array $grounds,
@@ -850,7 +851,7 @@ final class OperationsRepository
         }
         if (trim($originalDecisionRef) === '' || trim($originalDecisionReason) === '' || trim($policyVersion) === ''
             || trim($originalDecisionOwner) === '' || trim($originalDecisionVersion) === '' || trim($groundStatement) === ''
-            || $originalEvidenceRefs === [] || $grounds === []) {
+            || $deadlineDays < 1 || $deadlineDays > 365 || $originalEvidenceRefs === [] || $grounds === []) {
             throw new RuntimeException('Appeal submission or immutable native decision snapshot is incomplete.');
         }
         if ($originalDecisionAt > $at) {
@@ -876,6 +877,7 @@ final class OperationsRepository
                 || !hash_equals((string) ($storedOriginal['owner'] ?? ''), $originalDecisionOwner)
                 || !hash_equals((string) ($storedOriginal['decision_version'] ?? ''), $originalDecisionVersion)
                 || !hash_equals((string) ($storedOriginal['decision_at'] ?? ''), $originalDecisionAt->format(DATE_ATOM))
+                || (int) ($storedOriginal['appeal_deadline_days'] ?? 0) !== $deadlineDays
                 || !hash_equals((string) ($storedAppellant['ground_statement'] ?? ''), $groundStatement)
                 || ($storedAppellant['grounds'] ?? null) !== array_values($grounds)
                 || ($storedAppellant['evidence_refs'] ?? null) !== array_values($appellantEvidenceRefs)
@@ -890,6 +892,7 @@ final class OperationsRepository
             'owner' => $originalDecisionOwner,
             'decision_version' => $originalDecisionVersion,
             'decision_at' => $originalDecisionAt->format(DATE_ATOM),
+            'appeal_deadline_days' => $deadlineDays,
             'policy_version' => $policyVersion,
             'evidence_refs' => array_values($originalEvidenceRefs),
         ];
