@@ -7,6 +7,7 @@ namespace Sabri\CF02\Infrastructure\WordPress;
 use DateTimeImmutable;
 use DateTimeZone;
 use RuntimeException;
+use Sabri\CF02\Domain\SupportCaseId;
 use Sabri\CF02\Security\DataCipher;
 use Throwable;
 
@@ -129,6 +130,14 @@ final class RuntimeWorker
                     'native_result_reconciliation',
                     $this->now()
                 );
+                if (in_array($state, ['succeeded','failed'], true)) {
+                    $this->repository->resumeSla(
+                        SupportCaseId::fromString((string) $command['case_uuid']),
+                        'native-result:' . (string) $command['command_uuid'],
+                        $this->now(),
+                        ['waiting_provider']
+                    );
+                }
                 if ($state === 'succeeded') { ++$succeeded; }
                 elseif ($state === 'failed') { ++$failed; }
                 else { ++$uncertain; }
@@ -151,12 +160,16 @@ final class RuntimeWorker
             ++$processed;
             $now = $this->now();
             $deadlines = [
-                new DateTimeImmutable((string) $timer['first_response_deadline'], new DateTimeZone('UTC')),
-                new DateTimeImmutable((string) $timer['update_deadline'], new DateTimeZone('UTC')),
                 new DateTimeImmutable((string) $timer['resolution_deadline'], new DateTimeZone('UTC')),
             ];
+            $deadlines[] = (int) ($timer['first_response_recorded'] ?? 0) === 1
+                ? new DateTimeImmutable((string) $timer['update_deadline'], new DateTimeZone('UTC'))
+                : new DateTimeImmutable((string) $timer['first_response_deadline'], new DateTimeZone('UTC'));
             $earliest = min(array_map(static fn (DateTimeImmutable $date): int => $date->getTimestamp(), $deadlines));
             $status = $earliest <= $now->getTimestamp() ? 'breached' : 'at_risk';
+            if (hash_equals((string) $timer['status'], $status)) {
+                continue;
+            }
             $version = $this->repository->markSlaStatus((string) $timer['case_uuid'], $status, $now);
             $this->repository->appendWorkerEvent(
                 'case', (string) $timer['case_uuid'], $status === 'breached' ? 'SupportSlaBreached' : 'SupportSlaAtRisk',
