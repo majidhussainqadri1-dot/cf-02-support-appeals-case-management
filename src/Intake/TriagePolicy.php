@@ -18,14 +18,58 @@ final class TriagePolicy
 
     public function decideAt(IntakeRequest $request, DateTimeImmutable $now): TriageDecision
     {
-        $fields = $request->fields();
+        return $this->decideSignals(
+            $request->categoryKey(),
+            $request->impact(),
+            $request->urgency(),
+            $request->senderVerified(),
+            $request->accessibilityNeeds(),
+            $request->fields(),
+            $now
+        );
+    }
+
+    /**
+     * Canonical runtime triage entrypoint for normalized support intake.
+     *
+     * @param list<string> $accessibilityNeeds
+     * @param array<string,mixed> $fields
+     */
+    public function decideSignals(
+        string $categoryKey,
+        string $impact,
+        string $urgency,
+        bool $senderVerified,
+        array $accessibilityNeeds,
+        array $fields,
+        DateTimeImmutable $now
+    ): TriageDecision {
         ServiceEqualityPolicy::assertNoPrivilegeSignals($fields);
-        $category = SupportTaxonomy::defaults()[$request->categoryKey()];
+        $taxonomy = SupportTaxonomy::defaults();
+        if (!isset($taxonomy[$categoryKey])) {
+            throw new InvalidArgumentException('Unknown support category.');
+        }
+        $category = $taxonomy[$categoryKey];
+
+        $impact = match ($impact) {
+            '', 'single_action', 'low' => 'low',
+            'medium' => 'medium',
+            'account_blocked', 'many_users', 'high' => 'high',
+            'critical' => 'critical',
+            default => throw new InvalidArgumentException('Invalid impact value.'),
+        };
+        $urgency = match ($urgency) {
+            '', 'normal' => 'normal',
+            'time_sensitive', 'urgent' => 'urgent',
+            'immediate' => 'immediate',
+            default => throw new InvalidArgumentException('Invalid urgency value.'),
+        };
 
         $harm = strtolower(trim((string) ($fields['harm_level'] ?? '')));
         if ($harm !== '' && !in_array($harm, ['none', 'low', 'medium', 'high', 'critical'], true)) {
             throw new InvalidArgumentException('Harm level is invalid.');
         }
+
         $deadline = null;
         $deadlineRaw = trim((string) ($fields['deadline_at'] ?? ''));
         if ($deadlineRaw !== '') {
@@ -35,6 +79,7 @@ final class TriagePolicy
                 throw new InvalidArgumentException('Case deadline is invalid.');
             }
         }
+
         $competence = trim((string) ($fields['domain_competence'] ?? ''));
         if ($competence !== '' && preg_match('/^[a-z][a-z0-9_.-]{1,63}$/', $competence) !== 1) {
             throw new InvalidArgumentException('Domain competence token is invalid.');
@@ -42,43 +87,43 @@ final class TriagePolicy
 
         $priority = match (true) {
             $harm === 'critical',
-            $request->urgency() === 'immediate',
-            $request->impact() === 'critical',
+            $urgency === 'immediate',
+            $impact === 'critical',
             $deadline instanceof DateTimeImmutable && $deadline <= $now->modify('+4 hours') => 'P1',
             $harm === 'high',
-            $request->urgency() === 'urgent',
-            $request->impact() === 'high',
+            $urgency === 'urgent',
+            $impact === 'high',
             $deadline instanceof DateTimeImmutable && $deadline <= $now->modify('+24 hours') => 'P2',
-            $request->impact() === 'medium' || $harm === 'medium' => 'P3',
+            $impact === 'medium' || $harm === 'medium' => 'P3',
             default => 'P4',
         };
 
         $severity = match (true) {
-            $harm === 'critical' || $request->impact() === 'critical' => 'S1',
-            $harm === 'high' || $request->impact() === 'high' => 'S2',
-            $harm === 'medium' || $request->impact() === 'medium' => 'S3',
+            $harm === 'critical' || $impact === 'critical' => 'S1',
+            $harm === 'high' || $impact === 'high' => 'S2',
+            $harm === 'medium' || $impact === 'medium' => 'S3',
             default => 'S4',
         };
 
         $specialistRequired = $category->specialistOnly()
             || $competence !== ''
-            || in_array($request->categoryKey(), ['account_access', 'verification', 'clinic_appointment', 'messages_calls'], true);
+            || in_array($categoryKey, ['account_access', 'verification', 'clinic_appointment', 'messages_calls'], true);
 
         $indicator = strtolower(trim((string) ($fields['safety_indicator'] ?? $fields['immediacy'] ?? '')));
         $explicitAcuteIndicator = in_array($indicator, ['immediate', 'emergency', 'acute_danger', 'danger_now'], true);
         $emergencyDiversionRequired = $explicitAcuteIndicator
             || $harm === 'critical'
-            || ($request->urgency() === 'immediate'
-                && in_array($request->categoryKey(), ['clinic_appointment', 'messages_calls', 'safety_abuse'], true));
+            || ($urgency === 'immediate'
+                && in_array($categoryKey, ['clinic_appointment', 'messages_calls', 'safety_abuse'], true));
 
-        $humanReviewRequired = !$request->senderVerified()
+        $humanReviewRequired = !$senderVerified
             || $priority === 'P1'
             || $specialistRequired
             || $emergencyDiversionRequired
-            || $request->accessibilityNeeds() !== [];
+            || $accessibilityNeeds !== [];
 
         $reasons = [sprintf('Category routes to queue %s.', $category->queueKey())];
-        if (!$request->senderVerified()) {
+        if (!$senderVerified) {
             $reasons[] = 'Sender trust is unverified; no identity-sensitive action may be taken from the intake alone.';
         }
         if ($harm !== '') {
@@ -110,4 +155,5 @@ final class TriagePolicy
             $reasons
         );
     }
+
 }
