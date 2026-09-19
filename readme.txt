@@ -2,7 +2,7 @@
 Contributors: majidhussainqadri1-dot
 Requires at least: 6.0
 Requires PHP: 8.1
-Stable tag: 1.0.0-rc.6
+Stable tag: 1.0.0-rc.7
 License: Proprietary
 Text Domain: cf-02-support-appeals-case-management
 
@@ -38,9 +38,15 @@ No. Default uninstall is non-destructive and preserves CF-02 records and configu
 
 = Is this package production accepted? =
 
-No. Version 1.0.0-rc.6 is a latest-two-plans coded/package candidate. Hostinger staging, real providers/companions, browser/accessibility, independent security, load, migration, restore, rollback, observation and Founder exact-artifact acceptance remain separate mandatory gates.
+No. Version 1.0.0-rc.7 is a ten-round reviewed coded/package candidate. Hostinger staging, real providers/companions, browser/accessibility, independent security, load, migration, restore, rollback, observation and Founder exact-artifact acceptance remain separate mandatory gates.
 
 == Changelog ==
+
+= 1.0.0-rc.7 =
+* Completed ten sequential review/fix rounds against the CF-02 governing plan and exact GitHub repository state.
+* Corrected release identity tests, public provider error disclosure, taxonomy routing, case-state/reopen/SLA invariants, appeal reconciliation, queue-scoped staff access, sensitive evidence authorization, native-command atomicity, Future24 integrity, schema verification and lifecycle cleanup.
+* Added column-level schema health evidence, explicit File 00 queue scopes, checksum-gated Future24 evidence access, and permanent regressions for the new controls.
+* This remains a repository/package candidate; Hostinger staging, live deployment and operational acceptance are separate evidence gates.
 
 = 1.0.0-rc.6 =
 * Reconciled the newly rewritten central master plan and CF-02 plan against the exact repository candidate.
@@ -71,6 +77,9 @@ No. Version 1.0.0-rc.6 is a latest-two-plans coded/package candidate. Hostinger 
 * Completed the C2-A through C2-H repository coding candidate and two review/fix rounds per phase.
 
 == Upgrade Notice ==
+
+= 1.0.0-rc.7 =
+Ten-round reviewed coded/package candidate. Exact-head automated QA and all external staging/live gates remain separate evidence.
 
 = 1.0.0-rc.6 =
 Latest-two-plans coded/package candidate. Staging/live/operational acceptance is not implied.
