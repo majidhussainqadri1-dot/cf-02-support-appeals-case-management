@@ -58,7 +58,8 @@ $test('staff case reads are queue-scoped and sensitive attachment grants require
     assert(str_contains($principal,'queueScopes'));
     assert(str_contains($factory,"'queue_scopes'"));
     assert(str_contains($ops,'inQueueScope'));
-    assert(str_contains($ops,'Sensitive attachment access requires specialist authority and recent authentication.'));
+    assert(str_contains($ops,"hasAnyCapability('case.sensitive.read', 'evidence.restricted.read')"));
+    assert(str_contains($ops,'recentlyAuthenticated'));
     assert(str_contains($overlay,'Scoped queue authority is required.'));
 });
 
@@ -66,8 +67,8 @@ $test('sensitive evidence and retention cleanup are purpose-bound end to end',st
     $ops=(string)file_get_contents($root.'/src/Infrastructure/WordPress/OperationsRepository.php');
     $controller=(string)file_get_contents($root.'/src/Infrastructure/WordPress/ComprehensiveRestController.php');
     $catalog=(string)file_get_contents($root.'/src/Contracts/SupportContractCatalog.php');
-    assert(str_contains($ops,"['C1','C2','C3','C4']"));
-    assert(!str_contains($ops,"['C1','C2','C3','C4','C5']"));
+    assert(str_contains($ops,"public function linkObject("));
+    assert(str_contains($ops,"!in_array(\$privacyClass, ['C1','C2','C3','C4'], true)"));
     assert(str_contains($ops,'Sensitive attachment access requires recent authentication.'));
     assert(str_contains($controller,'C4 evidence requires an approved specialized-vault upload session.'));
     assert(str_contains($ops,"'decision_tombstone'"));
