@@ -70,7 +70,7 @@ $test('CEN-04 runtime enforces organizational separation and signed native recon
     assert(str_contains($ops,"'organizationally_separate'"));
     assert(str_contains($ops,'appealNativeCommandStatus'));
     assert(str_contains($controller,'reconciled signed native-owner result'));
-    assert(str_contains($controller,'incomplete, unsigned, unreconciled or drifted'));
+    assert(str_contains($controller,'Native decision evidence is incomplete or unreconciled.'));
     assert(str_contains($workflow,"'under_review' => ['native_decision_pending']"));
 });
 
