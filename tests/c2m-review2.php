@@ -54,7 +54,7 @@ $test('Review2 future catalog preserves canonical-owner and activation boundarie
 
 $test('Review2 no schema or public contract fork is introduced by Future24 foundations',static function()use($root):void{
     $catalog=(string)file_get_contents($root.'/src/Future/FeatureCatalog.php');$schema=(string)file_get_contents($root.'/src/Infrastructure/WordPress/SchemaCompletion.php');$contract=(string)file_get_contents($root.'/src/Contracts/SupportContractCatalog.php');
-    assert(!str_contains($catalog,'CREATE TABLE'));assert(str_contains($schema,"public const VERSION = '1.3.0';"));assert(str_contains($contract,"public const CONTRACT_VERSION = '1.1.0';"));
+    assert(!str_contains($catalog,'CREATE TABLE'));assert(str_contains($schema,"public const VERSION = '1.3.0';"));assert(str_contains($contract,"public const CONTRACT_VERSION = '1.3.0';"));
 });
 
 if($failures!==[])exit(1);fwrite(STDOUT,"CF-02 C2-M Future24 fresh adversarial Review 2 passed.\n");
