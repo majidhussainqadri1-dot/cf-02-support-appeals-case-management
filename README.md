@@ -9,7 +9,7 @@ Canonical development home for support intake, ticket/case lifecycle, SLA queues
 - Planning identifier: `CF-02`
 - Governing plans: Definitive Master Plan v3.0 + CF-02 plan v1.0 (latest rewritten baselines), with approved later directives where non-conflicting
 - Runtime candidate line: `1.0.0-rc.7`; exact source SHA and package checksum remain mandatory release identity
-- Contract / schema: `1.1.0` / `1.3.0`
+- Contract / schema: `1.3.0` / `1.3.0`
 - Development stage: `C2-M` Future Support, Appeals & Case Intelligence 24 coded foundation
 - Runtime: fail-closed
 - Staging, live deployment and operational acceptance: **not claimed by repository code, CI or package evidence alone**
