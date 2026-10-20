@@ -105,6 +105,8 @@ jobs:
         run: php -d zend.assertions=1 tests/c2m-review2.php
       - name: Cross-plan forty current-contract and traceability review checks
         run: php -d zend.assertions=1 tests/crossplan-40-review.php
+      - name: C2-N exact-purpose ETag-bound and repair audit regressions
+        run: php -d zend.assertions=1 tests/c2n-runtime-security-regressions.php
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
       - name: Public repository safety scan
