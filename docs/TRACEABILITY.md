@@ -11,7 +11,7 @@
 | ID | Runtime evidence | Status |
 |---|---|---|
 | CF02-FR-001 | guided intake, dynamic safe fields, emergency/secret boundary, case persistence | Runtime-integrated |
-| CF02-FR-002 | signed inbound adapters, sender trust, receipt ledger, exact replay | Runtime-integrated; real providers pending |
+| CF02-FR-002 | signed inbound adapters, exact-width validated provider identity (`InboundProviderMetadata`), sender trust, receipt ledger and replay; 35 new negative tests | Runtime-integrated in repository; real sender/key/provider acceptance pending |
 | CF02-FR-003 | immediate case receipt, SLA range, emergency boundary, File 19 outbox | Runtime-integrated |
 | CF02-FR-004 | same-requester reversible merge/split, immutable events and redirects | Runtime-integrated |
 | CF02-FR-005 | progressive rate/abuse controls and emergency-direction guardrail | Coded-reviewed |
@@ -93,6 +93,10 @@ The CF-02 plan imports 56 Central CV requirements as owner/consumer obligations.
 | Free-core/donor parity | privilege signal rejection plus monthly aggregate parity audit |
 | Two fresh reviews | C2-L implementation + Review 1 + fresh adversarial Review 2 are permanent regression gates |
 | Truthful completion | staging/live/operational remain separate external statuses |
+
+## C2-O plan-to-code verification addendum
+
+The separate `tests/c2o-plan-40-structural-witnesses.php` asserts two real implementation-method witnesses for each `CF02-FR-001..034` and six central/cross-file rules. This is source/traceability coverage, **not** behavior/production acceptance. `tests/c2o-inbound-provider-metadata.php` executes 35 negative and boundary checks against actual database field widths; it caught and closed explicit-null sender trust fallback. Refer to `docs/C2O-40-PLAN-CODE-WITNESSES.md` for full scope and remaining provider-signature/source-owner binding concerns.
 
 ## Truthful candidate status
 
