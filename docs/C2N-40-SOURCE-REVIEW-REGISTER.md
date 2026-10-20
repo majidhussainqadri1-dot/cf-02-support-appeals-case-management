@@ -1,5 +1,9 @@
 # CF-02 C2-N — Forty Focused Source Reviews and Corrective Register
 
+## C2-O continuation (superseding earlier defect count)
+
+A subsequent separate plan-to-code pass added `docs/C2O-40-PLAN-CODE-WITNESSES.md`, `tests/c2o-plan-40-structural-witnesses.php`, and `tests/c2o-inbound-provider-metadata.php`. Exact signed provider metadata/schema-width validation was a **sixth source-level defect category** corrected in the Draft PR; the initial 34/35 CI failure exposed explicit-null sender trust and was corrected. The older five-defect accounting in this C2-N historical register applies only to the earlier pass. Staging/live remain unverified.
+
 ## Governing interpretation
 This register records **40 focused code/domain source reviews** on the exact repository candidate, not 40 independent full-repository review/fix cycles. A source inspection is not proof of runtime completeness or external acceptance. Each line identifies the code file inspected, source observation and residual proof needed. The accompanying 40-check cross-plan CI suite is a separate automated mechanism and cannot be substituted for full integration and security tests.
 
