@@ -31,7 +31,7 @@ final class InboundProviderMetadata
             }
             $result[$field] = $raw;
         }
-        $trust = $payload['sender_trust'] ?? 'unverified';
+        $trust = array_key_exists('sender_trust', $payload) ? $payload['sender_trust'] : 'unverified';
         if (!is_string($trust) || !in_array($trust, ['verified','unverified','system'], true)) {
             throw new RuntimeException('Signed inbound sender trust is invalid.');
         }
