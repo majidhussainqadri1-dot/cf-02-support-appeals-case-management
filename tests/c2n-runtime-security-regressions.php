@@ -57,6 +57,9 @@ foreach (['case support','case/support','Case.support',"case.\r\nsupport",'ca','
         $mustReject(static fn()=>RequestGuard::purpose($req(['X-CF02-Purpose'=>$bad])));
     });
 }
+$test('Malformed nonblank optional purpose is rejected', static function () use ($req,$mustReject): void {
+    $mustReject(static fn()=>RequestGuard::purpose($req(['X-CF02-Purpose'=>'not a valid purpose']), false));
+});
 $test('Blank optional purpose remains blank', static function () use ($req): void {
     if (RequestGuard::purpose($req(),false) !== '') throw new RuntimeException('Optional purpose must be empty.');
 });
