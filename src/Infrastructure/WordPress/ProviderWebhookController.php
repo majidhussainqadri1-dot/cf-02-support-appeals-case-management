@@ -52,14 +52,13 @@ final class ProviderWebhookController
         return $this->run(function () use ($request): array {
             $this->verifySignature($request, 'inbound');
             $payload = $this->payload($request);
-            $sourceOwner = sanitize_text_field((string) ($payload['source_owner'] ?? ''));
-            $externalId = sanitize_text_field((string) ($payload['external_event_id'] ?? ''));
-            $senderRef = sanitize_text_field((string) ($payload['sender_ref'] ?? ''));
-            $senderTrust = sanitize_key((string) ($payload['sender_trust'] ?? 'unverified'));
-            if ($sourceOwner === '' || $externalId === '' || $senderRef === ''
-                || !in_array($senderTrust, ['verified','unverified','system'], true)) {
-                throw new RuntimeException('Inbound adapter metadata is incomplete.');
-            }
+            // Preserve signed replay identifiers exactly; never normalize two
+            // different provider IDs into the same database key.
+            $metadata = InboundProviderMetadata::fromPayload($payload);
+            $sourceOwner = $metadata['source_owner'];
+            $externalId = $metadata['external_event_id'];
+            $senderRef = $metadata['sender_ref'];
+            $senderTrust = $metadata['sender_trust'];
             $body = trim((string) ($payload['body'] ?? ''));
             if ($body === '' || strlen($body) > 20000 || SensitiveContentDetector::containsProhibitedSecret($body)) {
                 throw new RuntimeException('Inbound message is empty, too long or contains prohibited secrets.');
