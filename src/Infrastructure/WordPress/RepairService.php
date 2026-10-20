@@ -44,9 +44,26 @@ final class RepairService
         Installer::install();RoleRegistrar::register();do_action('cf02_republish_route_contracts',RouteRegistrar::contracts(),$approvalRef);Scheduler::repairRegistration();
         $result=self::inspect();$result+=['approval_ref'=>$approvalRef,'actor_ref'=>$context->actorReference(),'repaired_at'=>$at->format(DATE_ATOM)];
         $result['status']=$result['schema_defects']===[]&&$result['legacy_local_roles_present']===[]&&$result['route_receipt_errors']===[]?'repaired':'incomplete';
-        update_option('cf02_last_repair_evidence',$result,false);
-        global $wpdb;$json=wp_json_encode($result,JSON_UNESCAPED_SLASHES);
-        $wpdb->insert($wpdb->prefix.'cf02_repair_ledger',['repair_uuid'=>'CF02-REPAIR-'.strtoupper(bin2hex(random_bytes(10))),'actor_ref'=>$context->actorReference(),'approval_ref'=>$approvalRef,'status'=>(string)$result['status'],'evidence_json'=>$json,'evidence_hash'=>hash('sha256',$json),'repaired_at'=>$at->format('Y-m-d H:i:s.u')]);
+        global $wpdb;
+        $json = wp_json_encode($result, JSON_UNESCAPED_SLASHES);
+        if (!is_string($json) || $json === '') {
+            throw new RuntimeException('Repair outcome cannot be serialized for mandatory audit evidence.');
+        }
+        $inserted = $wpdb->insert($wpdb->prefix . 'cf02_repair_ledger', [
+            'repair_uuid' => 'CF02-REPAIR-' . strtoupper(bin2hex(random_bytes(10))),
+            'actor_ref' => $context->actorReference(),
+            'approval_ref' => $approvalRef,
+            'status' => (string) $result['status'],
+            'evidence_json' => $json,
+            'evidence_hash' => hash('sha256', $json),
+            'repaired_at' => $at->format('Y-m-d H:i:s.u'),
+        ]);
+        if ($inserted !== 1) {
+            // Installation actions may already have run; do not falsely claim a
+            // verified repair or publish success when its mandatory audit write failed.
+            throw new RuntimeException('Repair audit ledger persistence failed; repair status is unverified.');
+        }
+        update_option('cf02_last_repair_evidence', $result, false);
         return $result;
     }
 
