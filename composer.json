@@ -51,6 +51,7 @@
       "php -d zend.assertions=1 tests/c2m-review1.php",
       "php -d zend.assertions=1 tests/c2m-review2.php",
       "php -d zend.assertions=1 tests/crossplan-40-review.php",
+      "php -d zend.assertions=1 tests/fresh-cf02-guest-webhook-safety.php",
       "php -d zend.assertions=1 tests/c2n-runtime-security-regressions.php",
       "php -d zend.assertions=1 tests/release.php"
     ],
