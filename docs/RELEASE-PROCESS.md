@@ -5,7 +5,7 @@
 - Package slug: `cf-02-support-appeals-case-management`
 - Candidate version: `1.0.0-rc.7`
 - Schema: `1.3.0`
-- Contract: `1.1.0`
+- Contract: `1.3.0`
 - Plan: `1.0`
 - Source of truth: exact Git commit on the controlled candidate branch/PR
 
