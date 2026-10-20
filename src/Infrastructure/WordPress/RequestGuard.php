@@ -30,7 +30,7 @@ final class RequestGuard
         if ($purpose === '') {
             $purpose = trim((string) $request->get_param('purpose'));
         }
-        if ($required && ($purpose === '' || preg_match('/^[a-z][a-z0-9_.-]{2,63}$/', $purpose) !== 1)) {
+        if (($required && $purpose === '') || ($purpose !== '' && preg_match('/^[a-z][a-z0-9_.-]{2,63}$/D', $purpose) !== 1)) {
             throw new RuntimeException('A bounded action purpose is required.');
         }
         return $purpose;
