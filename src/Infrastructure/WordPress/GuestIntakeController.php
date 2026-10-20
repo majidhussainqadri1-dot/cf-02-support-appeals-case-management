@@ -65,9 +65,6 @@ final class GuestIntakeController
     public function issueContinuation(\WP_REST_Request $request): \WP_REST_Response|\WP_Error
     {
         try {
-            if (!$this->consumeRateLimit()) {
-                return new \WP_Error('cf02_guest_rate_limited', __('Too many support-intake attempts. Please try again later.', 'cf-02-support-appeals-case-management'), ['status' => 429]);
-            }
             $input = [
                 'category' => (string) $request->get_param('category'),
                 'subject' => (string) $request->get_param('subject'),
@@ -89,6 +86,11 @@ final class GuestIntakeController
                     'ordinary_support_sla_applies' => false,
                     'requires_immediate_direction' => true,
                 ], 422);
+            }
+            // Safety diversion precedes ordinary-rate throttling. A legitimate
+            // emergency must not disappear behind an exhausted intake bucket.
+            if (!$this->consumeRateLimit()) {
+                return new \WP_Error('cf02_guest_rate_limited', __('Too many support-intake attempts. Please try again later.', 'cf-02-support-appeals-case-management'), ['status' => 429]);
             }
             $now = new DateTimeImmutable('now', new \DateTimeZone('UTC'));
             $token = $this->tokens->issue($safe, $now, 600);
@@ -187,14 +189,30 @@ final class GuestIntakeController
 
     private function consumeRateLimit(): bool
     {
+        global $wpdb;
+        if (!is_object($wpdb) || !method_exists($wpdb, 'prepare') || !method_exists($wpdb, 'get_var')) {
+            return false;
+        }
         $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
         $bucket = (string) floor(time() / 900);
         $key = 'cf02_guest_' . substr(hash_hmac('sha256', $ip . '|' . $bucket, wp_salt('nonce')), 0, 40);
-        $count = (int) get_transient($key);
-        if ($count >= 10) {
+        $lock = 'cf02_guest_limit_' . substr(hash('sha256', $key), 0, 40);
+
+        // MySQL/MariaDB named locks serialize the transient read/update across
+        // PHP workers. Failure to obtain the lock is a safe denial, not a pass.
+        $acquired = $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, %d)', $lock, 2));
+        if ((string) $acquired !== '1') {
             return false;
         }
-        set_transient($key, $count + 1, 900);
-        return true;
+        try {
+            $count = (int) get_transient($key);
+            if ($count >= 10) {
+                return false;
+            }
+            // Provider/cache persistence failure must not bypass a rate ceiling.
+            return set_transient($key, $count + 1, 900) === true;
+        } finally {
+            $wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lock));
+        }
     }
 }
