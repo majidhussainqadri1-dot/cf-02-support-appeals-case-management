@@ -100,7 +100,7 @@ final class ProviderWebhookController
 
             $context = $this->providerContext($sourceOwner, $requesterRef);
             $messageId = $this->operations->appendMessage(
-                $caseId, $context, 'requester', (string) $request['channel'],
+                $caseId, $context, 'requester', self::canonicalMessageChannel((string) $request['channel']),
                 $this->cipher->encrypt($body), hash('sha256', $body),
                 'provider-message-' . substr(hash('sha256', $sourceOwner . "\0" . $externalId), 0, 40),
                 'signed_inbound_adapter', $this->now()
@@ -225,6 +225,17 @@ final class ProviderWebhookController
             }
             return ['delivery' => array_intersect_key($delivery, array_flip(['authorized','expires_at','delivery_url','content_disposition']))];
         });
+    }
+
+    /** Signed webhook ingress is transport provenance, not a user-facing message channel. */
+    private static function canonicalMessageChannel(string $channel): string
+    {
+        return match ($channel) {
+            'email' => 'email',
+            'system', 'webhook' => 'system',
+            'web' => 'web',
+            default => throw new RuntimeException('Inbound message channel is unsupported.'),
+        };
     }
 
     private function verifySignature(\WP_REST_Request $request, string $purpose): void
