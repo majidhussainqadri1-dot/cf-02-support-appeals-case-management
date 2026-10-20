@@ -113,6 +113,8 @@ jobs:
         run: php -d zend.assertions=1 tests/c2n-rotation-atomicity.php
       - name: C2-O strict signed inbound provider identity and schema width tests
         run: php -d zend.assertions=1 tests/c2o-inbound-provider-metadata.php
+      - name: CF-02 forty plan-to-code structural witnesses
+        run: php -d zend.assertions=1 tests/c2o-plan-40-structural-witnesses.php
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
       - name: Public repository safety scan
