@@ -55,7 +55,7 @@ $test('retention cannot claim purge without provider reconciliation hold check a
     assert(str_contains($repo,"state='active'"));
     assert(str_contains($repo,"case_uuid=%s OR category=%s"));
     assert(str_contains($repo,"if (\$activeHolds !== 0 && \$activeHolds !== '0')"));
-    assert(str_contains($repo,'Active case or category legal/appeal hold blocks purge.'));
+    assert(str_contains($repo,'Case legal-hold state is active or unverified; purge denied.'));
     assert(str_contains($repo,'Canonical case purge failed'));
 });
 
