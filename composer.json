@@ -61,6 +61,7 @@
       "php -d zend.assertions=1 tests/c2p-transaction-failclosed.php",
       "php -d zend.assertions=1 tests/c2q-40-native-outcome-contract.php",
       "php -d zend.assertions=1 tests/c2r-forty-activation-attestation.php",
+      "php -d zend.assertions=1 tests/c2r-private-query-failures.php",
       "php -d zend.assertions=1 tests/release.php"
     ],
     "security-scan": "python3 build/security_scan.py",
