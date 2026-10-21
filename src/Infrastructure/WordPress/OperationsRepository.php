@@ -1446,6 +1446,9 @@ final class OperationsRepository
             $this->appendEvent('case', $caseId, 'SupportRetentionPurgeCompleted', $system, 'retention_purge',
                 'retention-purge-' . substr(hash('sha256', $caseId . "\0" . $this->json($providerResults)), 0, 40),
                 ['provider_results_hash' => hash('sha256', $this->json($providerResults))], 0, $at);
+            // The final retention ledger must succeed in the same transaction;
+            // a post-commit failure must never relabel an already-purged case.
+            $this->recordRetentionResult('case', $caseId, 'cf02-retention-v1', 'purged', $providerResults, $at);
         });
     }
 
