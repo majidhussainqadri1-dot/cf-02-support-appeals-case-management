@@ -1086,7 +1086,8 @@ final class OperationsRepository
         if ($existing !== null) {
             if (!hash_equals((string) $existing['case_uuid'], $caseId->value())
                 || !hash_equals((string) $existing['reason_code'], $reason)
-                || !hash_equals((string) $existing['authority_ref'], $authorityRef)) {
+                || !hash_equals((string) $existing['authority_ref'], $authorityRef)
+                || !hash_equals((string) ($existing['review_due_at'] ?? ''), $this->mysqlTime($reviewDue))) {
                 throw new RuntimeException('Hold idempotency collision.');
             }
             return $existing;
@@ -1120,7 +1121,8 @@ final class OperationsRepository
         if ($existing !== null) {
             if (!hash_equals((string) ($existing['category'] ?? ''), $category)
                 || !hash_equals((string) $existing['reason_code'], $reason)
-                || !hash_equals((string) $existing['authority_ref'], $authorityRef)) {
+                || !hash_equals((string) $existing['authority_ref'], $authorityRef)
+                || !hash_equals((string) ($existing['review_due_at'] ?? ''), $this->mysqlTime($reviewDue))) {
                 throw new RuntimeException('Category hold idempotency collision.');
             }
             return $existing;
