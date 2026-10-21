@@ -42,7 +42,7 @@ $check=static function(string $name,bool $ok)use(&$pass,&$fail):void{
     fwrite($ok?STDOUT:STDERR,($ok?'PASS ':'FAIL ').$name."\n");
 };
 $throws=static function(callable $fn):bool {
-    try{$fn();return false;}catch(RuntimeException){return true;}
+    try{$fn();return false;}catch(RuntimeException|LogicException){return true;}
 };
 $db=new C2SFakeDb();$GLOBALS['wpdb']=$db;$repo=new OperationsRepository();
 $ref=new ReflectionClass($repo);
