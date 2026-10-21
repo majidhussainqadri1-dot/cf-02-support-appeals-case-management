@@ -44,11 +44,15 @@ final class IntakeRepository
             return $this->resolveExisting($existing, $requesterReference, $fingerprint);
         }
 
-        $this->wpdb->query('START TRANSACTION');
+        if ($this->wpdb->query('START TRANSACTION') === false) {
+            throw new RuntimeException('Intake transaction could not begin.');
+        }
         try {
             $existing = $this->find($idempotencyKey, true);
             if ($existing !== null) {
-                $this->wpdb->query('COMMIT');
+                if ($this->wpdb->query('COMMIT') === false) {
+                    throw new RuntimeException('Intake replay commit failed; outcome is unverified.');
+                }
                 return $this->resolveExisting($existing, $requesterReference, $fingerprint);
             }
 
@@ -76,7 +80,9 @@ final class IntakeRepository
             if ($inserted !== 1) {
                 throw new RuntimeException('Intake replay ledger persistence failed.');
             }
-            $this->wpdb->query('COMMIT');
+            if ($this->wpdb->query('COMMIT') === false) {
+                throw new RuntimeException('Intake creation commit failed; outcome is unverified.');
+            }
             return ['case' => $case, 'replayed' => false];
         } catch (Throwable $exception) {
             $this->wpdb->query('ROLLBACK');
