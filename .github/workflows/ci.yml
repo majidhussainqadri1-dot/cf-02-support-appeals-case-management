@@ -135,6 +135,8 @@ jobs:
         run: php -d zend.assertions=1 tests/c2u-40-operational-safety-controls.php
       - name: C2-V forty atomic native outcome and SLA rollback scenarios
         run: php -d zend.assertions=1 tests/c2v-40-atomic-native-outcomes.php
+      - name: C2-V SLA breach alert and event atomicity scenarios
+        run: php -d zend.assertions=1 tests/c2v-sla-event-atomicity.php
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
       - name: Public repository safety scan
