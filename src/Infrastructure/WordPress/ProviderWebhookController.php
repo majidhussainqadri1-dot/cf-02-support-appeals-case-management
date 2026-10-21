@@ -9,7 +9,7 @@ use DateTimeZone;
 use RuntimeException;
 use Sabri\CF02\Authorization\PrincipalContext;
 use Sabri\CF02\Domain\SupportCaseId;
-use Sabri\CF02\Integration\NativeResultVersion;
+use Sabri\CF02\Integration\NativeOwnerOutcomePolicy;
 use Sabri\CF02\Security\DataCipher;
 use Sabri\CF02\Security\SensitiveContentDetector;
 use Throwable;
@@ -159,14 +159,14 @@ final class ProviderWebhookController
             if ($command === null || !hash_equals((string) $command['native_owner'], $owner)) {
                 throw new RuntimeException('Native command was not found.');
             }
-            $status = sanitize_key((string) ($payload['status'] ?? ''));
-            $outcomeRef = sanitize_text_field((string) ($payload['outcome_ref'] ?? ''));
-            $nativeVersion = NativeResultVersion::fromPayload($payload['native_version'] ?? null);
-            if (!in_array($status, ['succeeded','failed','outcome_uncertain'], true)
-                || $nativeVersion < (int) $command['expected_native_version']
-                || ($status === 'succeeded' && $outcomeRef === '')) {
-                throw new RuntimeException('Native result is invalid or stale.');
-            }
+            $validated = NativeOwnerOutcomePolicy::validate([
+                'state' => $payload['status'] ?? null,
+                'outcome_ref' => $payload['outcome_ref'] ?? '',
+                'native_version' => $payload['native_version'] ?? null,
+            ], (int) $command['expected_native_version']);
+            $status = $validated['state'];
+            $outcomeRef = $validated['outcome_ref'];
+            $nativeVersion = $validated['native_version'];
             $state = $status;
             $evidencePayload = [
                 'command_ref' => $commandId, 'status' => $status,
