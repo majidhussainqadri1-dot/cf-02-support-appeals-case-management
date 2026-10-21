@@ -131,6 +131,8 @@ jobs:
         run: php -d zend.assertions=1 tests/c2s-retention-sql-failclosed.php
       - name: C2-T durable event publish and DB outage classification regressions
         run: php -d zend.assertions=1 tests/c2t-event-status-and-query-classification.php
+      - name: C2-U forty cross-owner operational safety controls
+        run: php -d zend.assertions=1 tests/c2u-40-operational-safety-controls.php
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
       - name: Public repository safety scan
