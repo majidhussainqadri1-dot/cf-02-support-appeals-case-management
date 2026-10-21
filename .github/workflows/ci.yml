@@ -137,6 +137,8 @@ jobs:
         run: php -d zend.assertions=1 tests/c2v-40-atomic-native-outcomes.php
       - name: C2-V SLA breach alert and event atomicity scenarios
         run: php -d zend.assertions=1 tests/c2v-sla-event-atomicity.php
+      - name: C2-V final retention evidence regression
+        run: php -d zend.assertions=1 tests/c2v-retention-ledger-atomicity.php
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
       - name: Public repository safety scan
