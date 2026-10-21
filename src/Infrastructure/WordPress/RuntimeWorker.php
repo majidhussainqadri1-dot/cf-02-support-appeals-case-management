@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use RuntimeException;
 use Sabri\CF02\Domain\SupportCaseId;
+use Sabri\CF02\Integration\NativeOwnerOutcomePolicy;
 use Sabri\CF02\Security\DataCipher;
 use Throwable;
 
@@ -101,18 +102,15 @@ final class RuntimeWorker
                     'payload' => $payload,
                     'idempotency_key' => $command['idempotency_key'],
                 ]);
-                if (!is_array($result) || !isset($result['state'])) {
-                    throw new RuntimeException('Native owner adapter returned no authoritative state.');
+                if (!is_array($result)) {
+                    throw new RuntimeException('Native owner adapter returned no authoritative result.');
                 }
-                $state = (string) $result['state'];
-                $nativeVersion = (int) ($result['native_version'] ?? 0);
-                $outcomeRef = isset($result['outcome_ref']) ? trim((string) $result['outcome_ref']) : '';
-                if ($nativeVersion < (int) $command['expected_native_version']) {
-                    throw new RuntimeException('Native owner result is stale.');
-                }
-                if (!in_array($state, ['succeeded','failed','outcome_uncertain'], true)) {
-                    throw new RuntimeException('Native owner did not return a supported result state.');
-                }
+                $validated = NativeOwnerOutcomePolicy::validate(
+                    $result, (int) $command['expected_native_version']
+                );
+                $state = $validated['state'];
+                $nativeVersion = $validated['native_version'];
+                $outcomeRef = $validated['outcome_ref'];
                 $evidence = [
                     'command_ref' => (string) $command['command_uuid'],
                     'status' => $state,
