@@ -68,6 +68,7 @@
       "php -d zend.assertions=1 tests/c2v-40-atomic-native-outcomes.php",
       "php -d zend.assertions=1 tests/c2v-sla-event-atomicity.php",
       "php -d zend.assertions=1 tests/c2v-retention-ledger-atomicity.php",
+      "php -d zend.assertions=1 tests/c2w-40-notification-replay-boundaries.php",
       "php -d zend.assertions=1 tests/release.php"
     ],
     "security-scan": "python3 build/security_scan.py",
