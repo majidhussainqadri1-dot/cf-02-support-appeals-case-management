@@ -103,9 +103,19 @@ $test('Native callback uses strict nonclamping parser',static function():bool{
     $src=(string)file_get_contents(dirname(__DIR__).'/src/Infrastructure/WordPress/ProviderWebhookController.php');
     return str_contains($src,"NativeResultVersion::fromPayload($"."payload['native_version'] ?? null)");
 });
-$test('Provider error hooks cannot expose throwable instances',static function():bool{
-    $src=(string)file_get_contents(dirname(__DIR__).'/src/Infrastructure/WordPress/ProviderWebhookController.php');
-    return !str_contains($src,"'error' => $"."error,");
+$test('All support REST error hooks prohibit raw exception objects',static function():bool{
+    foreach ([
+        'src/Infrastructure/WordPress/ProviderWebhookController.php',
+        'src/Infrastructure/WordPress/ComprehensiveRestController.php',
+        'src/Infrastructure/WordPress/CompleteRestOverlay.php',
+    ] as $path) {
+        $src=(string)file_get_contents(dirname(__DIR__).'/'.$path);
+        if (preg_match('/[\\x27\\x22]error[\\x27\\x22]\\s*=>\\s*\\$error\\b/', $src) === 1) {
+            return false;
+        }
+        if (!str_contains($src,'error_class')) { return false; }
+    }
+    return true;
 });
 printf("C2-P signed native result cases: %d/%d passed; %d failed; real provider proof not supplied.\n",
     $cases-count($fail),$cases,count($fail));
