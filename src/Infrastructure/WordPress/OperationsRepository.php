@@ -6,6 +6,7 @@ namespace Sabri\CF02\Infrastructure\WordPress;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use LogicException;
 use RuntimeException;
 use Sabri\CF02\Authorization\PrincipalContext;
 use Sabri\CF02\Contracts\SupportContractCatalog;
@@ -1493,16 +1494,22 @@ final class OperationsRepository
 
     public function markEventPublished(string $eventId): void
     {
-        $this->wpdb->update($this->tables['events'], ['publish_state' => 'published'], ['event_uuid' => $eventId]);
+        $updated = $this->wpdb->update($this->tables['events'], ['publish_state' => 'published'], ['event_uuid' => $eventId]);
+        if ($updated !== 1) {
+            throw new RuntimeException('Published event state was not durably recorded.');
+        }
     }
 
     public function markEventRetry(string $eventId, int $attempts, DateTimeImmutable $next): void
     {
-        $this->wpdb->update($this->tables['events'], [
+        $updated = $this->wpdb->update($this->tables['events'], [
             'publish_state' => $attempts >= 8 ? 'dead_letter' : 'retry',
             'publish_attempts' => $attempts,
             'next_attempt_at' => $this->mysqlTime($next),
         ], ['event_uuid' => $eventId]);
+        if ($updated !== 1) {
+            throw new RuntimeException('Event retry state was not durably recorded.');
+        }
     }
 
     /** @return array<string,mixed>|null */
@@ -2399,11 +2406,11 @@ final class OperationsRepository
         // SQL failure is never an empty authorized list or an empty retention
         // inventory. In particular, purge must not proceed on missing evidence.
         if (!is_array($rows)) {
-            throw new RuntimeException('Support database list query failed.');
+            throw new LogicException('Support database list query failed.');
         }
         foreach ($rows as $row) {
             if (!is_array($row)) {
-                throw new RuntimeException('Support database list query returned malformed rows.');
+                throw new LogicException('Support database list query returned malformed rows.');
             }
         }
         return array_values($rows);
