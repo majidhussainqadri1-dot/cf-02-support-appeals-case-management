@@ -133,6 +133,8 @@ jobs:
         run: php -d zend.assertions=1 tests/c2t-event-status-and-query-classification.php
       - name: C2-U forty cross-owner operational safety controls
         run: php -d zend.assertions=1 tests/c2u-40-operational-safety-controls.php
+      - name: C2-V forty atomic native outcome and SLA rollback scenarios
+        run: php -d zend.assertions=1 tests/c2v-40-atomic-native-outcomes.php
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
       - name: Public repository safety scan
