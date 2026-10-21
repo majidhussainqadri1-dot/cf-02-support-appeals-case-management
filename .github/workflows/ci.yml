@@ -119,6 +119,8 @@ jobs:
         run: php -d zend.assertions=1 tests/c2p-native-result-security.php
       - name: C2-P complete PHP source exception-exposure privacy scan
         run: php -d zend.assertions=1 tests/c2p-source-exception-exposure.php
+      - name: C2-P database transaction fail-closed regression
+        run: php -d zend.assertions=1 tests/c2p-transaction-failclosed.php
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
       - name: Public repository safety scan
