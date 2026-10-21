@@ -5,7 +5,7 @@
 ## Proof rules and what forty means
 
 - The **forty review points** below are 34 numbered CF02-FR obligations and six central/companion ownership obligations. The repository already has 40/40 structural source-method witnesses and 40/40 separate operational-safety checks; those are **source evidence** only.
-- This pass adds **two distinct new defect categories** and **80 new executable adversarial input scenarios**: 40 Notification Outbox replay identities, 40 Legal Hold review-deadline replays.
+- This pass adds **three distinct new defect categories** and **80 new executable adversarial input scenarios**: 40 Notification Outbox replay identities, 40 Legal Hold review-deadline replays.
 - A scenario or structural method witness is **not** an independent whole-repository audit iteration, true native-provider E2E acceptance, real concurrent MySQL isolation, deployed-plugin parity, or live user-journey evidence. It would be misleading to describe it as such.
 
 ## Forty requirement-to-source boundary review entries
@@ -69,11 +69,20 @@
 
 **Residual:** Real WordPress/MariaDB/transaction/concurrent hold-vs-purge integrity, lawful retention schedules, manual hold review and category-owner acceptance remain untested externally.
 
+### C2W-03 — Time-dependent receipt payload prevented exact intake replay (CF02-FR-002/003/032)
+**Symptom:** The exact WordPress/MariaDB Active Runtime Integration workflow failed at the original `tests/wordpress-runtime-smoke.php` replay check: `Exact intake replay was not idempotent.`. This was not declared a random CI flake.
+
+**Root cause proven from source:** `ComprehensiveRestController::createCase()` rebuilt receipt `received_at` with `$this->now()->format(DATE_ATOM)` during *every* request. A replay crossing a wall-clock second regenerated a different payload hash, so the idempotent `enqueueDelivery` correctly refused to replay the existing outbox item. This discrepancy was pre-existing and surfaced clearly in the real-runtime integration test.
+
+**Fix:** build receipt timestamp from the immutable canonical Case `created_at`, normalized UTC using `DateTimeImmutable`. Both initial attempt and later exact replay now generate the same receipt payload. The WordPress/MariaDB smoke explicitly sleeps two seconds before replay to enforce the timestamp boundary, and rejects changed-body key reuse.
+
+**Proof:** at source commit `dcc89dd6c3d17d43e6d9745281e20c2531b6cce4`, all **5/5 workflows success**, including **Active Runtime Integration with actual ephemeral WordPress and MariaDB**; PHP 8.1–8.4 succeed. This is controlled CI-environment evidence, **not** production WordPress or Hostinger acceptance.
+
 ## Repository and CI evidence
 - Main source baseline remains `bd52b96af28ce775a18860142aec84a62fb9b803`, unchanged.
 - Branch `audit/cf02-crossplan-contract-parity-20261021` holds C2-W code/docs; inspect final exact SHA **after** this report commit.
-- At predecessor CI SHA `315d8e8fec90c2c5e1e5b16c503a7e2b571e7f93`, both C2-W **40/40** suites passed; all five named workflows and PHP 8.1/8.2/8.3/8.4 successful. Earlier 40/40 plan witnesses, 40/40 operational safety, 40/40 C2-V atomic native outcome, 12/12 SLA, 9/9 retention and related security tests remained wired.
-- Source code changes: **two proven categories, two candidate fixes**. Live fixes verified: **zero**.
+- At predecessor CI SHA `315d8e8fec90c2c5e1e5b16c503a7e2b571e7f93`, both C2-W **40/40** suites passed; all five named workflows and PHP 8.1/8.2/8.3/8.4 succeeded. At subsequent `cbc4e336a6a874bbb14d54254b5f3323339b9abd`, Active Runtime Integration failed with genuine timestamp-sensitive exact intake replay; the C2W-03 fix restored success at `dcc89dd6c3d17d43e6d9745281e20c2531b6cce4`. Earlier 40/40 plan witnesses, 40/40 operational safety, 40/40 C2-V atomic native outcome, 12/12 SLA, 9/9 retention and related security tests remained wired.
+- Source code changes: **three proven categories, three candidate fixes**. Live fixes verified: **zero**.
 
 ## Open blockers — not falsely resolved
 1. **Exact live WordPress state:** installed source files, plugin version/hash/package, DB table/column/index/row presence, `wp_options`, migration state, active provider plugins and logs remain unknown. WPVibe site connection previously failed with **Cloudflare HTTP 530**, a transport symptom not diagnosis. Do not disable Cloudflare/security or infer origin fault.
