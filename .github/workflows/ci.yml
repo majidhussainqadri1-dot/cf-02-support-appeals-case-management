@@ -123,6 +123,8 @@ jobs:
         run: php -d zend.assertions=1 tests/c2p-transaction-failclosed.php
       - name: C2-Q forty native owner outcome contract vectors
         run: php -d zend.assertions=1 tests/c2q-40-native-outcome-contract.php
+      - name: C2-R forty native-owner activation and fresh-attestation checks
+        run: php -d zend.assertions=1 tests/c2r-forty-activation-attestation.php
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
       - name: Public repository safety scan
