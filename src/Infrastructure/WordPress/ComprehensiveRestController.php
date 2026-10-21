@@ -218,6 +218,32 @@ final class ComprehensiveRestController
             );
             $priority = $triage->priority();
             $queue = $triage->queueKey();
+            // Validate any native-object link *before* the canonical case is
+            // created. Reject incomplete metadata instead of silently omitting
+            // the link or returning an error after case creation.
+            $rawObject = $request->get_param('affected_object');
+            $object = null;
+            if ($rawObject !== null) {
+                if (!is_array($rawObject) || $rawObject === []) {
+                    throw new RuntimeException('Affected native-object reference is invalid.');
+                }
+                $object = [
+                    'owner' => sanitize_key((string) ($rawObject['owner'] ?? '')),
+                    'type' => sanitize_key((string) ($rawObject['type'] ?? '')),
+                    'ref' => sanitize_text_field((string) ($rawObject['ref'] ?? '')),
+                    'version' => sanitize_text_field((string) ($rawObject['version'] ?? '')),
+                    'privacy_class' => strtoupper(sanitize_text_field((string) ($rawObject['privacy_class'] ?? 'C2'))),
+                    'safe_projection' => $rawObject['safe_projection'] ?? [],
+                ];
+                if ($object['owner'] === '' || $object['type'] === ''
+                    || $object['ref'] === '' || $object['version'] === ''
+                    || strlen($object['ref']) > 191 || strlen($object['version']) > 191
+                    || !in_array($object['privacy_class'], ['C1', 'C2', 'C3', 'C4'], true)
+                    || !is_array($object['safe_projection'])) {
+                    throw new RuntimeException('Affected native-object reference is invalid.');
+                }
+                SupportContractCatalog::assertNativeOwnerKey($object['owner']);
+            }
             $payload = [
                 'category' => $category,
                 'subcategory' => sanitize_key((string) $request->get_param('subcategory')),
@@ -232,6 +258,11 @@ final class ComprehensiveRestController
                 'human_review_required' => $triage->humanReviewRequired(),
                 'emergency_diversion_required' => $triage->emergencyDiversionRequired(),
                 'diagnostics_consented' => (bool) $request->get_param('diagnostics_consented'),
+                // Bind all delayed downstream mutations to intake idempotency:
+                // store only hashes, never the private description/object data
+                // in the intake replay ledger.
+                'description_sha256' => hash('sha256', $description),
+                'affected_object_sha256' => \Sabri\CF02\Security\MutationEnvelope::fingerprint($object ?? []),
             ];
             $key = RequestGuard::idempotencyKey($request);
             $result = $this->intake->createOrReplay($context->actorReference(), $key, $payload, $this->now());
@@ -250,15 +281,11 @@ final class ComprehensiveRestController
                     $key . ':description', 'support_intake', $this->now()
                 );
             }
-            $object = $request->get_param('affected_object');
-            if (is_array($object) && !empty($object['owner']) && !empty($object['type']) && !empty($object['ref']) && !empty($object['version'])) {
-                SupportContractCatalog::assertNativeOwnerKey(sanitize_key((string) $object['owner']));
-                $safeProjection = isset($object['safe_projection']) && is_array($object['safe_projection']) ? $object['safe_projection'] : [];
+            if ($object !== null) {
                 $this->operations->linkObject(
-                    $caseId, $context, sanitize_key((string) $object['owner']), sanitize_key((string) $object['type']),
-                    sanitize_text_field((string) $object['ref']), sanitize_text_field((string) $object['version']),
-                    strtoupper(sanitize_text_field((string) ($object['privacy_class'] ?? 'C2'))), $safeProjection,
-                    $key . ':linked-object:' . substr(hash('sha256', (string) $object['owner'] . "\0" . (string) $object['ref']), 0, 24), $this->now()
+                    $caseId, $context, $object['owner'], $object['type'],
+                    $object['ref'], $object['version'], $object['privacy_class'], $object['safe_projection'],
+                    $key . ':linked-object:' . substr(hash('sha256', $object['owner'] . "\0" . $object['ref']), 0, 24), $this->now()
                 );
             }
             // A retried intake request must reproduce the original delivery
