@@ -143,6 +143,8 @@ jobs:
         run: php -d zend.assertions=1 tests/c2w-40-notification-replay-boundaries.php
       - name: C2-W forty case and category legal-hold deadline replay guards
         run: php -d zend.assertions=1 tests/c2w-40-legal-hold-deadline-replay.php
+      - name: C2-Y forty linked-object privacy and audit atomicity regressions
+        run: php -d zend.assertions=1 tests/c2y-40-linked-privacy-atomicity.php
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
       - name: Public repository safety scan
