@@ -46,3 +46,10 @@ The prior C2-P correction deployed `NativeResultVersion::fromPayload()` to the *
 - **Resolution**: source-level CI-green only, **not** Live-Resolved.
 
 **Exact deployed code ابھی unverified ہے؛ repository-based diagnosis provisional ہے۔**
+
+
+## Cross-repository File 18 ownership/parity finding (source evidence only)
+- `majidhussainqadri1-dot/18-sabri-marketplace` `main` HEAD `04a5872e3e2e170ee400e7c607e39abd5484df65` has **two committed files**, `README.md` and `SOURCE-PROVENANCE.md`; it does **not** contain a deployed or verified native File 18 Marketplace PHP provider implementation.
+- Its separate latest open **Draft PR #9**, head `eb11cebd866205543e11888e824cd2a75609c631`, contains a PHP code candidate (51 PHP paths among 88 source files). Earlier PRs #1–#8 are also open. Draft PR source is not File 18 `main`, staging or live truth.
+- CF-02 `RequiredCompanionContracts` declares `file_18_marketplace_case_contract` **mandatory** with owner File 18 and `listing_decision_reference`; only a real owner-provided healthy manifest with tested matching contract and deployed artifact can satisfy activation. This must not be simulated or bypassed to make a CI report green.
+- Correct order: File 18's own approved baseline/PR chain and exact release evidence → verify shared owner commands/events → staged CF-02 File 18 handshake → only then CF-02 release acceptance. Neither repository was merged/deployed during this review.
