@@ -541,6 +541,28 @@ final class OperationsRepository
         return $version;
     }
 
+    /**
+     * The SLA version transition and escalation event are one durable fact.
+     * This avoids an at-risk/breached timer silently suppressing its event.
+     * @param array<string,mixed> $evidence
+     */
+    public function markSlaStatusWithEvent(string $caseId, string $status, array $evidence, DateTimeImmutable $at): int
+    {
+        if (!in_array($status, ['at_risk', 'breached'], true)
+            || ($evidence['status'] ?? null) !== $status) {
+            throw new RuntimeException('SLA event status evidence is invalid.');
+        }
+        $version = 0;
+        $this->transaction(function () use ($caseId, $status, $evidence, $at, &$version): void {
+            $version = $this->markSlaStatus($caseId, $status, $at);
+            $this->appendWorkerEvent(
+                'case', $caseId, $status === 'breached' ? 'SupportSlaBreached' : 'SupportSlaAtRisk',
+                $evidence, $version, $at
+            );
+        });
+        return $version;
+    }
+
     /** @return array<string,mixed> */
     public function createAttachment(
         SupportCaseId $caseId,
