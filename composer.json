@@ -66,6 +66,7 @@
       "php -d zend.assertions=1 tests/c2t-event-status-and-query-classification.php",
       "php -d zend.assertions=1 tests/c2u-40-operational-safety-controls.php",
       "php -d zend.assertions=1 tests/c2v-40-atomic-native-outcomes.php",
+      "php -d zend.assertions=1 tests/c2v-sla-event-atomicity.php",
       "php -d zend.assertions=1 tests/release.php"
     ],
     "security-scan": "python3 build/security_scan.py",
