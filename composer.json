@@ -56,6 +56,7 @@
       "php -d zend.assertions=1 tests/c2n-rotation-atomicity.php",
       "php -d zend.assertions=1 tests/c2o-inbound-provider-metadata.php",
       "php -d zend.assertions=1 tests/c2o-plan-40-structural-witnesses.php",
+      "php -d zend.assertions=1 tests/c2p-native-result-security.php",
       "php -d zend.assertions=1 tests/release.php"
     ],
     "security-scan": "python3 build/security_scan.py",
