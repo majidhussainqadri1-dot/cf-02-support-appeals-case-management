@@ -121,6 +121,8 @@ jobs:
         run: php -d zend.assertions=1 tests/c2p-source-exception-exposure.php
       - name: C2-P database transaction fail-closed regression
         run: php -d zend.assertions=1 tests/c2p-transaction-failclosed.php
+      - name: C2-Q forty native owner outcome contract vectors
+        run: php -d zend.assertions=1 tests/c2q-40-native-outcome-contract.php
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
       - name: Public repository safety scan
