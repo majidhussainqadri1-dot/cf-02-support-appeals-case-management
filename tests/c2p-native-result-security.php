@@ -101,7 +101,9 @@ $test('Provider signature rejects a nonstring payload',static function()use($sig
 });
 $test('Native callback uses strict nonclamping parser',static function():bool{
     $src=(string)file_get_contents(dirname(__DIR__).'/src/Infrastructure/WordPress/ProviderWebhookController.php');
-    return str_contains($src,"NativeResultVersion::fromPayload($"."payload['native_version'] ?? null)");
+    return str_contains($src,"NativeOwnerOutcomePolicy::validate([") &&
+        str_contains($src,"'native_version' => $"."payload['native_version'] ?? null") &&
+        str_contains($src,"$"."validated['native_version']");
 });
 $test('All support REST error hooks prohibit raw exception objects',static function():bool{
     foreach ([
