@@ -53,7 +53,7 @@ foreach($definitions as $key=>$def){ // 1..17
         isset($defaults[$key]) &&
         ($defaults[$key]['ready']??null)===false &&
         ($defaults[$key]['health']??null)==='unknown' &&
-        ($defaults[$key]['health_checked_at']??false)===null &&
+        array_key_exists('health_checked_at',$defaults[$key]) && $defaults[$key]['health_checked_at']===null &&
         ($defaults[$key]['enabled']??null)===$def['required']
     );
 }
