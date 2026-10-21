@@ -54,16 +54,10 @@ final class WordPressActivationEvidence implements ActivationEvidence
             ];
         }
 
-        $membershipVersion = defined('SMC_CONTRACT_VERSION') ? (string) SMC_CONTRACT_VERSION : null;
-        $defaults['file_00_membership_contract'] = [
-            'ready' => function_exists('smc_membership_assertions') && $membershipVersion !== null,
-            'enabled' => true,
-            'owner' => 'File 00',
-            'contract_version' => $membershipVersion,
-            'capabilities' => function_exists('smc_membership_assertions') ? ['identity_assertions'] : [],
-            'health' => function_exists('smc_membership_assertions') && $membershipVersion !== null ? 'healthy' : 'unknown',
-            'health_checked_at' => gmdate(DATE_ATOM),
-        ];
+        // File 00 runtime function presence and a version constant are only
+        // discovery hints, never fresh native-owner health attestation.
+        // Keep the mandatory dependency blocked until the actual File 00
+        // provider supplies a verified, scoped, fresh manifest via filter.
 
         /** @var mixed $filtered */
         $filtered = apply_filters('cf02_dependency_contract_evidence', $defaults);
