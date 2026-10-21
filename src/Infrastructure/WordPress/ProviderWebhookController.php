@@ -176,6 +176,12 @@ final class ProviderWebhookController
                 $existing = $this->operations->nativeResultEvidence($commandId);
                 if ($existing === $evidencePayload && hash_equals((string) $command['state'], $state)
                     && hash_equals((string) ($command['outcome_ref'] ?? ''), $outcomeRef)) {
+                    // Historical committed outcomes may predate atomic SLA reconciliation.
+                    // A verified duplicate callback can safely retry the SLA release.
+                    $this->operations->resumeSla(
+                        SupportCaseId::fromString((string) $command['case_uuid']),
+                        'native-result:' . $commandId, $this->now(), ['waiting_provider']
+                    );
                     return ['command_id' => $commandId, 'state' => $state, 'reconciled' => $state === 'succeeded', 'replayed' => true];
                 }
                 throw new RuntimeException('A terminal native command result cannot be changed.');
@@ -193,14 +199,7 @@ final class ProviderWebhookController
                 $this->now(),
                 $context
             );
-            if (in_array($state, ['succeeded','failed'], true)) {
-                $this->operations->resumeSla(
-                    SupportCaseId::fromString((string) $command['case_uuid']),
-                    'native-result:' . $commandId,
-                    $this->now(),
-                    ['waiting_provider']
-                );
-            }
+            // Already included in the native outcome/evidence database transaction.
             return ['command_id' => $commandId, 'state' => $state, 'reconciled' => $state === 'succeeded', 'replayed' => false];
         });
     }
