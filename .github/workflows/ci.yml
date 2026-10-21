@@ -115,6 +115,8 @@ jobs:
         run: php -d zend.assertions=1 tests/c2o-inbound-provider-metadata.php
       - name: CF-02 forty plan-to-code structural witnesses
         run: php -d zend.assertions=1 tests/c2o-plan-40-structural-witnesses.php
+      - name: C2-P signed native-result version and payload adversarial checks
+        run: php -d zend.assertions=1 tests/c2p-native-result-security.php
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
       - name: Public repository safety scan
