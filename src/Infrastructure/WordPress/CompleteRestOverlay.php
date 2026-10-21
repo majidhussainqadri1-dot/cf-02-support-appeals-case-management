@@ -40,7 +40,7 @@ final class CompleteRestOverlay
             $trace=RequestGuard::traceId();do_action('cf02_api_query_rejected',['trace_id'=>$trace,'error_class'=>$error::class,'route_hash'=>hash('sha256',(string)$suffix)]);
             return new \WP_Error('cf02_invalid_query',__('The query is invalid, expired, or outside your authorized scope.','cf-02-support-appeals-case-management'),['status'=>400,'trace_id'=>$trace]);
         }catch(Throwable $error){
-            $trace=RequestGuard::traceId();do_action('cf02_api_query_failed',['trace_id'=>$trace,'error_class'=>$error::class,'error'=>$error]);
+            $trace=RequestGuard::traceId();do_action('cf02_api_query_failed',['trace_id'=>$trace,'error_class'=>$error::class]);
             return new \WP_Error('cf02_query_unavailable',__('The authorized query is temporarily unavailable.','cf-02-support-appeals-case-management'),['status'=>503,'trace_id'=>$trace]);
         }
     }
