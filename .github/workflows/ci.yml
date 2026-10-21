@@ -125,6 +125,8 @@ jobs:
         run: php -d zend.assertions=1 tests/c2q-40-native-outcome-contract.php
       - name: C2-R forty native-owner activation and fresh-attestation checks
         run: php -d zend.assertions=1 tests/c2r-forty-activation-attestation.php
+      - name: C2-R private listings must not conceal database errors
+        run: php -d zend.assertions=1 tests/c2r-private-query-failures.php
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
       - name: Public repository safety scan
