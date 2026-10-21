@@ -128,14 +128,8 @@ final class RuntimeWorker
                     'native_result_reconciliation',
                     $this->now()
                 );
-                if (in_array($state, ['succeeded','failed'], true)) {
-                    $this->repository->resumeSla(
-                        SupportCaseId::fromString((string) $command['case_uuid']),
-                        'native-result:' . (string) $command['command_uuid'],
-                        $this->now(),
-                        ['waiting_provider']
-                    );
-                }
+                // Terminal outcome and SLA release were committed atomically
+                // by recordCommandResultWithEvidence.
                 if ($state === 'succeeded') { ++$succeeded; }
                 elseif ($state === 'failed') { ++$failed; }
                 else { ++$uncertain; }
