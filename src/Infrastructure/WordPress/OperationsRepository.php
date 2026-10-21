@@ -1321,12 +1321,14 @@ final class OperationsRepository
         if ($caseRow === null) {
             throw new RuntimeException('Retention purge target case was not found.');
         }
-        $activeHolds = (int) $this->value($this->wpdb->prepare(
+        $activeHolds = $this->value($this->wpdb->prepare(
             "SELECT COUNT(*) FROM {$this->tables['holds']} WHERE state='active' AND (case_uuid=%s OR category=%s)",
             $caseId, (string) $caseRow['category']
         ));
-        if ($activeHolds > 0) {
-            throw new RuntimeException('Active case or category legal/appeal hold blocks purge.');
+        // COUNT(*) yields 0 or "0" for a verified empty result. NULL/false
+        // from a failed query must not be coerced into zero before deletion.
+        if ($activeHolds !== 0 && $activeHolds !== '0') {
+            throw new RuntimeException('Case legal-hold state is active or unverified; purge denied.');
         }
         if (($providerResults['all_targets_reconciled'] ?? false) !== true) {
             throw new RuntimeException('Provider/cache/search deletion reconciliation is incomplete.');
@@ -2376,7 +2378,17 @@ final class OperationsRepository
     private function rows(string $sql): array
     {
         $rows = $this->wpdb->get_results($sql, ARRAY_A);
-        return is_array($rows) ? array_values(array_filter($rows, 'is_array')) : [];
+        // SQL failure is never an empty authorized list or an empty retention
+        // inventory. In particular, purge must not proceed on missing evidence.
+        if (!is_array($rows)) {
+            throw new RuntimeException('Support database list query failed.');
+        }
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                throw new RuntimeException('Support database list query returned malformed rows.');
+            }
+        }
+        return array_values($rows);
     }
 
     private function value(string $sql): mixed
