@@ -1377,7 +1377,7 @@ final class ComprehensiveRestController
             return new \WP_Error('cf02_conflict', __('The record changed. Refresh it and retry.', 'cf-02-support-appeals-case-management'), ['status'=>409,'trace_id'=>$trace]);
         } catch (Throwable $error) {
             $trace = RequestGuard::traceId();
-            do_action('cf02_api_request_failed', ['trace_id'=>$trace,'error_class'=>$error::class,'error'=>$error]);
+            do_action('cf02_api_request_failed', ['trace_id'=>$trace,'error_class'=>$error::class]);
             return new \WP_Error('cf02_request_rejected', __('The request was rejected. Review the fields and your current authorization, then retry.', 'cf-02-support-appeals-case-management'), ['status'=>422,'trace_id'=>$trace]);
         }
     }
