@@ -321,39 +321,60 @@ final class OperationsRepository
         }
         $projectionHash = hash('sha256', $this->json($safeProjection));
         $id = 'CF02-LNK-' . strtoupper(substr(hash('sha256', $ownerKey . "\0" . $objectType . "\0" . $objectRef . "\0" . $caseId->value()), 0, 20));
-        $existing = $this->row($this->wpdb->prepare("SELECT * FROM {$this->tables['case_links']} WHERE link_uuid=%s LIMIT 1", $id));
-        if ($existing !== null) {
-            if (!hash_equals((string) $existing['projection_hash'], $projectionHash)
-                || !hash_equals((string) $existing['object_version'], $objectVersion)) {
-                $updated = $this->wpdb->update($this->tables['case_links'], [
-                    'object_version' => $objectVersion, 'privacy_class' => $privacyClass,
-                    'projection_hash' => $projectionHash, 'updated_at' => $this->mysqlTime($at),
-                ], ['link_uuid' => $id, 'state' => 'active']);
-                if ($updated !== 1) {
-                    throw new RuntimeException('Linked object projection update conflicted.');
+        // The link projection, its privacy classification, and the audit
+        // event must be one database commit. Lock the existing link while
+        // checking the idempotent version/visibility transition.
+        $this->transaction(function () use (
+            $id, $caseId, $context, $ownerKey, $objectType, $objectRef,
+            $objectVersion, $privacyClass, $projectionHash,
+            $idempotencyKey, $at
+        ): void {
+            $existing = $this->row($this->wpdb->prepare(
+                "SELECT * FROM {$this->tables['case_links']} WHERE link_uuid=%s LIMIT 1 FOR UPDATE", $id
+            ));
+            if ($existing !== null) {
+                if (!hash_equals((string) $existing['projection_hash'], $projectionHash)
+                    || !hash_equals((string) $existing['object_version'], $objectVersion)
+                    || !hash_equals((string) $existing['privacy_class'], $privacyClass)) {
+                    $updated = $this->wpdb->update($this->tables['case_links'], [
+                        'object_version' => $objectVersion,
+                        'privacy_class' => $privacyClass,
+                        'projection_hash' => $projectionHash,
+                        'updated_at' => $this->mysqlTime($at),
+                    ], ['link_uuid' => $id, 'state' => 'active']);
+                    if ($updated !== 1) {
+                        throw new RuntimeException('Linked object projection update conflicted.');
+                    }
+                }
+            } else {
+                $ok = $this->wpdb->insert($this->tables['case_links'], [
+                    'link_uuid' => $id, 'case_uuid' => $caseId->value(), 'owner_key' => $ownerKey,
+                    'object_type' => $objectType, 'object_ref' => $objectRef,
+                    'object_version' => $objectVersion,
+                    'privacy_class' => $privacyClass, 'projection_hash' => $projectionHash,
+                    'state' => 'active', 'created_at' => $this->mysqlTime($at),
+                    'updated_at' => $this->mysqlTime($at),
+                ]);
+                if ($ok !== 1) {
+                    throw new RuntimeException('Linked object reference persistence failed.');
                 }
             }
-            $version = (int) $this->value($this->wpdb->prepare("SELECT record_version FROM {$this->tables['cases']} WHERE case_uuid=%s", $caseId->value()));
-            $this->appendEvent('case', $caseId->value(), 'SupportDomainObjectLinked', $context, 'linked_domain_projection', $idempotencyKey, [
-                'link_ref' => $id, 'owner_key' => $ownerKey, 'object_type' => $objectType, 'object_ref' => $objectRef,
-                'object_version' => $objectVersion, 'projection_hash' => $projectionHash,
-            ], $version, $at);
-            return $id;
-        }
-        $ok = $this->wpdb->insert($this->tables['case_links'], [
-            'link_uuid' => $id, 'case_uuid' => $caseId->value(), 'owner_key' => $ownerKey,
-            'object_type' => $objectType, 'object_ref' => $objectRef, 'object_version' => $objectVersion,
-            'privacy_class' => $privacyClass, 'projection_hash' => $projectionHash, 'state' => 'active',
-            'created_at' => $this->mysqlTime($at), 'updated_at' => $this->mysqlTime($at),
-        ]);
-        if ($ok !== 1) {
-            throw new RuntimeException('Linked object reference persistence failed.');
-        }
-        $version = (int) $this->value($this->wpdb->prepare("SELECT record_version FROM {$this->tables['cases']} WHERE case_uuid=%s", $caseId->value()));
-        $this->appendEvent('case', $caseId->value(), 'SupportDomainObjectLinked', $context, 'linked_domain_projection', $idempotencyKey, [
-            'link_ref' => $id, 'owner_key' => $ownerKey, 'object_type' => $objectType, 'object_ref' => $objectRef,
-            'object_version' => $objectVersion, 'projection_hash' => $projectionHash,
-        ], $version, $at);
+            $version = (int) $this->value($this->wpdb->prepare(
+                "SELECT record_version FROM {$this->tables['cases']} WHERE case_uuid=%s", $caseId->value()
+            ));
+            $this->appendEvent(
+                'case', $caseId->value(), 'SupportDomainObjectLinked', $context,
+                'linked_domain_projection', $idempotencyKey,
+                [
+                    'link_ref' => $id, 'owner_key' => $ownerKey,
+                    'object_type' => $objectType, 'object_ref' => $objectRef,
+                    'object_version' => $objectVersion,
+                    'privacy_class' => $privacyClass,
+                    'projection_hash' => $projectionHash,
+                ],
+                $version, $at
+            );
+        });
         return $id;
     }
 
