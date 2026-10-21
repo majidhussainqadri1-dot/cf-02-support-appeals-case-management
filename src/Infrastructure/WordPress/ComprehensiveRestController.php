@@ -261,8 +261,17 @@ final class ComprehensiveRestController
                     $key . ':linked-object:' . substr(hash('sha256', (string) $object['owner'] . "\0" . (string) $object['ref']), 0, 24), $this->now()
                 );
             }
+            // A retried intake request must reproduce the original delivery
+            // payload byte-for-byte, even when it arrives seconds or days later.
+            // The canonical case timestamp, not the current retry time, owns
+            // the receipt date and its encrypted payload hash.
+            $createdAt = (string) ($result['case']['created_at'] ?? '');
+            if ($createdAt === '') {
+                throw new RuntimeException('The canonical case creation time is unavailable.');
+            }
+            $receiptAt = (new DateTimeImmutable($createdAt, new DateTimeZone('UTC')))->format(DATE_ATOM);
             $receiptPayload = [
-                'case_id' => $caseId->value(), 'category' => $category, 'received_at' => $this->now()->format(DATE_ATOM),
+                'case_id' => $caseId->value(), 'category' => $category, 'received_at' => $receiptAt,
                 'status' => 'new', 'next_step' => $triage->humanReviewRequired() ? 'human_triage' : 'queue_assignment',
                 'sla_range' => match ($priority) { 'P1' => 'urgent', 'P2' => 'priority', default => 'standard' },
                 'emergency_boundary' => true,
