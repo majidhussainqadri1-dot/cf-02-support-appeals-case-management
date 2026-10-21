@@ -1333,7 +1333,7 @@ final class OperationsRepository
         if (($providerResults['all_targets_reconciled'] ?? false) !== true) {
             throw new RuntimeException('Provider/cache/search deletion reconciliation is incomplete.');
         }
-        $this->transaction(function () use ($caseId, $at): void {
+        $this->transaction(function () use ($caseId, $providerResults, $at): void {
             $appeals = $this->rows($this->wpdb->prepare(
                 "SELECT appeal_uuid,dossier_hash,outcome,implementation_ref FROM {$this->tables['appeals']} WHERE case_uuid=%s",
                 $caseId
@@ -1362,7 +1362,7 @@ final class OperationsRepository
                         ? null : hash('sha256', (string) $appeal['implementation_ref']),
                     'decision_payload_hash' => is_string($decisionHash) && $decisionHash !== '' ? $decisionHash : null,
                 ];
-                $this->wpdb->delete($this->tables['dossiers'], ['appeal_uuid' => $appealId]);
+                $this->purgeDelete($this->tables['dossiers'], ['appeal_uuid' => $appealId]);
             }
             $this->recordRetentionResult(
                 'case', $caseId, 'cf02-retention-v1', 'decision_tombstone',
@@ -1372,30 +1372,30 @@ final class OperationsRepository
 
             $messageIds = array_values(array_map(static fn(array $row): string => (string) $row['message_uuid'], $messages));
             if ($messageIds !== []) {
-                $this->wpdb->query($this->wpdb->prepare(
+                $this->purgeQuery($this->wpdb->prepare(
                     "DELETE FROM {$this->tables['note_revisions']} WHERE message_uuid IN (" . implode(',', array_fill(0, count($messageIds), '%s')) . ")",
                     ...$messageIds
                 ));
             }
             $attachmentIds = array_values(array_map(static fn(array $row): string => (string) $row['attachment_uuid'], $attachments));
             if ($attachmentIds !== []) {
-                $this->wpdb->query($this->wpdb->prepare(
+                $this->purgeQuery($this->wpdb->prepare(
                     "DELETE FROM {$this->tables['tokens']} WHERE attachment_uuid IN (" . implode(',', array_fill(0, count($attachmentIds), '%s')) . ")",
                     ...$attachmentIds
                 ));
             }
 
             foreach (['messages','attachments','assignments','sla','tasks','appeals','commands','outbox','case_links','incident_links','feedback','quality'] as $table) {
-                $this->wpdb->delete($this->tables[$table], ['case_uuid' => $caseId]);
+                $this->purgeDelete($this->tables[$table], ['case_uuid' => $caseId]);
             }
-            $this->wpdb->delete($this->tables['inbound'], ['case_uuid' => $caseId]);
-            $this->wpdb->delete($this->tables['migration'], ['target_case_uuid' => $caseId]);
-            $this->wpdb->delete($this->tables['intake_replay'], ['case_uuid' => $caseId]);
-            $this->wpdb->delete($this->tables['holds'], ['case_uuid' => $caseId]);
+            $this->purgeDelete($this->tables['inbound'], ['case_uuid' => $caseId]);
+            $this->purgeDelete($this->tables['migration'], ['target_case_uuid' => $caseId]);
+            $this->purgeDelete($this->tables['intake_replay'], ['case_uuid' => $caseId]);
+            $this->purgeDelete($this->tables['holds'], ['case_uuid' => $caseId]);
 
-            $this->wpdb->query("DELETE p FROM {$this->tables['command_payloads']} p LEFT JOIN {$this->tables['commands']} c ON c.command_uuid=p.command_uuid WHERE c.command_uuid IS NULL");
-            $this->wpdb->query("DELETE p FROM {$this->tables['outbox_payloads']} p LEFT JOIN {$this->tables['outbox']} o ON o.message_uuid=p.message_uuid WHERE o.message_uuid IS NULL");
-            $this->wpdb->query($this->wpdb->prepare("DELETE FROM {$this->tables['merge_redirects']} WHERE source_case_uuid=%s OR target_case_uuid=%s", $caseId, $caseId));
+            $this->purgeQuery("DELETE p FROM {$this->tables['command_payloads']} p LEFT JOIN {$this->tables['commands']} c ON c.command_uuid=p.command_uuid WHERE c.command_uuid IS NULL");
+            $this->purgeQuery("DELETE p FROM {$this->tables['outbox_payloads']} p LEFT JOIN {$this->tables['outbox']} o ON o.message_uuid=p.message_uuid WHERE o.message_uuid IS NULL");
+            $this->purgeQuery($this->wpdb->prepare("DELETE FROM {$this->tables['merge_redirects']} WHERE source_case_uuid=%s OR target_case_uuid=%s", $caseId, $caseId));
 
             $appealIds = array_values(array_map(static fn(array $row): string => (string) $row['appeal_uuid'], $appeals));
             $eventClauses = ["(aggregate_type='case' AND aggregate_ref=%s)"];
@@ -1408,7 +1408,7 @@ final class OperationsRepository
                 $eventClauses[] = "(aggregate_type='attachment' AND aggregate_ref IN (" . implode(',', array_fill(0, count($attachmentIds), '%s')) . "))";
                 array_push($eventArgs, ...$attachmentIds);
             }
-            $this->wpdb->query($this->wpdb->prepare(
+            $this->purgeQuery($this->wpdb->prepare(
                 "DELETE FROM {$this->tables['events']} WHERE " . implode(' OR ', $eventClauses),
                 ...$eventArgs
             ));
@@ -1417,14 +1417,32 @@ final class OperationsRepository
             if ($deleted !== 1) {
                 throw new RuntimeException('Canonical case purge failed.');
             }
+            // The final purge fact and deletions share one database commit:
+            // do not permanently delete the case if mandatory evidence fails.
+            $system = $this->systemContext($at);
+            $this->appendEvent('case', $caseId, 'SupportRetentionPurgeCompleted', $system, 'retention_purge',
+                'retention-purge-' . substr(hash('sha256', $caseId . "\0" . $this->json($providerResults)), 0, 40),
+                ['provider_results_hash' => hash('sha256', $this->json($providerResults))], 0, $at);
         });
-        $system = $this->systemContext($at);
-        $this->appendEvent('case', $caseId, 'SupportRetentionPurgeCompleted', $system, 'retention_purge',
-            'retention-purge-' . substr(hash('sha256', $caseId . "\0" . $this->json($providerResults)), 0, 40),
-            ['provider_results_hash' => hash('sha256', $this->json($providerResults))], 0, $at);
     }
 
     /** @return list<array<string,mixed>> */
+
+    /** @param array<string,mixed> $where */
+    private function purgeDelete(string $table, array $where): void
+    {
+        if ($this->wpdb->delete($table, $where) === false) {
+            throw new RuntimeException('A governed retention purge deletion failed.');
+        }
+    }
+
+    private function purgeQuery(string $sql): void
+    {
+        if ($this->wpdb->query($sql) === false) {
+            throw new RuntimeException('A governed retention purge SQL operation failed.');
+        }
+    }
+
     public function dueRetention(int $limit = 250): array
     {
         $limit = max(1, min(1000, $limit));
