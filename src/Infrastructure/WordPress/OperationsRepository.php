@@ -1567,9 +1567,14 @@ final class OperationsRepository
             $idempotencyKey
         ));
         if ($existing !== null) {
+            // One idempotency key binds the *entire* delivery identity. A
+            // replay for a different case or template must not return the
+            // old notification receipt even when recipient/body match.
             if (!hash_equals((string) $existing['payload_hash'], $payloadHash)
                 || !hash_equals((string) $existing['recipient_ref'], $recipientRef)
-                || !hash_equals((string) $existing['channel'], $channel)) {
+                || !hash_equals((string) $existing['channel'], $channel)
+                || !hash_equals((string) $existing['case_uuid'], $caseId->value())
+                || !hash_equals((string) $existing['template_key'], $templateKey)) {
                 throw new RuntimeException('Delivery idempotency collision.');
             }
             return (string) $existing['message_uuid'];
