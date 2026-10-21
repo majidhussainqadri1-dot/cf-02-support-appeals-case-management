@@ -9,6 +9,7 @@ use DateTimeZone;
 use RuntimeException;
 use Sabri\CF02\Authorization\PrincipalContext;
 use Sabri\CF02\Domain\SupportCaseId;
+use Sabri\CF02\Integration\NativeResultVersion;
 use Sabri\CF02\Security\DataCipher;
 use Sabri\CF02\Security\SensitiveContentDetector;
 use Throwable;
@@ -160,7 +161,7 @@ final class ProviderWebhookController
             }
             $status = sanitize_key((string) ($payload['status'] ?? ''));
             $outcomeRef = sanitize_text_field((string) ($payload['outcome_ref'] ?? ''));
-            $nativeVersion = (int) ($payload['native_version'] ?? 0);
+            $nativeVersion = NativeResultVersion::fromPayload($payload['native_version'] ?? null);
             if (!in_array($status, ['succeeded','failed','outcome_uncertain'], true)
                 || $nativeVersion < (int) $command['expected_native_version']
                 || ($status === 'succeeded' && $outcomeRef === '')) {
@@ -254,7 +255,11 @@ final class ProviderWebhookController
         if (!is_string($key) || strlen($key) < 32) {
             throw new RuntimeException('Provider signing key is unavailable.');
         }
-        $expected = hash_hmac('sha256', $timestamp . '.' . $request->get_body(), $key);
+        $body = $request->get_body();
+        if (!is_string($body) || strlen($body) > 65536) {
+            throw new RuntimeException('Signed provider payload exceeds the bounded callback size.');
+        }
+        $expected = hash_hmac('sha256', $timestamp . '.' . $body, $key);
         if (!hash_equals($expected, $signature)) {
             throw new RuntimeException('Provider signature verification failed.');
         }
@@ -291,7 +296,6 @@ final class ProviderWebhookController
             do_action('cf02_provider_request_failed', [
                 'trace_id' => $trace,
                 'error_class' => $error::class,
-                'error' => $error,
             ]);
             return new \WP_Error(
                 'cf02_provider_request_rejected',
