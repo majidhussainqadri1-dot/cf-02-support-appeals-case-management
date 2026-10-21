@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use RuntimeException;
 use Sabri\CF02\Domain\SupportCaseId;
+use Sabri\CF02\Integration\NativeOwnerOutcomePolicy;
 use Sabri\CF02\Security\DataCipher;
 use Throwable;
 
@@ -101,18 +102,15 @@ final class RuntimeWorker
                     'payload' => $payload,
                     'idempotency_key' => $command['idempotency_key'],
                 ]);
-                if (!is_array($result) || !isset($result['state'])) {
-                    throw new RuntimeException('Native owner adapter returned no authoritative state.');
+                if (!is_array($result)) {
+                    throw new RuntimeException('Native owner adapter returned no authoritative result.');
                 }
-                $state = (string) $result['state'];
-                $nativeVersion = (int) ($result['native_version'] ?? 0);
-                $outcomeRef = isset($result['outcome_ref']) ? trim((string) $result['outcome_ref']) : '';
-                if ($nativeVersion < (int) $command['expected_native_version']) {
-                    throw new RuntimeException('Native owner result is stale.');
-                }
-                if (!in_array($state, ['succeeded','failed','outcome_uncertain'], true)) {
-                    throw new RuntimeException('Native owner did not return a supported result state.');
-                }
+                $validated = NativeOwnerOutcomePolicy::validate(
+                    $result, (int) $command['expected_native_version']
+                );
+                $state = $validated['state'];
+                $nativeVersion = $validated['native_version'];
+                $outcomeRef = $validated['outcome_ref'];
                 $evidence = [
                     'command_ref' => (string) $command['command_uuid'],
                     'status' => $state,
@@ -130,14 +128,8 @@ final class RuntimeWorker
                     'native_result_reconciliation',
                     $this->now()
                 );
-                if (in_array($state, ['succeeded','failed'], true)) {
-                    $this->repository->resumeSla(
-                        SupportCaseId::fromString((string) $command['case_uuid']),
-                        'native-result:' . (string) $command['command_uuid'],
-                        $this->now(),
-                        ['waiting_provider']
-                    );
-                }
+                // Terminal outcome and SLA release were committed atomically
+                // by recordCommandResultWithEvidence.
                 if ($state === 'succeeded') { ++$succeeded; }
                 elseif ($state === 'failed') { ++$failed; }
                 else { ++$uncertain; }
@@ -170,11 +162,10 @@ final class RuntimeWorker
             if (hash_equals((string) $timer['status'], $status)) {
                 continue;
             }
-            $version = $this->repository->markSlaStatus((string) $timer['case_uuid'], $status, $now);
-            $this->repository->appendWorkerEvent(
-                'case', (string) $timer['case_uuid'], $status === 'breached' ? 'SupportSlaBreached' : 'SupportSlaAtRisk',
+            $this->repository->markSlaStatusWithEvent(
+                (string) $timer['case_uuid'], $status,
                 ['status' => $status, 'priority' => (string) $timer['priority'], 'policy_id' => (string) $timer['policy_id'], 'policy_version' => (string) $timer['policy_version']],
-                $version, $now
+                $now
             );
             $status === 'breached' ? ++$breached : ++$atRisk;
             /** @var mixed $escalation */
@@ -212,10 +203,10 @@ final class RuntimeWorker
             if ($accepted) {
                 try {
                     $this->repository->purgeCase((string) $case['case_uuid'], $result, $this->now());
-                    $this->repository->recordRetentionResult('case', (string) $case['case_uuid'], 'cf02-retention-v1', 'purged', $result, $this->now());
+                    // Purge and its final evidence were atomically committed in purgeCase.
                     ++$purged;
                 } catch (Throwable $error) {
-                    $this->repository->recordRetentionResult('case', (string) $case['case_uuid'], 'cf02-retention-v1', 'deferred', ['reason' => $error->getMessage()], $this->now());
+                    $this->repository->recordRetentionResult('case', (string) $case['case_uuid'], 'cf02-retention-v1', 'deferred', ['reason' => 'purge_operation_failed', 'error_class' => $error::class], $this->now());
                     ++$deferred;
                 }
             } else {

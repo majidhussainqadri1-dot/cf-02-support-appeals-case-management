@@ -56,6 +56,9 @@ if (preg_match('/^CF02-[0-9A-F-]{36}$/', $caseId) !== 1) {
     $fail('Runtime returned an invalid case identity.');
 }
 
+// Deliberately cross a clock-second boundary: the same Idempotency-Key
+// must reproduce the original receipt payload, not a new current-time hash.
+sleep(2);
 $replay = new WP_REST_Request('POST', '/api/support/v1/cases');
 $replay->set_header('Idempotency-Key', 'runtime-smoke-0000000000000001');
 $replay->set_body_params($request->get_body_params());
@@ -76,6 +79,50 @@ if (!$collisionResponse->is_error()) {
     $fail('Changed idempotency replay was not rejected.');
 }
 
+// Forty real WordPress+MariaDB adversarial retries. The old fingerprint
+// ignored description and affected native-object references even though those
+// mutate messages/links after intake creation.
+$replayVariants = 0;
+for ($variantIndex = 1; $variantIndex <= 40; ++$variantIndex) {
+    $variantBody = $request->get_body_params();
+    if ($variantIndex <= 20) {
+        $variantBody['description'] = $variantIndex === 1
+            ? '' : 'Changed requester details, scenario ' . $variantIndex;
+    } else {
+        $variantBody['affected_object'] = [
+            'owner' => 'messages_reports',
+            'type' => 'message',
+            'ref' => 'native-message-' . $variantIndex,
+            'version' => '1.0.0',
+            'privacy_class' => 'C2',
+            'safe_projection' => ['purpose' => 'support_reference'],
+        ];
+    }
+    $variant = new WP_REST_Request('POST', '/api/support/v1/cases');
+    $variant->set_header('Idempotency-Key', 'runtime-smoke-0000000000000001');
+    $variant->set_body_params($variantBody);
+    $responseVariant = rest_do_request($variant);
+    if (!$responseVariant->is_error() || $responseVariant->get_status() < 400) {
+        $fail('Intake replay accepted changed description/native-object mutation ' . $variantIndex);
+    }
+    ++$replayVariants;
+}
+if ($replayVariants !== 40) {
+    $fail('Forty actual runtime intake adversarial replays were not exercised.');
+}
+
+// An incomplete native-object reference is invalid *before* case creation,
+// not after creating a case and leaving a misleading failed API response.
+$invalidLink = new WP_REST_Request('POST', '/api/support/v1/cases');
+$invalidLink->set_header('Idempotency-Key', 'runtime-smoke-invalid-link-0000001');
+$invalidLinkBody = $request->get_body_params();
+$invalidLinkBody['affected_object'] = ['owner' => 'messages_reports', 'type' => 'message', 'version' => '1.0.0'];
+$invalidLink->set_body_params($invalidLinkBody);
+$invalidLinkResponse = rest_do_request($invalidLink);
+if (!$invalidLinkResponse->is_error()) {
+    $fail('Invalid native-object link was accepted.');
+}
+
 $list = rest_do_request(new WP_REST_Request('GET', '/api/support/v1/cases'));
 $listData = $list->get_data();
 if ($list->is_error() || !is_array($listData) || count($listData['items'] ?? []) !== 1) {
@@ -94,6 +141,13 @@ foreach ($checks as $name => $count) {
     if ($count < 1) {
         $fail('Runtime persistence evidence missing: ' . $name);
     }
+}
+
+if ($checks['case'] !== 1 || $checks['messages'] !== 1 || $checks['outbox'] !== 1
+    || (int) $wpdb->get_var($wpdb->prepare(
+        "SELECT COUNT(*) FROM {$wpdb->prefix}cf02_case_links WHERE case_uuid=%s", $caseId
+    )) !== 0) {
+    $fail('Rejected intake replay or invalid native link left extra canonical records.');
 }
 
 fwrite(STDOUT, wp_json_encode([

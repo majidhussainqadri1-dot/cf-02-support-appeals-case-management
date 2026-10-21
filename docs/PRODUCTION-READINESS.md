@@ -5,7 +5,7 @@
 Runtime candidate: `1.0.0-rc.7`  
 Plan: `1.0`  
 Schema: `1.3.0`  
-Contract: `1.1.0`
+Contract: `1.3.0`
 
 The latest rewritten central-plan and CF-02-plan coded surface is reconciled as a repository candidate. This register does not itself prove Hostinger staging, live deployment or operational acceptance.
 

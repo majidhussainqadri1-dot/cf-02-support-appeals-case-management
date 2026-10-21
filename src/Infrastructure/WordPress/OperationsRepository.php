@@ -6,6 +6,7 @@ namespace Sabri\CF02\Infrastructure\WordPress;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use LogicException;
 use RuntimeException;
 use Sabri\CF02\Authorization\PrincipalContext;
 use Sabri\CF02\Contracts\SupportContractCatalog;
@@ -320,39 +321,60 @@ final class OperationsRepository
         }
         $projectionHash = hash('sha256', $this->json($safeProjection));
         $id = 'CF02-LNK-' . strtoupper(substr(hash('sha256', $ownerKey . "\0" . $objectType . "\0" . $objectRef . "\0" . $caseId->value()), 0, 20));
-        $existing = $this->row($this->wpdb->prepare("SELECT * FROM {$this->tables['case_links']} WHERE link_uuid=%s LIMIT 1", $id));
-        if ($existing !== null) {
-            if (!hash_equals((string) $existing['projection_hash'], $projectionHash)
-                || !hash_equals((string) $existing['object_version'], $objectVersion)) {
-                $updated = $this->wpdb->update($this->tables['case_links'], [
-                    'object_version' => $objectVersion, 'privacy_class' => $privacyClass,
-                    'projection_hash' => $projectionHash, 'updated_at' => $this->mysqlTime($at),
-                ], ['link_uuid' => $id, 'state' => 'active']);
-                if ($updated !== 1) {
-                    throw new RuntimeException('Linked object projection update conflicted.');
+        // The link projection, its privacy classification, and the audit
+        // event must be one database commit. Lock the existing link while
+        // checking the idempotent version/visibility transition.
+        $this->transaction(function () use (
+            $id, $caseId, $context, $ownerKey, $objectType, $objectRef,
+            $objectVersion, $privacyClass, $projectionHash,
+            $idempotencyKey, $at
+        ): void {
+            $existing = $this->row($this->wpdb->prepare(
+                "SELECT * FROM {$this->tables['case_links']} WHERE link_uuid=%s LIMIT 1 FOR UPDATE", $id
+            ));
+            if ($existing !== null) {
+                if (!hash_equals((string) $existing['projection_hash'], $projectionHash)
+                    || !hash_equals((string) $existing['object_version'], $objectVersion)
+                    || !hash_equals((string) $existing['privacy_class'], $privacyClass)) {
+                    $updated = $this->wpdb->update($this->tables['case_links'], [
+                        'object_version' => $objectVersion,
+                        'privacy_class' => $privacyClass,
+                        'projection_hash' => $projectionHash,
+                        'updated_at' => $this->mysqlTime($at),
+                    ], ['link_uuid' => $id, 'state' => 'active']);
+                    if ($updated !== 1) {
+                        throw new RuntimeException('Linked object projection update conflicted.');
+                    }
+                }
+            } else {
+                $ok = $this->wpdb->insert($this->tables['case_links'], [
+                    'link_uuid' => $id, 'case_uuid' => $caseId->value(), 'owner_key' => $ownerKey,
+                    'object_type' => $objectType, 'object_ref' => $objectRef,
+                    'object_version' => $objectVersion,
+                    'privacy_class' => $privacyClass, 'projection_hash' => $projectionHash,
+                    'state' => 'active', 'created_at' => $this->mysqlTime($at),
+                    'updated_at' => $this->mysqlTime($at),
+                ]);
+                if ($ok !== 1) {
+                    throw new RuntimeException('Linked object reference persistence failed.');
                 }
             }
-            $version = (int) $this->value($this->wpdb->prepare("SELECT record_version FROM {$this->tables['cases']} WHERE case_uuid=%s", $caseId->value()));
-            $this->appendEvent('case', $caseId->value(), 'SupportDomainObjectLinked', $context, 'linked_domain_projection', $idempotencyKey, [
-                'link_ref' => $id, 'owner_key' => $ownerKey, 'object_type' => $objectType, 'object_ref' => $objectRef,
-                'object_version' => $objectVersion, 'projection_hash' => $projectionHash,
-            ], $version, $at);
-            return $id;
-        }
-        $ok = $this->wpdb->insert($this->tables['case_links'], [
-            'link_uuid' => $id, 'case_uuid' => $caseId->value(), 'owner_key' => $ownerKey,
-            'object_type' => $objectType, 'object_ref' => $objectRef, 'object_version' => $objectVersion,
-            'privacy_class' => $privacyClass, 'projection_hash' => $projectionHash, 'state' => 'active',
-            'created_at' => $this->mysqlTime($at), 'updated_at' => $this->mysqlTime($at),
-        ]);
-        if ($ok !== 1) {
-            throw new RuntimeException('Linked object reference persistence failed.');
-        }
-        $version = (int) $this->value($this->wpdb->prepare("SELECT record_version FROM {$this->tables['cases']} WHERE case_uuid=%s", $caseId->value()));
-        $this->appendEvent('case', $caseId->value(), 'SupportDomainObjectLinked', $context, 'linked_domain_projection', $idempotencyKey, [
-            'link_ref' => $id, 'owner_key' => $ownerKey, 'object_type' => $objectType, 'object_ref' => $objectRef,
-            'object_version' => $objectVersion, 'projection_hash' => $projectionHash,
-        ], $version, $at);
+            $version = (int) $this->value($this->wpdb->prepare(
+                "SELECT record_version FROM {$this->tables['cases']} WHERE case_uuid=%s", $caseId->value()
+            ));
+            $this->appendEvent(
+                'case', $caseId->value(), 'SupportDomainObjectLinked', $context,
+                'linked_domain_projection', $idempotencyKey,
+                [
+                    'link_ref' => $id, 'owner_key' => $ownerKey,
+                    'object_type' => $objectType, 'object_ref' => $objectRef,
+                    'object_version' => $objectVersion,
+                    'privacy_class' => $privacyClass,
+                    'projection_hash' => $projectionHash,
+                ],
+                $version, $at
+            );
+        });
         return $id;
     }
 
@@ -537,6 +559,28 @@ final class OperationsRepository
         if ($updated !== 1) {
             throw new RuntimeException('SLA status update conflicted.');
         }
+        return $version;
+    }
+
+    /**
+     * The SLA version transition and escalation event are one durable fact.
+     * This avoids an at-risk/breached timer silently suppressing its event.
+     * @param array<string,mixed> $evidence
+     */
+    public function markSlaStatusWithEvent(string $caseId, string $status, array $evidence, DateTimeImmutable $at): int
+    {
+        if (!in_array($status, ['at_risk', 'breached'], true)
+            || ($evidence['status'] ?? null) !== $status) {
+            throw new RuntimeException('SLA event status evidence is invalid.');
+        }
+        $version = 0;
+        $this->transaction(function () use ($caseId, $status, $evidence, $at, &$version): void {
+            $version = $this->markSlaStatus($caseId, $status, $at);
+            $this->appendWorkerEvent(
+                'case', $caseId, $status === 'breached' ? 'SupportSlaBreached' : 'SupportSlaAtRisk',
+                $evidence, $version, $at
+            );
+        });
         return $version;
     }
 
@@ -1063,7 +1107,8 @@ final class OperationsRepository
         if ($existing !== null) {
             if (!hash_equals((string) $existing['case_uuid'], $caseId->value())
                 || !hash_equals((string) $existing['reason_code'], $reason)
-                || !hash_equals((string) $existing['authority_ref'], $authorityRef)) {
+                || !hash_equals((string) $existing['authority_ref'], $authorityRef)
+                || !hash_equals((string) ($existing['review_due_at'] ?? ''), $this->mysqlTime($reviewDue))) {
                 throw new RuntimeException('Hold idempotency collision.');
             }
             return $existing;
@@ -1097,7 +1142,8 @@ final class OperationsRepository
         if ($existing !== null) {
             if (!hash_equals((string) ($existing['category'] ?? ''), $category)
                 || !hash_equals((string) $existing['reason_code'], $reason)
-                || !hash_equals((string) $existing['authority_ref'], $authorityRef)) {
+                || !hash_equals((string) $existing['authority_ref'], $authorityRef)
+                || !hash_equals((string) ($existing['review_due_at'] ?? ''), $this->mysqlTime($reviewDue))) {
                 throw new RuntimeException('Category hold idempotency collision.');
             }
             return $existing;
@@ -1321,17 +1367,19 @@ final class OperationsRepository
         if ($caseRow === null) {
             throw new RuntimeException('Retention purge target case was not found.');
         }
-        $activeHolds = (int) $this->value($this->wpdb->prepare(
+        $activeHolds = $this->value($this->wpdb->prepare(
             "SELECT COUNT(*) FROM {$this->tables['holds']} WHERE state='active' AND (case_uuid=%s OR category=%s)",
             $caseId, (string) $caseRow['category']
         ));
-        if ($activeHolds > 0) {
-            throw new RuntimeException('Active case or category legal/appeal hold blocks purge.');
+        // COUNT(*) yields 0 or "0" for a verified empty result. NULL/false
+        // from a failed query must not be coerced into zero before deletion.
+        if ($activeHolds !== 0 && $activeHolds !== '0') {
+            throw new RuntimeException('Case legal-hold state is active or unverified; purge denied.');
         }
         if (($providerResults['all_targets_reconciled'] ?? false) !== true) {
             throw new RuntimeException('Provider/cache/search deletion reconciliation is incomplete.');
         }
-        $this->transaction(function () use ($caseId, $at): void {
+        $this->transaction(function () use ($caseId, $providerResults, $at): void {
             $appeals = $this->rows($this->wpdb->prepare(
                 "SELECT appeal_uuid,dossier_hash,outcome,implementation_ref FROM {$this->tables['appeals']} WHERE case_uuid=%s",
                 $caseId
@@ -1360,7 +1408,7 @@ final class OperationsRepository
                         ? null : hash('sha256', (string) $appeal['implementation_ref']),
                     'decision_payload_hash' => is_string($decisionHash) && $decisionHash !== '' ? $decisionHash : null,
                 ];
-                $this->wpdb->delete($this->tables['dossiers'], ['appeal_uuid' => $appealId]);
+                $this->purgeDelete($this->tables['dossiers'], ['appeal_uuid' => $appealId]);
             }
             $this->recordRetentionResult(
                 'case', $caseId, 'cf02-retention-v1', 'decision_tombstone',
@@ -1370,30 +1418,30 @@ final class OperationsRepository
 
             $messageIds = array_values(array_map(static fn(array $row): string => (string) $row['message_uuid'], $messages));
             if ($messageIds !== []) {
-                $this->wpdb->query($this->wpdb->prepare(
+                $this->purgeQuery($this->wpdb->prepare(
                     "DELETE FROM {$this->tables['note_revisions']} WHERE message_uuid IN (" . implode(',', array_fill(0, count($messageIds), '%s')) . ")",
                     ...$messageIds
                 ));
             }
             $attachmentIds = array_values(array_map(static fn(array $row): string => (string) $row['attachment_uuid'], $attachments));
             if ($attachmentIds !== []) {
-                $this->wpdb->query($this->wpdb->prepare(
+                $this->purgeQuery($this->wpdb->prepare(
                     "DELETE FROM {$this->tables['tokens']} WHERE attachment_uuid IN (" . implode(',', array_fill(0, count($attachmentIds), '%s')) . ")",
                     ...$attachmentIds
                 ));
             }
 
             foreach (['messages','attachments','assignments','sla','tasks','appeals','commands','outbox','case_links','incident_links','feedback','quality'] as $table) {
-                $this->wpdb->delete($this->tables[$table], ['case_uuid' => $caseId]);
+                $this->purgeDelete($this->tables[$table], ['case_uuid' => $caseId]);
             }
-            $this->wpdb->delete($this->tables['inbound'], ['case_uuid' => $caseId]);
-            $this->wpdb->delete($this->tables['migration'], ['target_case_uuid' => $caseId]);
-            $this->wpdb->delete($this->tables['intake_replay'], ['case_uuid' => $caseId]);
-            $this->wpdb->delete($this->tables['holds'], ['case_uuid' => $caseId]);
+            $this->purgeDelete($this->tables['inbound'], ['case_uuid' => $caseId]);
+            $this->purgeDelete($this->tables['migration'], ['target_case_uuid' => $caseId]);
+            $this->purgeDelete($this->tables['intake_replay'], ['case_uuid' => $caseId]);
+            $this->purgeDelete($this->tables['holds'], ['case_uuid' => $caseId]);
 
-            $this->wpdb->query("DELETE p FROM {$this->tables['command_payloads']} p LEFT JOIN {$this->tables['commands']} c ON c.command_uuid=p.command_uuid WHERE c.command_uuid IS NULL");
-            $this->wpdb->query("DELETE p FROM {$this->tables['outbox_payloads']} p LEFT JOIN {$this->tables['outbox']} o ON o.message_uuid=p.message_uuid WHERE o.message_uuid IS NULL");
-            $this->wpdb->query($this->wpdb->prepare("DELETE FROM {$this->tables['merge_redirects']} WHERE source_case_uuid=%s OR target_case_uuid=%s", $caseId, $caseId));
+            $this->purgeQuery("DELETE p FROM {$this->tables['command_payloads']} p LEFT JOIN {$this->tables['commands']} c ON c.command_uuid=p.command_uuid WHERE c.command_uuid IS NULL");
+            $this->purgeQuery("DELETE p FROM {$this->tables['outbox_payloads']} p LEFT JOIN {$this->tables['outbox']} o ON o.message_uuid=p.message_uuid WHERE o.message_uuid IS NULL");
+            $this->purgeQuery($this->wpdb->prepare("DELETE FROM {$this->tables['merge_redirects']} WHERE source_case_uuid=%s OR target_case_uuid=%s", $caseId, $caseId));
 
             $appealIds = array_values(array_map(static fn(array $row): string => (string) $row['appeal_uuid'], $appeals));
             $eventClauses = ["(aggregate_type='case' AND aggregate_ref=%s)"];
@@ -1406,7 +1454,7 @@ final class OperationsRepository
                 $eventClauses[] = "(aggregate_type='attachment' AND aggregate_ref IN (" . implode(',', array_fill(0, count($attachmentIds), '%s')) . "))";
                 array_push($eventArgs, ...$attachmentIds);
             }
-            $this->wpdb->query($this->wpdb->prepare(
+            $this->purgeQuery($this->wpdb->prepare(
                 "DELETE FROM {$this->tables['events']} WHERE " . implode(' OR ', $eventClauses),
                 ...$eventArgs
             ));
@@ -1415,14 +1463,35 @@ final class OperationsRepository
             if ($deleted !== 1) {
                 throw new RuntimeException('Canonical case purge failed.');
             }
+            // The final purge fact and deletions share one database commit:
+            // do not permanently delete the case if mandatory evidence fails.
+            $system = $this->systemContext($at);
+            $this->appendEvent('case', $caseId, 'SupportRetentionPurgeCompleted', $system, 'retention_purge',
+                'retention-purge-' . substr(hash('sha256', $caseId . "\0" . $this->json($providerResults)), 0, 40),
+                ['provider_results_hash' => hash('sha256', $this->json($providerResults))], 0, $at);
+            // The final retention ledger must succeed in the same transaction;
+            // a post-commit failure must never relabel an already-purged case.
+            $this->recordRetentionResult('case', $caseId, 'cf02-retention-v1', 'purged', $providerResults, $at);
         });
-        $system = $this->systemContext($at);
-        $this->appendEvent('case', $caseId, 'SupportRetentionPurgeCompleted', $system, 'retention_purge',
-            'retention-purge-' . substr(hash('sha256', $caseId . "\0" . $this->json($providerResults)), 0, 40),
-            ['provider_results_hash' => hash('sha256', $this->json($providerResults))], 0, $at);
     }
 
     /** @return list<array<string,mixed>> */
+
+    /** @param array<string,mixed> $where */
+    private function purgeDelete(string $table, array $where): void
+    {
+        if ($this->wpdb->delete($table, $where) === false) {
+            throw new RuntimeException('A governed retention purge deletion failed.');
+        }
+    }
+
+    private function purgeQuery(string $sql): void
+    {
+        if ($this->wpdb->query($sql) === false) {
+            throw new RuntimeException('A governed retention purge SQL operation failed.');
+        }
+    }
+
     public function dueRetention(int $limit = 250): array
     {
         $limit = max(1, min(1000, $limit));
@@ -1473,16 +1542,22 @@ final class OperationsRepository
 
     public function markEventPublished(string $eventId): void
     {
-        $this->wpdb->update($this->tables['events'], ['publish_state' => 'published'], ['event_uuid' => $eventId]);
+        $updated = $this->wpdb->update($this->tables['events'], ['publish_state' => 'published'], ['event_uuid' => $eventId]);
+        if ($updated !== 1) {
+            throw new RuntimeException('Published event state was not durably recorded.');
+        }
     }
 
     public function markEventRetry(string $eventId, int $attempts, DateTimeImmutable $next): void
     {
-        $this->wpdb->update($this->tables['events'], [
+        $updated = $this->wpdb->update($this->tables['events'], [
             'publish_state' => $attempts >= 8 ? 'dead_letter' : 'retry',
             'publish_attempts' => $attempts,
             'next_attempt_at' => $this->mysqlTime($next),
         ], ['event_uuid' => $eventId]);
+        if ($updated !== 1) {
+            throw new RuntimeException('Event retry state was not durably recorded.');
+        }
     }
 
     /** @return array<string,mixed>|null */
@@ -1515,9 +1590,14 @@ final class OperationsRepository
             $idempotencyKey
         ));
         if ($existing !== null) {
+            // One idempotency key binds the *entire* delivery identity. A
+            // replay for a different case or template must not return the
+            // old notification receipt even when recipient/body match.
             if (!hash_equals((string) $existing['payload_hash'], $payloadHash)
                 || !hash_equals((string) $existing['recipient_ref'], $recipientRef)
-                || !hash_equals((string) $existing['channel'], $channel)) {
+                || !hash_equals((string) $existing['channel'], $channel)
+                || !hash_equals((string) $existing['case_uuid'], $caseId->value())
+                || !hash_equals((string) $existing['template_key'], $templateKey)) {
                 throw new RuntimeException('Delivery idempotency collision.');
             }
             return (string) $existing['message_uuid'];
@@ -1734,6 +1814,14 @@ final class OperationsRepository
                 $newVersion,
                 $at
             );
+            // Terminal native outcome and its waiting-provider SLA release
+            // must commit together. If the SLA write fails, both are rolled back.
+            if (in_array($state, ['succeeded', 'failed'], true)) {
+                $this->resumeSla(
+                    SupportCaseId::fromString((string) $row['case_uuid']),
+                    'native-result:' . $commandId, $at, ['waiting_provider']
+                );
+            }
         });
     }
 
@@ -2351,10 +2439,14 @@ final class OperationsRepository
 
     private function transaction(callable $callback): void
     {
-        $this->wpdb->query('START TRANSACTION');
+        if ($this->wpdb->query('START TRANSACTION') === false) {
+            throw new RuntimeException('Support transaction could not begin.');
+        }
         try {
             $callback();
-            $this->wpdb->query('COMMIT');
+            if ($this->wpdb->query('COMMIT') === false) {
+                throw new RuntimeException('Support transaction commit failed; outcome is unverified.');
+            }
         } catch (\Throwable $error) {
             $this->wpdb->query('ROLLBACK');
             throw $error;
@@ -2372,7 +2464,17 @@ final class OperationsRepository
     private function rows(string $sql): array
     {
         $rows = $this->wpdb->get_results($sql, ARRAY_A);
-        return is_array($rows) ? array_values(array_filter($rows, 'is_array')) : [];
+        // SQL failure is never an empty authorized list or an empty retention
+        // inventory. In particular, purge must not proceed on missing evidence.
+        if (!is_array($rows)) {
+            throw new LogicException('Support database list query failed.');
+        }
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                throw new LogicException('Support database list query returned malformed rows.');
+            }
+        }
+        return array_values($rows);
     }
 
     private function value(string $sql): mixed

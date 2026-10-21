@@ -15,7 +15,7 @@ The activation record must contain:
 
 ## Mandatory companion manifests
 
-Versioned owner-and-capability manifests are required from Files 00, 09, 17, 18, 20, 21, 24 and 25. Every manifest must declare `ready`, exact owner, semantic contract version and the required capability. Hook or plugin presence alone is rejected.
+Versioned owner-and-capability manifests are mandatory for **14** currently registered dependencies: `file_00_membership_contract`, `file_02_authentication_contract`, `file_09_verification_contract`, `file_17_message_report_contract`, `file_18_marketplace_case_contract`, `file_19_notification_contract`, `file_20_route_shell_contract`, `file_21_content_case_contract`, `file_24_assurance_manifest`, `file_25_component_contract`, `attachment_storage_provider`, `malware_scanner_provider`, `email_adapter_provider`, `managed_key_provider`. Conditional dependencies (`file_26_ranking_contract`, `cf_03_financial_contract`, `clinical_safety_owner_contract`) must also be ready when explicitly enabled. Every applicable manifest requires `ready: true`, exact owner and capability, a valid explicit version, `health: healthy` and fresh `health_checked_at` (not older than 15 minutes or more than 60 seconds in the future). Plugin presence and activation hooks alone never satisfy these checks. Canonical registry: `src/Contracts/RequiredCompanionContracts.php`.
 
 ## Structured operational evidence
 

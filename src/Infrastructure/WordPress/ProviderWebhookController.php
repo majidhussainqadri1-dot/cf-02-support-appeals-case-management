@@ -9,6 +9,7 @@ use DateTimeZone;
 use RuntimeException;
 use Sabri\CF02\Authorization\PrincipalContext;
 use Sabri\CF02\Domain\SupportCaseId;
+use Sabri\CF02\Integration\NativeOwnerOutcomePolicy;
 use Sabri\CF02\Security\DataCipher;
 use Sabri\CF02\Security\SensitiveContentDetector;
 use Throwable;
@@ -52,14 +53,13 @@ final class ProviderWebhookController
         return $this->run(function () use ($request): array {
             $this->verifySignature($request, 'inbound');
             $payload = $this->payload($request);
-            $sourceOwner = sanitize_text_field((string) ($payload['source_owner'] ?? ''));
-            $externalId = sanitize_text_field((string) ($payload['external_event_id'] ?? ''));
-            $senderRef = sanitize_text_field((string) ($payload['sender_ref'] ?? ''));
-            $senderTrust = sanitize_key((string) ($payload['sender_trust'] ?? 'unverified'));
-            if ($sourceOwner === '' || $externalId === '' || $senderRef === ''
-                || !in_array($senderTrust, ['verified','unverified','system'], true)) {
-                throw new RuntimeException('Inbound adapter metadata is incomplete.');
-            }
+            // Preserve signed replay identifiers exactly; never normalize two
+            // different provider IDs into the same database key.
+            $metadata = InboundProviderMetadata::fromPayload($payload);
+            $sourceOwner = $metadata['source_owner'];
+            $externalId = $metadata['external_event_id'];
+            $senderRef = $metadata['sender_ref'];
+            $senderTrust = $metadata['sender_trust'];
             $body = trim((string) ($payload['body'] ?? ''));
             if ($body === '' || strlen($body) > 20000 || SensitiveContentDetector::containsProhibitedSecret($body)) {
                 throw new RuntimeException('Inbound message is empty, too long or contains prohibited secrets.');
@@ -100,7 +100,7 @@ final class ProviderWebhookController
 
             $context = $this->providerContext($sourceOwner, $requesterRef);
             $messageId = $this->operations->appendMessage(
-                $caseId, $context, 'requester', (string) $request['channel'],
+                $caseId, $context, 'requester', self::canonicalMessageChannel((string) $request['channel']),
                 $this->cipher->encrypt($body), hash('sha256', $body),
                 'provider-message-' . substr(hash('sha256', $sourceOwner . "\0" . $externalId), 0, 40),
                 'signed_inbound_adapter', $this->now()
@@ -159,14 +159,14 @@ final class ProviderWebhookController
             if ($command === null || !hash_equals((string) $command['native_owner'], $owner)) {
                 throw new RuntimeException('Native command was not found.');
             }
-            $status = sanitize_key((string) ($payload['status'] ?? ''));
-            $outcomeRef = sanitize_text_field((string) ($payload['outcome_ref'] ?? ''));
-            $nativeVersion = (int) ($payload['native_version'] ?? 0);
-            if (!in_array($status, ['succeeded','failed','outcome_uncertain'], true)
-                || $nativeVersion < (int) $command['expected_native_version']
-                || ($status === 'succeeded' && $outcomeRef === '')) {
-                throw new RuntimeException('Native result is invalid or stale.');
-            }
+            $validated = NativeOwnerOutcomePolicy::validate([
+                'state' => $payload['status'] ?? null,
+                'outcome_ref' => $payload['outcome_ref'] ?? '',
+                'native_version' => $payload['native_version'] ?? null,
+            ], (int) $command['expected_native_version']);
+            $status = $validated['state'];
+            $outcomeRef = $validated['outcome_ref'];
+            $nativeVersion = $validated['native_version'];
             $state = $status;
             $evidencePayload = [
                 'command_ref' => $commandId, 'status' => $status,
@@ -176,6 +176,12 @@ final class ProviderWebhookController
                 $existing = $this->operations->nativeResultEvidence($commandId);
                 if ($existing === $evidencePayload && hash_equals((string) $command['state'], $state)
                     && hash_equals((string) ($command['outcome_ref'] ?? ''), $outcomeRef)) {
+                    // Historical committed outcomes may predate atomic SLA reconciliation.
+                    // A verified duplicate callback can safely retry the SLA release.
+                    $this->operations->resumeSla(
+                        SupportCaseId::fromString((string) $command['case_uuid']),
+                        'native-result:' . $commandId, $this->now(), ['waiting_provider']
+                    );
                     return ['command_id' => $commandId, 'state' => $state, 'reconciled' => $state === 'succeeded', 'replayed' => true];
                 }
                 throw new RuntimeException('A terminal native command result cannot be changed.');
@@ -193,14 +199,7 @@ final class ProviderWebhookController
                 $this->now(),
                 $context
             );
-            if (in_array($state, ['succeeded','failed'], true)) {
-                $this->operations->resumeSla(
-                    SupportCaseId::fromString((string) $command['case_uuid']),
-                    'native-result:' . $commandId,
-                    $this->now(),
-                    ['waiting_provider']
-                );
-            }
+            // Already included in the native outcome/evidence database transaction.
             return ['command_id' => $commandId, 'state' => $state, 'reconciled' => $state === 'succeeded', 'replayed' => false];
         });
     }
@@ -227,6 +226,17 @@ final class ProviderWebhookController
         });
     }
 
+    /** Signed webhook ingress is transport provenance, not a user-facing message channel. */
+    private static function canonicalMessageChannel(string $channel): string
+    {
+        return match ($channel) {
+            'email' => 'email',
+            'system', 'webhook' => 'system',
+            'web' => 'web',
+            default => throw new RuntimeException('Inbound message channel is unsupported.'),
+        };
+    }
+
     private function verifySignature(\WP_REST_Request $request, string $purpose): void
     {
         $timestamp = trim((string) $request->get_header('X-CF02-Timestamp'));
@@ -244,7 +254,11 @@ final class ProviderWebhookController
         if (!is_string($key) || strlen($key) < 32) {
             throw new RuntimeException('Provider signing key is unavailable.');
         }
-        $expected = hash_hmac('sha256', $timestamp . '.' . $request->get_body(), $key);
+        $body = $request->get_body();
+        if (!is_string($body) || strlen($body) > 65536) {
+            throw new RuntimeException('Signed provider payload exceeds the bounded callback size.');
+        }
+        $expected = hash_hmac('sha256', $timestamp . '.' . $body, $key);
         if (!hash_equals($expected, $signature)) {
             throw new RuntimeException('Provider signature verification failed.');
         }
@@ -281,7 +295,6 @@ final class ProviderWebhookController
             do_action('cf02_provider_request_failed', [
                 'trace_id' => $trace,
                 'error_class' => $error::class,
-                'error' => $error,
             ]);
             return new \WP_Error(
                 'cf02_provider_request_rejected',

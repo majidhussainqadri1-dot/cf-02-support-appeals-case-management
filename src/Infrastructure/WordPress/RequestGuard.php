@@ -26,11 +26,11 @@ final class RequestGuard
 
     public static function purpose(\WP_REST_Request $request, bool $required = true): string
     {
-        $purpose = sanitize_key((string) $request->get_header('X-CF02-Purpose'));
+        $purpose = trim((string) $request->get_header('X-CF02-Purpose'));
         if ($purpose === '') {
-            $purpose = sanitize_key((string) $request->get_param('purpose'));
+            $purpose = trim((string) $request->get_param('purpose'));
         }
-        if ($required && ($purpose === '' || preg_match('/^[a-z][a-z0-9_]{2,63}$/', $purpose) !== 1)) {
+        if (($required && $purpose === '') || ($purpose !== '' && preg_match('/^[a-z][a-z0-9_.-]{2,63}$/D', $purpose) !== 1)) {
             throw new RuntimeException('A bounded action purpose is required.');
         }
         return $purpose;
@@ -64,6 +64,12 @@ final class RequestGuard
         }
         if (preg_match('/^[1-9][0-9]{0,18}$/', $raw) !== 1) {
             throw new RuntimeException('A strong If-Match record version is required.');
+        }
+        // PHP silently clamps oversized decimal strings to PHP_INT_MAX.
+        // Never turn a malformed/stale optimistic concurrency precondition into a valid one.
+        $max = (string) PHP_INT_MAX;
+        if (strlen($raw) > strlen($max) || (strlen($raw) === strlen($max) && strcmp($raw, $max) > 0)) {
+            throw new RuntimeException('If-Match record version exceeds the supported integer range.');
         }
         return (int) $raw;
     }

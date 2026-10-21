@@ -4,7 +4,7 @@
 
 This C2-M addendum codes the foundations for `CF02-FUT-001` through `CF02-FUT-024`. The code is feature-gated, side-effect free at the domain layer, and does not itself activate a staging/live feature. Existing CF-02 activation, authorization, native-owner, privacy/security, migration, rollback, staging, Founder-approval and live-verification laws remain controlling.
 
-No database schema fork or public contract fork is introduced by this batch: schema remains `1.3.0`; contract remains `1.1.0`. Any later persistent storage, public REST endpoint, provider binding, mobile app, co-browsing transport, voice transport, translation provider, scanner/storage provider, webhook consumer, or status notification transport requires its own owner-approved design and external acceptance evidence.
+No database schema fork or public contract fork is introduced by this batch: schema remains `1.3.0`; contract remains `1.3.0`. Any later persistent storage, public REST endpoint, provider binding, mobile app, co-browsing transport, voice transport, translation provider, scanner/storage provider, webhook consumer, or status notification transport requires its own owner-approved design and external acceptance evidence.
 
 ## Future24 implementation matrix
 

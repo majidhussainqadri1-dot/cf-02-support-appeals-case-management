@@ -47,17 +47,32 @@ final class EncryptionRotationService
                 ++$scanned;
                 $encoded = (string) ($row['ciphertext'] ?? '');
                 if ($encoded === '' || !$this->cipher->needsRotation($encoded)) { continue; }
+                $transactionOpen = false;
                 try {
                     $fromKey = $this->cipher->envelopeKeyId($encoded);
                     $new = $this->cipher->rotate($encoded);
-                    $updated = $wpdb->update($table, [$cipherColumn => $new], [$idColumn => (int) $row['row_id'], $cipherColumn => $encoded]);
+
+                    // The ciphertext change and its mandatory audit fact must be atomic.
+                    // A failed ledger insert must never leave an untracked key transition.
+                    if ($wpdb->query('START TRANSACTION') === false) {
+                        throw new RuntimeException('Key rotation transaction could not begin.');
+                    }
+                    $transactionOpen = true;
+                    $updated = $wpdb->update(
+                        $table,
+                        [$cipherColumn => $new],
+                        [$idColumn => (int) $row['row_id'], $cipherColumn => $encoded]
+                    );
                     if ($updated === 1) {
-                        ++$rotated;
                         $evidence = ['table' => $table, 'row_id' => (int) $row['row_id'], 'from' => $fromKey, 'to' => $this->cipher->activeKeyId()];
+                        $evidenceJson = wp_json_encode($evidence);
+                        if (!is_string($evidenceJson) || $evidenceJson === '') {
+                            throw new RuntimeException('Key rotation audit evidence is not serializable.');
+                        }
                         $inserted = $wpdb->insert($wpdb->prefix . 'cf02_key_rotation', [
                             'table_name' => $table, 'row_id' => (int) $row['row_id'], 'from_key_id' => $fromKey,
                             'to_key_id' => $this->cipher->activeKeyId(), 'status' => 'rotated',
-                            'evidence_hash' => hash('sha256', wp_json_encode($evidence)), 'rotated_at' => gmdate('Y-m-d H:i:s.u'),
+                            'evidence_hash' => hash('sha256', $evidenceJson), 'rotated_at' => gmdate('Y-m-d H:i:s.u'),
                         ]);
                         if ($inserted !== 1) {
                             do_action('cf02_key_rotation_evidence_write_failed', [
@@ -65,8 +80,16 @@ final class EncryptionRotationService
                                 'row_id' => (int) $row['row_id'],
                                 'to_key_id' => $this->cipher->activeKeyId(),
                             ]);
+                            throw new RuntimeException('Key rotation audit evidence persistence failed.');
                         }
+                        if ($wpdb->query('COMMIT') === false) {
+                            throw new RuntimeException('Key rotation atomic commit failed.');
+                        }
+                        $transactionOpen = false;
+                        ++$rotated;
                     } else {
+                        $wpdb->query('ROLLBACK');
+                        $transactionOpen = false;
                         $current = $wpdb->get_var($wpdb->prepare(
                             "SELECT {$cipherColumn} FROM {$table} WHERE {$idColumn}=%d",
                             (int) $row['row_id']
@@ -81,6 +104,9 @@ final class EncryptionRotationService
                         }
                     }
                 } catch (Throwable $error) {
+                    if ($transactionOpen) {
+                        $wpdb->query('ROLLBACK');
+                    }
                     ++$failed;
                     do_action('cf02_key_rotation_item_failed', [
                         'table_hash' => hash('sha256', $table),

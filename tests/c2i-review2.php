@@ -54,8 +54,8 @@ $test('retention cannot claim purge without provider reconciliation hold check a
     assert(str_contains($worker,'purgeCase('));
     assert(str_contains($repo,"state='active'"));
     assert(str_contains($repo,"case_uuid=%s OR category=%s"));
-    assert(str_contains($repo,'if ($activeHolds > 0)'));
-    assert(str_contains($repo,'Active case or category legal/appeal hold blocks purge.'));
+    assert(str_contains($repo,"if (\$activeHolds !== 0 && \$activeHolds !== '0')"));
+    assert(str_contains($repo,'Case legal-hold state is active or unverified; purge denied.'));
     assert(str_contains($repo,'Canonical case purge failed'));
 });
 
@@ -83,8 +83,12 @@ $test('native command terminal state and reconciliation event commit atomically'
 $test('worker SLA and event queues are observable and SQL aliases are valid',static function()use($read):void{
     $worker=$read('src/Infrastructure/WordPress/RuntimeWorker.php');
     $repo=$read('src/Infrastructure/WordPress/OperationsRepository.php');
-    assert(str_contains($worker,'SupportSlaBreached'));
-    assert(str_contains($worker,'SupportSlaAtRisk'));
+    // The worker delegates state + event to one repository transaction.
+    assert(str_contains($worker,'markSlaStatusWithEvent('));
+    assert(!str_contains($worker,'->appendWorkerEvent('));
+    assert(str_contains($repo,'SupportSlaBreached'));
+    assert(str_contains($repo,'SupportSlaAtRisk'));
+    assert(str_contains($repo,'public function markSlaStatusWithEvent('));
     $start=strpos($repo,'public function pendingEvents');
     $end=strpos($repo,'public function markEventPublished',$start);
     $block=substr($repo,$start,$end-$start);

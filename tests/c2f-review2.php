@@ -74,7 +74,7 @@ $test('sensitive evidence and retention cleanup are purpose-bound end to end',st
     assert(str_contains($ops,"'decision_tombstone'"));
     foreach(["'note_revisions'","'tokens'","'migration'","'intake_replay'","'quality'","'inbound'"] as $token){assert(str_contains($ops,$token));}
     assert(str_contains($ops,"aggregate_type='appeal'"));
-    assert(str_contains($ops,'Active case or category legal/appeal hold blocks purge.'));
+    assert(str_contains($ops,'Case legal-hold state is active or unverified; purge denied.'));
     assert(str_contains($ops,'applyCategoryHold'));
     assert(str_contains($catalog,"'ApplyCategoryHold'"));
     assert(str_contains($catalog,"'SupportCategoryHoldApplied'"));

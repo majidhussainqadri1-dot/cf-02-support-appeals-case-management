@@ -103,6 +103,48 @@ jobs:
         run: php -d zend.assertions=1 tests/c2m-review1.php
       - name: C2-M Future24 fresh adversarial review 2
         run: php -d zend.assertions=1 tests/c2m-review2.php
+      - name: Cross-plan forty current-contract and traceability review checks
+        run: php -d zend.assertions=1 tests/crossplan-40-review.php
+      - name: Fresh guest emergency, rate-limit and signed-webhook regressions
+        run: php -d zend.assertions=1 tests/fresh-cf02-guest-webhook-safety.php
+      - name: C2-N exact-purpose ETag-bound and repair audit regressions
+        run: php -d zend.assertions=1 tests/c2n-runtime-security-regressions.php
+      - name: C2-N key rotation atomic audit evidence tests
+        run: php -d zend.assertions=1 tests/c2n-rotation-atomicity.php
+      - name: C2-O strict signed inbound provider identity and schema width tests
+        run: php -d zend.assertions=1 tests/c2o-inbound-provider-metadata.php
+      - name: CF-02 forty plan-to-code structural witnesses
+        run: php -d zend.assertions=1 tests/c2o-plan-40-structural-witnesses.php
+      - name: C2-P signed native-result version and payload adversarial checks
+        run: php -d zend.assertions=1 tests/c2p-native-result-security.php
+      - name: C2-P complete PHP source exception-exposure privacy scan
+        run: php -d zend.assertions=1 tests/c2p-source-exception-exposure.php
+      - name: C2-P database transaction fail-closed regression
+        run: php -d zend.assertions=1 tests/c2p-transaction-failclosed.php
+      - name: C2-Q forty native owner outcome contract vectors
+        run: php -d zend.assertions=1 tests/c2q-40-native-outcome-contract.php
+      - name: C2-R forty native-owner activation and fresh-attestation checks
+        run: php -d zend.assertions=1 tests/c2r-forty-activation-attestation.php
+      - name: C2-R private listings must not conceal database errors
+        run: php -d zend.assertions=1 tests/c2r-private-query-failures.php
+      - name: C2-S legal hold and destructive retention SQL fail-closed checks
+        run: php -d zend.assertions=1 tests/c2s-retention-sql-failclosed.php
+      - name: C2-T durable event publish and DB outage classification regressions
+        run: php -d zend.assertions=1 tests/c2t-event-status-and-query-classification.php
+      - name: C2-U forty cross-owner operational safety controls
+        run: php -d zend.assertions=1 tests/c2u-40-operational-safety-controls.php
+      - name: C2-V forty atomic native outcome and SLA rollback scenarios
+        run: php -d zend.assertions=1 tests/c2v-40-atomic-native-outcomes.php
+      - name: C2-V SLA breach alert and event atomicity scenarios
+        run: php -d zend.assertions=1 tests/c2v-sla-event-atomicity.php
+      - name: C2-V final retention evidence regression
+        run: php -d zend.assertions=1 tests/c2v-retention-ledger-atomicity.php
+      - name: C2-W forty notification outbox replay boundary checks
+        run: php -d zend.assertions=1 tests/c2w-40-notification-replay-boundaries.php
+      - name: C2-W forty case and category legal-hold deadline replay guards
+        run: php -d zend.assertions=1 tests/c2w-40-legal-hold-deadline-replay.php
+      - name: C2-Y forty linked-object privacy and audit atomicity regressions
+        run: php -d zend.assertions=1 tests/c2y-40-linked-privacy-atomicity.php
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
       - name: Public repository safety scan
