@@ -56,6 +56,9 @@ if (preg_match('/^CF02-[0-9A-F-]{36}$/', $caseId) !== 1) {
     $fail('Runtime returned an invalid case identity.');
 }
 
+// Deliberately cross a clock-second boundary: the same Idempotency-Key
+// must reproduce the original receipt payload, not a new current-time hash.
+sleep(2);
 $replay = new WP_REST_Request('POST', '/api/support/v1/cases');
 $replay->set_header('Idempotency-Key', 'runtime-smoke-0000000000000001');
 $replay->set_body_params($request->get_body_params());
