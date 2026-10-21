@@ -29,7 +29,7 @@ final class Plugin
         catch(Throwable $error){
             $trace='CF02-BOOT-'.strtoupper(substr(hash('sha256',$error::class.'|'.$error->getCode().'|'.microtime(true)),0,16));
             self::registerDormantState(['Runtime dependencies are unavailable. Reference: '.$trace]);
-            do_action('cf02_runtime_failed_closed',['trace_id'=>$trace,'error_class'=>$error::class,'error'=>$error]);
+            do_action('cf02_runtime_failed_closed',['trace_id'=>$trace,'error_class'=>$error::class]);
             return;
         }
         update_option(self::OPTION_INSTALLED_VERSION,CF02_VERSION,false);
