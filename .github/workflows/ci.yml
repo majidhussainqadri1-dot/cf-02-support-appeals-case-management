@@ -141,6 +141,8 @@ jobs:
         run: php -d zend.assertions=1 tests/c2v-retention-ledger-atomicity.php
       - name: C2-W forty notification outbox replay boundary checks
         run: php -d zend.assertions=1 tests/c2w-40-notification-replay-boundaries.php
+      - name: C2-W forty case and category legal-hold deadline replay guards
+        run: php -d zend.assertions=1 tests/c2w-40-legal-hold-deadline-replay.php
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
       - name: Public repository safety scan
