@@ -203,10 +203,10 @@ final class RuntimeWorker
             if ($accepted) {
                 try {
                     $this->repository->purgeCase((string) $case['case_uuid'], $result, $this->now());
-                    $this->repository->recordRetentionResult('case', (string) $case['case_uuid'], 'cf02-retention-v1', 'purged', $result, $this->now());
+                    // Purge and its final evidence were atomically committed in purgeCase.
                     ++$purged;
                 } catch (Throwable $error) {
-                    $this->repository->recordRetentionResult('case', (string) $case['case_uuid'], 'cf02-retention-v1', 'deferred', ['reason' => $error->getMessage()], $this->now());
+                    $this->repository->recordRetentionResult('case', (string) $case['case_uuid'], 'cf02-retention-v1', 'deferred', ['reason' => 'purge_operation_failed', 'error_class' => $error::class], $this->now());
                     ++$deferred;
                 }
             } else {
