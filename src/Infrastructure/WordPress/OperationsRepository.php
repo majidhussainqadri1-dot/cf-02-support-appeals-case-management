@@ -1761,6 +1761,14 @@ final class OperationsRepository
                 $newVersion,
                 $at
             );
+            // Terminal native outcome and its waiting-provider SLA release
+            // must commit together. If the SLA write fails, both are rolled back.
+            if (in_array($state, ['succeeded', 'failed'], true)) {
+                $this->resumeSla(
+                    SupportCaseId::fromString((string) $row['case_uuid']),
+                    'native-result:' . $commandId, $at, ['waiting_provider']
+                );
+            }
         });
     }
 
