@@ -59,9 +59,9 @@ foreach($definitions as $key=>$def){ // 1..17
 }
 $file00='file_00_membership_contract';
 $check('Installed File 00 function must not become native owner readiness',($defaults[$file00]['ready']??null)===false); //18
-$check('Constant presence must not forge File 00 owner version',($defaults[$file00]['contract_version']??'missing')===null); //19
+$check('Constant presence must not forge File 00 owner version',array_key_exists('contract_version',$defaults[$file00]) && $defaults[$file00]['contract_version']===null); //19
 $check('No synthetic File 00 healthy assertion',($defaults[$file00]['health']??null)==='unknown'); //20
-$check('No fabricated fresh health timestamp',($defaults[$file00]['health_checked_at']??'invalid')===null); //21
+$check('No fabricated fresh health timestamp',array_key_exists('health_checked_at',$defaults[$file00]) && $defaults[$file00]['health_checked_at']===null); //21
 $check('All mandatory defaults are refused by validation',
     count(array_filter($definitions,static fn(array $x):bool=>$x['required']))===14 &&
     count(Registry::validate($defaults,$now))>=14); //22
