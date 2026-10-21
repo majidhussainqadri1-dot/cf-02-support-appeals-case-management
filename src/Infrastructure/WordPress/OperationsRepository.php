@@ -2351,10 +2351,14 @@ final class OperationsRepository
 
     private function transaction(callable $callback): void
     {
-        $this->wpdb->query('START TRANSACTION');
+        if ($this->wpdb->query('START TRANSACTION') === false) {
+            throw new RuntimeException('Support transaction could not begin.');
+        }
         try {
             $callback();
-            $this->wpdb->query('COMMIT');
+            if ($this->wpdb->query('COMMIT') === false) {
+                throw new RuntimeException('Support transaction commit failed; outcome is unverified.');
+            }
         } catch (\Throwable $error) {
             $this->wpdb->query('ROLLBACK');
             throw $error;
