@@ -36,6 +36,12 @@ final class UrduSupplementaryTranslations
         'Create case in this account' => 'اسی اکاؤنٹ میں کیس درج کریں',
         'Discard pending request' => 'زیرِ التوا درخواست ترک کریں',
         'Checking your safe support request…' => 'آپ کی محفوظ درخواست کی جانچ جاری ہے…',
+        'This request needs an urgent specialist or official safety channel; no ordinary support case was created. Follow the emergency guidance above.' => 'یہ معاملہ فوری متعلقہ ماہر یا سرکاری حفاظتی ادارے سے رجوع کا متقاضی ہے؛ عام معاونتی کیس نہیں بنایا گیا۔ اوپر درج ہنگامی رہنمائی پر عمل کریں۔',
+        'This pre-intake could not be accepted safely.' => 'ابتدائی درخواست محفوظ طریقے سے قبول نہیں کی جا سکی۔',
+        'The continuation has expired. Please try again.' => 'درخواست مکمل کرنے کی مدت ختم ہو گئی۔ دوبارہ کوشش کریں۔',
+        'Pre-intake accepted. No case has been created yet. Sign in using the link below in this browser tab within 10 minutes; you must explicitly confirm case creation after signing in.' => 'ابتدائی درخواست قبول ہو گئی، لیکن ابھی کیس نہیں بنایا گیا۔ اسی براؤزر ٹیب میں دس منٹ کے اندر نیچے دیے گئے ربط سے داخل ہوں، پھر کیس بنانے کی واضح تصدیق کریں۔',
+        'Request failed.' => 'درخواست ناکام ہو گئی۔',
+
         'Pending guest request discarded; no case was created.' => 'زیرِ التوا درخواست ترک کردی گئی؛ کوئی کیس نہیں بنا۔',
         'The pending request expired; please start again.' => 'زیرِ التوا درخواست کی مدت ختم ہو گئی؛ دوبارہ آغاز کریں۔',
         'Evidence must be between 1 byte and 25 MiB.' => 'ثبوت کی فائل کا حجم ایک بائٹ سے 25 میبی بائٹ تک ہونا چاہیے۔',
