@@ -67,13 +67,30 @@ final class CompleteFrontendSurfaces
             . '<details><summary>' . esc_html__('Privacy boundary', self::TEXT_DOMAIN) . '</summary>'
             . '<p>' . esc_html__('Never submit passwords, OTPs, private keys, full payment-card data or unrelated clinical records. Native identity, payment, moderation, privacy-rights, security-incident and clinical decisions remain with their canonical owners.', self::TEXT_DOMAIN) . '</p>'
             . '<p>' . esc_html__('Donations, sponsorships and payments never change support priority, SLA, appeal eligibility or outcome.', self::TEXT_DOMAIN) . '</p>'
-            . '</details></section>';
+            . '</details>'
+            . '<details class="cf02-self-help"><summary>' . esc_html__('Quick public troubleshooting', self::TEXT_DOMAIN) . '</summary>'
+            . '<p>' . esc_html__('Check your connection and note the page, time, and exact error. For publishing, confirm the intended draft or published state; for PDFs, check the file type and accessibility. Never share passwords or private medical records. You can always submit a support request.', self::TEXT_DOMAIN) . '</p>'
+            . '</details>'
+            . self::accessibilityControls()
+            . '</section>';
 
         if (!is_user_logged_in()) {
             return $public . self::guestIntake();
         }
 
         return $public . self::app();
+    }
+
+    /** Local display adjustments only; canonical accessibility identity preferences remain with their owner. */
+    private static function accessibilityControls(): string
+    {
+        return '<div class="cf02-accessibility" data-cf02-accessibility role="group" aria-label="'
+            . esc_attr__('Display adjustments', self::TEXT_DOMAIN) . '">'
+            . '<button type="button" class="cf02-secondary" data-action="large-text" aria-pressed="false">'
+            . esc_html__('Larger text', self::TEXT_DOMAIN) . '</button>'
+            . '<button type="button" class="cf02-secondary" data-action="high-contrast" aria-pressed="false">'
+            . esc_html__('High contrast', self::TEXT_DOMAIN) . '</button>'
+            . '</div>';
     }
 
     /** Public low-sensitivity pre-intake; no private case is created until File 00 authentication. */
@@ -93,7 +110,7 @@ final class CompleteFrontendSurfaces
         return '<section class="cf02-public cf02-card" data-cf02-guest'
             . ' data-endpoint="'.esc_url(rest_url('api/support/v1')).'">'
             . '<h2>'.esc_html__('Guest support pre-intake', self::TEXT_DOMAIN).'</h2>'
-            . '<p>'.esc_html__('Only low-sensitivity issues are accepted here. Sign in within 10 minutes to create a private case. No case exists before sign-in.', self::TEXT_DOMAIN).'</p>'
+            . '<p>'.esc_html__('Only low-sensitivity issues are accepted here. Sign in within 10 minutes, then confirm creation in the intended account. No case exists before that confirmation.', self::TEXT_DOMAIN).'</p>'
             . '<form data-form="guest" class="cf02-form">'
             . '<label>'.esc_html__('Category', self::TEXT_DOMAIN).'<select name="category" required>'.$options.'</select></label>'
             . '<label>'.esc_html__('Subject', self::TEXT_DOMAIN).'<input name="subject" minlength="5" maxlength="191" required dir="auto"></label>'
@@ -138,6 +155,7 @@ final class CompleteFrontendSurfaces
             . ' data-initial-case="' . esc_attr($initialCase) . '"'
             . ' data-initial-appeal="' . esc_attr($initialAppeal) . '"'
             . ' data-i18n="' . $strings . '" aria-busy="false">'
+            . self::accessibilityControls()
             . '<section class="cf02-card" data-cf02-guest-confirm hidden aria-labelledby="cf02-guest-confirm-title">'
             . '<h2 id="cf02-guest-confirm-title">' . esc_html__('Complete your pending guest request', self::TEXT_DOMAIN) . '</h2>'
             . '<p>' . esc_html__('A private support case has not been created. Before continuing, confirm this is the account that should own the request. The saved pre-intake expires after 10 minutes.', self::TEXT_DOMAIN) . '</p>'
