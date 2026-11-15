@@ -110,7 +110,7 @@ jobs:
       - name: C2-N independent UX/release review
         run: php -d zend.assertions=1 tests/c2n-review2.php
       - name: JavaScript syntax validation
-        run: node --check assets/js/cf02-frontend.js && node --check assets/js/cf02-guest.js
+        run: node --check assets/js/cf02-frontend.js && node --check assets/js/cf02-guest.js && node --check assets/js/cf02-admin.js
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
       - name: Public repository safety scan
