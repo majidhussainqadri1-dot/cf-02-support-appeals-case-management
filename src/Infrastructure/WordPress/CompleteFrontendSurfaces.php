@@ -14,6 +14,7 @@ final class CompleteFrontendSurfaces
 
     public static function register(): void
     {
+        add_filter('gettext', [UrduSupplementaryTranslations::class, 'translate'], 20, 3);
         add_shortcode('cf02_support', [self::class, 'support']);
         add_shortcode('cf02_case_portal', [self::class, 'portal']);
         add_shortcode('cf02_appeal_portal', [self::class, 'portal']);
@@ -107,7 +108,16 @@ final class CompleteFrontendSurfaces
         foreach ($labels as $key => $label) {
             $options .= '<option value="'.esc_attr($key).'">'.esc_html($label).'</option>';
         }
+        $guestStrings = esc_attr((string) wp_json_encode([
+            'checking' => __('Checking your safe support request…', self::TEXT_DOMAIN),
+            'diverted' => __('This request needs an urgent specialist or official safety channel; no ordinary support case was created. Follow the emergency guidance above.', self::TEXT_DOMAIN),
+            'requestFailed' => __('This pre-intake could not be accepted safely.', self::TEXT_DOMAIN),
+            'expired' => __('The continuation has expired. Please try again.', self::TEXT_DOMAIN),
+            'accepted' => __('Pre-intake accepted. No case has been created yet. Sign in using the link below in this browser tab within 10 minutes; you must explicitly confirm case creation after signing in.', self::TEXT_DOMAIN),
+            'unexpected' => __('Request failed.', self::TEXT_DOMAIN),
+        ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT));
         return '<section class="cf02-public cf02-card" data-cf02-guest'
+            . ' data-i18n="' . $guestStrings . '"'
             . ' data-endpoint="'.esc_url(rest_url('api/support/v1')).'">'
             . '<h2>'.esc_html__('Guest support pre-intake', self::TEXT_DOMAIN).'</h2>'
             . '<p>'.esc_html__('Only low-sensitivity issues are accepted here. Sign in within 10 minutes, then confirm creation in the intended account. No case exists before that confirmation.', self::TEXT_DOMAIN).'</p>'
@@ -327,6 +337,9 @@ final class CompleteFrontendSurfaces
             'unexpectedError' => __('An unexpected error occurred.', self::TEXT_DOMAIN),
             'secureBrowserRequired' => __('A secure modern browser is required for this action.', self::TEXT_DOMAIN),
             'accepted' => __('accepted', self::TEXT_DOMAIN),
+            'guestDiscarded' => __('Pending guest request discarded; no case was created.', self::TEXT_DOMAIN),
+            'guestExpired' => __('The pending request expired; please start again.', self::TEXT_DOMAIN),
+            'attachmentSizeInvalid' => __('Evidence must be between 1 byte and 25 MiB.', self::TEXT_DOMAIN),
         ];
     }
 
