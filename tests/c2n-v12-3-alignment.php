@@ -40,7 +40,8 @@ $test('V12.3 guest continuation is confidential, short lived and tamper resistan
     try { $service->verify($token, $now->modify('+11 minutes')); }
     catch (InvalidArgumentException) { $expired = true; }
     assert($expired, 'Expired token must be rejected.');
-    $tampered = substr_replace($token, $token[-1] === 'a' ? 'b' : 'a', -1);
+    $middle = intdiv(strlen($token), 2);
+    $tampered = substr_replace($token, $token[$middle] === 'a' ? 'b' : 'a', $middle, 1);
     $rejected = false;
     try { $service->verify($tampered, $now); }
     catch (InvalidArgumentException) { $rejected = true; }
