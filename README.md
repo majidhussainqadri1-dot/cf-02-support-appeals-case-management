@@ -39,3 +39,5 @@ The canonical candidate is `1.0.0-rc.8`, schema `1.3.0`, contract `1.3.0`. The n
 Every final coding change requires two fresh, separate corrective reviews, full regression, exact-head CI, deterministic package/source parity, and truthful separation of `Coded`, `Automated-QA Green`, `Packaged`, `Staging-Accepted`, `Live-Deployed`, and `Operational` states.
 
 This public repository must not contain secrets, credentials, raw identity evidence, clinical records, payment secrets, private incident playbooks, or production exports.
+
+The C2-N release pipelines also exercise 10 source-level Node DOM/transport simulations in `tests/c2n-guest-ui.test.cjs` and `tests/c2n-admin-ui.test.cjs`. These do not replace native-browser, real-provider or staging testing.
