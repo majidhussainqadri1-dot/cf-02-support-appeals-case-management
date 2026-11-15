@@ -10,23 +10,124 @@ use Sabri\CF02\Authorization\PrincipalContext;
 use Sabri\CF02\Authorization\WordPressPrincipalContextFactory;
 use Throwable;
 
-/** Capability-scoped operations dashboard authorized exclusively by File 00. */
+/**
+ * File 00 capability-bound support administration.
+ * External assets keep the operational surface compatible with strict CSP.
+ */
 final class CompleteAdminSurfaces
 {
-    public static function register():void
+    private const DOMAIN = 'cf-02-support-appeals-case-management';
+    private const PAGE_HOOK = 'toplevel_page_cf02-support-complete';
+
+    public static function register(): void
     {
-        add_action('admin_menu',static function():void{$c=self::context();if(!$c||!self::allowed($c))return;add_menu_page('Support Operations','Support','read','cf02-support-complete',[self::class,'render'],'dashicons-sos',58);});
+        add_action('admin_menu', static function (): void {
+            $context = self::context();
+            if (!$context || !self::allowed($context)) {
+                return;
+            }
+            add_menu_page(
+                __('Support Operations', self::DOMAIN),
+                __('Support', self::DOMAIN),
+                'read',
+                'cf02-support-complete',
+                [self::class, 'render'],
+                'dashicons-sos',
+                58
+            );
+        });
+        add_action('admin_enqueue_scripts', [self::class, 'assets']);
     }
 
-    public static function render():void
+    public static function assets(string $hook): void
     {
-        $c=self::context();if(!$c||!self::allowed($c)){wp_die(esc_html__('Resource not found.','cf-02-support-appeals-case-management'),404);}
-        echo '<div class="wrap cf02-admin" data-cf02-admin data-endpoint="'.esc_url(rest_url('api/support/v1')).'" data-nonce="'.esc_attr(wp_create_nonce('wp_rest')).'"><h1>Support Operations</h1><p>This workspace exposes minimum necessary operational projections. Every query and mutation is re-authorized by File 00. WordPress administrator status alone grants no support authority.</p><nav class="nav-tab-wrapper"><button class="nav-tab" data-viewkey="queue">Queue</button><button class="nav-tab" data-viewkey="search">Cases</button><button class="nav-tab" data-viewkey="appeals">Appeals</button><button class="nav-tab" data-viewkey="sla">SLA</button><button class="nav-tab" data-viewkey="quality">Quality</button><button class="nav-tab" data-viewkey="retention">Retention</button><button class="nav-tab" data-viewkey="repair">Repair</button></nav><section data-output aria-live="polite"></section><div data-status role="status" aria-live="polite"></div></div><style>'.self::css().'</style><script>'.self::script().'</script>';
+        if ($hook !== self::PAGE_HOOK) {
+            return;
+        }
+        $context = self::context();
+        if (!$context || !self::allowed($context)) {
+            return;
+        }
+        wp_enqueue_style(
+            'cf02-admin-surfaces',
+            plugins_url('assets/css/cf02-admin.css', CF02_PLUGIN_FILE),
+            [],
+            CF02_VERSION
+        );
+        wp_enqueue_script(
+            'cf02-admin-surfaces',
+            plugins_url('assets/js/cf02-admin.js', CF02_PLUGIN_FILE),
+            [],
+            CF02_VERSION,
+            true
+        );
     }
 
-    private static function context():?PrincipalContext{try{$n=new DateTimeImmutable('now',new DateTimeZone('UTC'));$c=(new WordPressPrincipalContextFactory())->current($n);return $c->validAt($n)?$c:null;}catch(Throwable){return null;}}
-    private static function allowed(PrincipalContext $c):bool{return $c->hasAnyCapability('queue.assigned.read','queue.specialist.read','queue.manage','appeal.queue.read','appeal.review','metrics.read','quality.manage','retention.review','release.evidence.read','repair.inspect','repair.execute');}
+    public static function render(): void
+    {
+        $context = self::context();
+        if (!$context || !self::allowed($context)) {
+            wp_die(esc_html__('Resource not found.', self::DOMAIN), 404);
+        }
+        $translations = [
+            'loading' => __('Loading…', self::DOMAIN),
+            'failed' => __('Request failed.', self::DOMAIN),
+            'ready' => __('Ready', self::DOMAIN),
+            'repairReference' => __('Approved repair reference', self::DOMAIN),
+            'runRepair' => __('Run governed repair', self::DOMAIN),
+            'confirmRepair' => __('Run the approved non-destructive repair now?', self::DOMAIN),
+            'repairResult' => __('Repair command returned. Verify server evidence.', self::DOMAIN),
+        ];
+        $views = [
+            'queue' => __('Queue', self::DOMAIN),
+            'search' => __('Cases', self::DOMAIN),
+            'appeals' => __('Appeals', self::DOMAIN),
+            'sla' => __('SLA', self::DOMAIN),
+            'quality' => __('Quality', self::DOMAIN),
+            'retention' => __('Retention', self::DOMAIN),
+            'repair' => __('Repair', self::DOMAIN),
+        ];
+        echo '<div class="wrap cf02-admin" data-cf02-admin data-endpoint="'
+            . esc_url(rest_url('api/support/v1'))
+            . '" data-nonce="' . esc_attr(wp_create_nonce('wp_rest'))
+            . '" data-i18n="' . esc_attr((string) wp_json_encode($translations, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT))
+            . '"><h1>' . esc_html__('Support Operations', self::DOMAIN)
+            . '</h1><p>' . esc_html__('This workspace displays minimum necessary case projections. Every operation is re-authorized through File 00; WordPress administrator status alone is insufficient.', self::DOMAIN)
+            . '</p><nav class="nav-tab-wrapper" aria-label="' . esc_attr__('Support sections', self::DOMAIN) . '">';
+        foreach ($views as $key => $label) {
+            echo '<button type="button" class="nav-tab" data-viewkey="' . esc_attr($key)
+                . '" aria-pressed="' . ($key === 'queue' ? 'true' : 'false') . '">'
+                . esc_html($label) . '</button>';
+        }
+        echo '</nav><section data-output aria-live="polite" aria-atomic="false"></section>'
+            . '<div data-status role="status" aria-live="polite"></div></div>';
+    }
 
-    private static function script(): string { return CompleteAdminScript::render(); }
-    private static function css():string{return '.cf02-admin nav{display:flex;flex-wrap:wrap}.cf02-admin [data-output]{margin-top:1rem;overflow:auto}.cf02-admin pre{background:#fff;border:1px solid #ccd0d4;padding:1rem;white-space:pre-wrap}.cf02-admin :focus-visible{outline:3px solid currentColor;outline-offset:2px}@media(max-width:782px){.cf02-admin nav button{width:100%}}@media(prefers-reduced-motion:reduce){.cf02-admin *{animation:none!important;transition:none!important}}';}
+    private static function context(): ?PrincipalContext
+    {
+        try {
+            $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+            $context = (new WordPressPrincipalContextFactory())->current($now);
+            return $context->validAt($now) ? $context : null;
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    private static function allowed(PrincipalContext $context): bool
+    {
+        return $context->hasAnyCapability(
+            'queue.assigned.read',
+            'queue.specialist.read',
+            'queue.manage',
+            'appeal.queue.read',
+            'appeal.review',
+            'metrics.read',
+            'quality.manage',
+            'retention.review',
+            'release.evidence.read',
+            'repair.inspect',
+            'repair.execute'
+        );
+    }
 }
