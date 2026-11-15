@@ -1,4 +1,4 @@
-# CF-02 Latest-Two-Plans Corrective Coding Candidate — 1.0.0-rc.7
+# CF-02 Latest-Two-Plans Corrective Coding Candidate — 1.0.0-rc.8
 
 ## Governing result
 
@@ -21,7 +21,7 @@ The repository candidate implements the CF-02-owned coding requirements of the D
 
 ## Runtime identity
 
-- Plugin: `1.0.0-rc.7`
+- Plugin: `1.0.0-rc.8`
 - Schema: `1.3.0`
 - Plan: `1.0`
 - Contract: `1.3.0`
@@ -29,3 +29,7 @@ The repository candidate implements the CF-02-owned coding requirements of the D
 ## Truthful acceptance boundary
 
 This is a repository coding candidate. Real companions/providers, supported upgrade proof, Hostinger staging, browser/accessibility/device matrix, independent security, load/soak, production-like migration, backup/restore/rollback, staffing, observation and Founder exact-artifact approval remain mandatory external evidence gates.
+
+## V12.3 rc.8 corrective scope
+
+The V12.3-referenced rc.8 branch adds explicit guest ownership confirmation, original-case-time replay receipt/SLA, accessible support controls, pre-ticket safety guidance, improved attachment preflight, and executable guest UI tests. These changes do not prove comprehensive V12.3 coverage or external acceptance of the 24 Future features.
