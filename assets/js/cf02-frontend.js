@@ -62,6 +62,9 @@
                 const response = await fetch(String(root.dataset.endpoint || '').replace(/[/]$/, '') + '/guest/intake', {
                     method: 'POST',
                     credentials: 'same-origin',
+                    cache: 'no-store',
+                    redirect: 'error',
+                    referrerPolicy: 'no-referrer',
                     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
@@ -172,6 +175,9 @@
             }
             const response = await fetch(base + path, {
                 credentials: 'same-origin',
+                cache: 'no-store',
+                redirect: 'error',
+                referrerPolicy: 'no-referrer',
                 ...options,
                 headers: {
                     'Accept': 'application/json',
@@ -348,6 +354,10 @@
                 withBusy(async () => {
                     const selected = file.files && file.files[0];
                     if (!selected) return;
+                    // Match the server-side 25 MiB quarantine metadata limit before hashing.
+                    if (selected.size < 1 || selected.size > 25 * 1024 * 1024) {
+                        throw new Error(text('attachmentSizeInvalid', 'Evidence must be between 1 byte and 25 MiB.'));
+                    }
                     if (!window.crypto || !window.crypto.subtle) {
                         throw new Error(text('secureBrowserRequired', 'A secure modern browser is required for this action.'));
                     }
