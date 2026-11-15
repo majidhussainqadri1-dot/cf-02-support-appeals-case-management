@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: CF-02 Support, Appeals and Case Management 1.0.0-rc.5\n"
+"Project-Id-Version: CF-02 Support, Appeals and Case Management 1.0.0-rc.8\n"
 "Report-Msgid-Bugs-To: https://github.com/majidhussainqadri1-dot/cf-02-support-appeals-case-management/issues\n"
 "POT-Creation-Date: 2026-08-05 20:20+0500\n"
 "MIME-Version: 1.0\n"
@@ -322,3 +322,51 @@ msgstr "[دستیاب نہیں]"
 
 msgid "accepted"
 msgstr "منظور شدہ"
+
+msgid "Prepare a support request"
+msgstr "مدد کی درخواست تیار کریں"
+
+msgid "Use this form for non-sensitive issues only. A case is created only after you sign in and explicitly confirm."
+msgstr "اس فارم میں صرف غیر حساس مسائل درج کریں۔ لاگ اِن کرنے اور صریح تصدیق کے بعد ہی مقدمہ بنایا جائے گا۔"
+
+msgid "Preparing a safe request…"
+msgstr "محفوظ درخواست تیار کی جارہی ہے…"
+
+msgid "Request prepared. Sign in in this tab within 10 minutes to complete it. No case has been created yet."
+msgstr "درخواست تیار ہے۔ اسی ٹیب میں 10 منٹ کے اندر لاگ اِن کرکے مکمل کریں۔ ابھی کوئی مقدمہ نہیں بنایا گیا۔"
+
+msgid "Secure browser continuation is unavailable. Sign in and submit a new case."
+msgstr "براؤزر میں محفوظ تسلسل دستیاب نہیں۔ لاگ اِن کرکے نئی درخواست جمع کریں۔"
+
+msgid "This issue needs a different support route."
+msgstr "اس مسئلے کے لیے مدد کا دوسرا طریقہ درکار ہے۔"
+
+msgid "Do not include passwords, verification codes, financial information, medical records, or sensitive identity details."
+msgstr "پاس ورڈ، تصدیقی رمز، مالی معلومات، طبی ریکارڈ یا حساس شناختی تفصیلات درج نہ کریں۔"
+
+msgid "Prepare request"
+msgstr "درخواست تیار کریں"
+
+msgid "Sign in to complete the request"
+msgstr "درخواست مکمل کرنے کے لیے لاگ اِن کریں"
+
+msgid "Continue previous support request"
+msgstr "پہلی درخواست مکمل کریں"
+
+msgid "A low-sensitivity request was prepared before sign-in. No case exists until you confirm."
+msgstr "لاگ اِن سے پہلے ایک غیر حساس درخواست تیار ہوئی تھی۔ آپ کی تصدیق تک کوئی مقدمہ موجود نہیں ہوگا۔"
+
+msgid "Create this support case"
+msgstr "یہ مقدمہ بنائیں"
+
+msgid "Discard"
+msgstr "رد کریں"
+
+msgid "Submitting…"
+msgstr "جمع کی جارہی ہے…"
+
+msgid "Support case created."
+msgstr "مدد کا مقدمہ بن گیا۔"
+
+msgid "Unable to continue. Please retry or create a new case."
+msgstr "درخواست مکمل نہ ہوسکی۔ دوبارہ کوشش کریں یا نئی درخواست بنائیں۔"
