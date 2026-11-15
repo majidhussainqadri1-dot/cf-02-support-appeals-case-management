@@ -48,6 +48,9 @@
     }
 
     function initGuest(root) {
+        let strings = {};
+        try { strings = JSON.parse(root.dataset.i18n || '{}'); } catch (error) { strings = {}; }
+        const guestText = (key, fallback) => typeof strings[key] === 'string' && strings[key] !== '' ? strings[key] : fallback;
         const form = root.querySelector('[data-form="guest"]');
         const status = root.querySelector('[role="status"]');
         if (!form || !status) return;
@@ -55,7 +58,7 @@
             event.preventDefault();
             const submit = form.querySelector('button[type="submit"]');
             if (submit) submit.disabled = true;
-            status.textContent = 'Checking your safe support request…';
+            status.textContent = guestText('checking', 'Checking your safe support request…');
             try {
                 const payload = Object.fromEntries(new FormData(form).entries());
                 payload.locale = document.documentElement.lang || 'ur-PK';
@@ -70,21 +73,21 @@
                 });
                 const body = await response.json();
                 if (body.status === 'diverted') {
-                    status.textContent = 'This request needs an urgent specialist or official safety channel; no ordinary support case was created. Follow the emergency guidance above.';
+                    status.textContent = guestText('diverted', 'This request needs an urgent specialist or official safety channel; no ordinary support case was created. Follow the emergency guidance above.');
                     status.dataset.state = 'error';
                     return;
                 }
                 if (!response.ok || body.status !== 'step_up_required' || !body.continuation_token) {
-                    throw new Error(body.message || 'This pre-intake could not be accepted safely.');
+                    throw new Error(body.message || guestText('requestFailed', 'This pre-intake could not be accepted safely.'));
                 }
                 const expiry = Date.parse(body.expires_at || '');
-                if (!Number.isFinite(expiry) || expiry <= Date.now()) throw new Error('The continuation has expired. Please try again.');
+                if (!Number.isFinite(expiry) || expiry <= Date.now()) throw new Error(guestText('expired', 'The continuation has expired. Please try again.'));
                 window.sessionStorage.setItem(guestStorageKey, JSON.stringify({ token: body.continuation_token, expires: expiry }));
                 form.hidden = true;
-                status.textContent = 'Pre-intake accepted. No case has been created yet. Use the sign-in link below in this browser tab within 10 minutes; you must explicitly confirm case creation after signing in.';
+                status.textContent = guestText('accepted', 'Pre-intake accepted. No case has been created yet. Sign in using the link below in this browser tab within 10 minutes; you must explicitly confirm case creation after signing in.');
                 status.dataset.state = 'success';
             } catch (error) {
-                status.textContent = error && error.message ? error.message : 'Request failed.';
+                status.textContent = error && error.message ? error.message : guestText('unexpected', 'Request failed.');
                 status.dataset.state = 'error';
             } finally {
                 if (submit) submit.disabled = false;
