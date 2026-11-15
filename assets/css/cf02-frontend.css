@@ -1,7 +1,7 @@
 .cf02-public,
 .cf02-app {
-    --cf02-primary: var(--sabri-color-primary, #198754);
-    --cf02-primary-strong: var(--sabri-color-primary-strong, #146c43);
+    --cf02-primary: var(--sabri-color-primary, #087A4E);
+    --cf02-primary-strong: var(--sabri-color-primary-strong, #065C3B);
     --cf02-surface: #ffffff;
     --cf02-surface-muted: #f4f8f5;
     --cf02-text: #17201a;
@@ -266,4 +266,66 @@
     .cf02-appeal {
         border: 1px solid CanvasText;
     }
+}
+
+/* CF-02 scoped dark surface tokens; respect explicit site modes before system preference. */
+.cf02-public,
+.cf02-app {
+    color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+    .cf02-public:not([data-theme="light"]),
+    .cf02-app:not([data-theme="light"]) {
+        --cf02-surface: #14221c;
+        --cf02-surface-muted: #1d3026;
+        --cf02-text: #f1f7f2;
+        --cf02-muted: #c0d2c4;
+        --cf02-border: #587261;
+        --cf02-danger: #ffb0b0;
+        --cf02-warning-bg: #493715;
+        --cf02-primary: #087A4E;
+        --cf02-primary-strong: #0b8b59;
+        color-scheme: dark;
+    }
+    .cf02-public:not([data-theme="light"]) input,
+    .cf02-app:not([data-theme="light"]) input,
+    .cf02-app:not([data-theme="light"]) select,
+    .cf02-app:not([data-theme="light"]) textarea {
+        background: var(--cf02-surface-muted);
+        color: var(--cf02-text);
+        border-color: var(--cf02-border);
+    }
+    .cf02-public:not([data-theme="light"]) button,
+    .cf02-app:not([data-theme="light"]) button {
+        color: #fff;
+    }
+}
+
+.cf02-public[data-theme="dark"],
+.cf02-app[data-theme="dark"],
+[data-theme="dark"] .cf02-public,
+[data-theme="dark"] .cf02-app {
+    --cf02-surface: #14221c;
+    --cf02-surface-muted: #1d3026;
+    --cf02-text: #f1f7f2;
+    --cf02-muted: #c0d2c4;
+    --cf02-border: #587261;
+    --cf02-danger: #ffb0b0;
+    --cf02-warning-bg: #493715;
+    --cf02-primary: #087A4E;
+    --cf02-primary-strong: #0b8b59;
+    color-scheme: dark;
+}
+
+.cf02-public[data-theme="dark"] input,
+.cf02-app[data-theme="dark"] input,
+.cf02-app[data-theme="dark"] select,
+.cf02-app[data-theme="dark"] textarea,
+[data-theme="dark"] .cf02-app input,
+[data-theme="dark"] .cf02-app select,
+[data-theme="dark"] .cf02-app textarea {
+    background: var(--cf02-surface-muted);
+    color: var(--cf02-text);
+    border-color: var(--cf02-border);
 }
