@@ -366,3 +366,57 @@ msgstr ""
 
 msgid "Unable to continue. Please retry or create a new case."
 msgstr ""
+
+msgid "This request cannot use general support. For immediate danger contact local emergency services; for security or privacy incidents use the designated specialist channel."
+msgstr ""
+
+msgid "Support Operations"
+msgstr ""
+
+msgid "Support"
+msgstr ""
+
+msgid "Resource not found."
+msgstr ""
+
+msgid "Request failed."
+msgstr ""
+
+msgid "Ready"
+msgstr ""
+
+msgid "Approved repair reference"
+msgstr ""
+
+msgid "Run governed repair"
+msgstr ""
+
+msgid "Run the approved non-destructive repair now?"
+msgstr ""
+
+msgid "Repair command returned. Verify server evidence."
+msgstr ""
+
+msgid "Queue"
+msgstr ""
+
+msgid "Cases"
+msgstr ""
+
+msgid "SLA"
+msgstr ""
+
+msgid "Quality"
+msgstr ""
+
+msgid "Retention"
+msgstr ""
+
+msgid "Repair"
+msgstr ""
+
+msgid "This workspace displays minimum necessary case projections. Every operation is re-authorized through File 00; WordPress administrator status alone is insufficient."
+msgstr ""
+
+msgid "Support sections"
+msgstr ""
