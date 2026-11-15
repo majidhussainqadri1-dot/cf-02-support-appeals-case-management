@@ -100,3 +100,18 @@ The CF-02 plan imports 56 Central CV requirements as owner/consumer obligations.
 - Schema: `1.3.0`; contract: `1.3.0`; plan: `1.0`.
 - Automated status must be taken only from exact-head workflow evidence after the final corrective commit.
 - Hostinger staging, real companion/provider contracts, browser/device/accessibility, independent security, load/soak, migration rehearsal, restore/rollback, staffing, observation and Founder exact-artifact acceptance remain separate gates.
+
+## V12.3 C2-N corrective trace (2026-11-15)
+
+The definitive V12.3 CF-02 register is **74 ownership/acceptance items**: 34 FR + 10 CEN + 6 NJ + 24 conditional FUT. V12.3 does not convert feature-gated FUT domain foundations into accepted user-facing functionality.
+
+| V12.3 item | New source evidence | Regression | Still external |
+|---|---|---|---|
+| `CF02-FR-001`, `CF02-CEN-08` | Public `guestPreIntake()`, category allowlist, encrypted token and authenticated `/guest/continue` in `cf02-guest.js` | `c2n-v12-3-alignment.php`, `c2n-review1.php` | File 00 real session, guest navigation and browser/multi-device behavior |
+| `CF02-CEN-05`, `CF02-NJ-05` | Guest 422 emergency/specialist diversion displayed without false case receipt | `c2n-review2.php` | Specialist contacts, emergency runbooks and observational testing |
+| `CF02-FR-007/026/030` | CSP-friendly File 00-scoped `CompleteAdminSurfaces`, external `cf02-admin.js/css`, no template `innerHTML` | `c2n-review2.php`, JavaScript syntax | True staff capabilities, host Content Security Policy and admin browser tests |
+| `F25-CEN-01/02`, `CEN-BRAND-001` | File 25 green `#087A4E`, hover `#065C3B`, responsive logical CSS and adaptive dark palette | `c2n-v12-3-alignment.php` | Screenshots, contrast, RTL/LTR, assistive technology, cross-device tests |
+| `CF02-FR-009/023` | PO/POT/MO Urdu strings for guest, notices and operator dashboard | `c2n-review2.php` | WordPress locale/browser and actual notices across providers |
+| `CEN-REL-001` | rc.8 exact manifest, source, docs and CI alignment; preserved external gates | `tests/release.php`, CI, package workflow | Deployed checksum parity, staging, rollback and founder acceptance |
+
+**Current status:** code corrections are review candidates; the exact deployed source, live database, schema/migration version and runtime defects remain unverified. No live fix is claimed.
