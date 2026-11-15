@@ -50,6 +50,9 @@
       "php -d zend.assertions=1 tests/c2m-future24.php",
       "php -d zend.assertions=1 tests/c2m-review1.php",
       "php -d zend.assertions=1 tests/c2m-review2.php",
+      "php -d zend.assertions=1 tests/c2n-v12-3-alignment.php",
+      "php -d zend.assertions=1 tests/c2n-review1.php",
+      "php -d zend.assertions=1 tests/c2n-review2.php",
       "php -d zend.assertions=1 tests/release.php"
     ],
     "security-scan": "python3 build/security_scan.py",
