@@ -500,22 +500,42 @@
             });
         }
 
-        // Authenticated File 00 session is mandatory for conversion into a real case.
+        // Never auto-submit another person's guest description after a login/account switch.
+        // A real case can only be created by an explicit click in the authenticated account.
         const guest = pendingGuest();
-        if (guest) {
-            withBusy(async () => {
-                const converted = await api('/guest/continue', {
-                    method: 'POST',
-                    headers: { 'Idempotency-Key': uniqueId('guest-stepup') },
-                    body: JSON.stringify({ continuation_token: guest.token })
+        const guestConfirm = root.querySelector('[data-cf02-guest-confirm]');
+        if (guest && guestConfirm) {
+            guestConfirm.hidden = false;
+            const confirm = guestConfirm.querySelector('[data-action="guest-convert"]');
+            const discard = guestConfirm.querySelector('[data-action="guest-discard"]');
+            if (discard) discard.addEventListener('click', () => {
+                window.sessionStorage.removeItem(guestStorageKey);
+                guestConfirm.hidden = true;
+                setStatus(text('guestDiscarded', 'Pending guest request discarded; no case was created.'), 'info');
+            });
+            if (confirm) confirm.addEventListener('click', () => {
+                const pending = pendingGuest();
+                if (!pending) {
+                    guestConfirm.hidden = true;
+                    setStatus(text('guestExpired', 'The pending request expired; please start again.'), 'error');
+                    return;
+                }
+                withBusy(async () => {
+                    const converted = await api('/guest/continue', {
+                        method: 'POST',
+                        headers: { 'Idempotency-Key': uniqueId('guest-stepup') },
+                        body: JSON.stringify({ continuation_token: pending.token })
+                    });
+                    window.sessionStorage.removeItem(guestStorageKey);
+                    guestConfirm.hidden = true;
+                    const convertedCase = converted.case || {};
+                    const caseId = String(convertedCase.case_uuid || '');
+                    setStatus(text('caseAccepted', 'Case accepted:') + ' ' + caseId, 'success');
+                    if (caseId) await showPanel('cases');
+                }).catch(() => {
+                    // Do not automatically repeat a possibly committed operation;
+                    // user may explicitly retry the same encrypted idempotent continuation.
                 });
-                window.sessionStorage.removeItem(guestStorageKey);
-                const convertedCase = converted.case || {};
-                setStatus(text('caseAccepted', 'Case accepted:') + ' ' + String(convertedCase.case_uuid || ''), 'success');
-                await showPanel('cases');
-            }).catch(() => {
-                // An invalid, expired or rejected continuation must not be retried across accounts.
-                window.sessionStorage.removeItem(guestStorageKey);
             });
         }
 
