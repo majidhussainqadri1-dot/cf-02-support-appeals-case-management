@@ -30,6 +30,23 @@
         }
     }
 
+    function initAccessibility(group) {
+        const container = group.closest('.cf02-app, .cf02-public');
+        if (!container) return;
+        for (const pair of [
+            ['large-text', 'cf02-large-text'],
+            ['high-contrast', 'cf02-high-contrast']
+        ]) {
+            const control = group.querySelector('[data-action="' + pair[0] + '"]');
+            if (!control) continue;
+            control.addEventListener('click', () => {
+                const active = !container.classList.contains(pair[1]);
+                container.classList.toggle(pair[1], active);
+                control.setAttribute('aria-pressed', active ? 'true' : 'false');
+            });
+        }
+    }
+
     function initGuest(root) {
         const form = root.querySelector('[data-form="guest"]');
         const status = root.querySelector('[role="status"]');
@@ -61,7 +78,7 @@
                 if (!Number.isFinite(expiry) || expiry <= Date.now()) throw new Error('The continuation has expired. Please try again.');
                 window.sessionStorage.setItem(guestStorageKey, JSON.stringify({ token: body.continuation_token, expires: expiry }));
                 form.hidden = true;
-                status.textContent = 'Pre-intake accepted. No case has been created yet. Use the sign-in link below in this browser tab within 10 minutes; your case will then be submitted.';
+                status.textContent = 'Pre-intake accepted. No case has been created yet. Use the sign-in link below in this browser tab within 10 minutes; you must explicitly confirm case creation after signing in.';
                 status.dataset.state = 'success';
             } catch (error) {
                 status.textContent = error && error.message ? error.message : 'Request failed.';
@@ -615,6 +632,7 @@
         }
     }
 
+    document.querySelectorAll('[data-cf02-accessibility]').forEach(initAccessibility);
     document.querySelectorAll('[data-cf02-guest]').forEach(initGuest);
     document.querySelectorAll('[data-cf02-complete]').forEach(init);
 }());
