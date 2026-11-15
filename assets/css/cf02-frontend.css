@@ -2,11 +2,13 @@
 .cf02-app {
     --cf02-primary: var(--sabri-color-primary, #087A4E);
     --cf02-primary-strong: var(--sabri-color-primary-strong, #065C3B);
+    --cf02-hover: var(--sabri-color-hover, #065F3D);
+    --cf02-control-border: var(--sabri-color-control-border, #6B8476);
     --cf02-surface: #ffffff;
-    --cf02-surface-muted: #f4f8f5;
+    --cf02-surface-muted: #E7F5EE;
     --cf02-text: #17201a;
     --cf02-muted: #536057;
-    --cf02-border: #c9d5cc;
+    --cf02-border: #D6E1DA;
     --cf02-danger: #9b2c2c;
     --cf02-warning-bg: #fff8e6;
     --cf02-radius: 0.875rem;
@@ -89,7 +91,7 @@
     max-inline-size: 100%;
     min-block-size: 44px;
     padding: 0.65rem 0.8rem;
-    border: 1px solid #4b5d50;
+    border: 1px solid var(--cf02-control-border);
     border-radius: 0.5rem;
     font: inherit;
 }
@@ -123,7 +125,7 @@
 .cf02-app button:hover,
 .cf02-public button:hover,
 .cf02-app button[aria-selected="true"] {
-    background: var(--cf02-primary-strong);
+    background: var(--cf02-hover);
 }
 
 .cf02-app button:disabled,
@@ -286,6 +288,8 @@
         --cf02-warning-bg: #493715;
         --cf02-primary: #087A4E;
         --cf02-primary-strong: #0b8b59;
+        --cf02-hover: #0b8b59;
+        --cf02-control-border: #8eb39b;
         color-scheme: dark;
     }
     .cf02-public:not([data-theme="light"]) input,
@@ -315,6 +319,8 @@
     --cf02-warning-bg: #493715;
     --cf02-primary: #087A4E;
     --cf02-primary-strong: #0b8b59;
+    --cf02-hover: #0b8b59;
+    --cf02-control-border: #8eb39b;
     color-scheme: dark;
 }
 
@@ -337,7 +343,7 @@
     inline-size: 100%;
     min-block-size: 44px;
     padding: 0.65rem 0.8rem;
-    border: 1px solid var(--cf02-border);
+    border: 1px solid var(--cf02-control-border);
     border-radius: 0.5rem;
     background: var(--cf02-surface);
     color: var(--cf02-text);
@@ -396,6 +402,8 @@
     --cf02-border: #fff;
     --cf02-primary: #087A4E;
     --cf02-primary-strong: #0ca66a;
+    --cf02-hover: #0ca66a;
+    --cf02-control-border: #fff;
     --cf02-warning-bg: #352400;
     --cf02-danger: #ffc0c0;
     color-scheme: dark;
