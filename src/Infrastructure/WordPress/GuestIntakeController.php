@@ -134,7 +134,10 @@ final class GuestIntakeController
             ];
             $result = $this->intake->createOrReplay($context->actorReference(), $idempotencyKey, $payload, $now);
             $caseId = SupportCaseId::fromString((string) $result['case']['case_uuid']);
-            $this->operations->ensureSlaTimer($caseId, $priority, $now);
+            // Replay must use the original committed case time for SLA and receipt
+            // payload hashes, otherwise a retried request collides with its own outbox.
+            $receivedAt = new DateTimeImmutable((string) $result['case']['created_at'], new \DateTimeZone('UTC'));
+            $this->operations->ensureSlaTimer($caseId, $priority, $receivedAt);
             $this->operations->appendEvent('case', $caseId->value(), 'SupportCaseCreated', $context, 'guest_step_up', $idempotencyKey, [
                 'category' => $safe['category'],
                 'priority' => $priority,
@@ -159,7 +162,7 @@ final class GuestIntakeController
                 'case_id' => $caseId->value(),
                 'status' => 'new',
                 'next_step' => 'triage',
-                'received_at' => $now->format(DATE_ATOM),
+                'received_at' => $receivedAt->format(DATE_ATOM),
             ];
             $this->operations->enqueueDelivery(
                 $caseId,

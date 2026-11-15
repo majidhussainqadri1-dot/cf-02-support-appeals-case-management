@@ -2,7 +2,7 @@
 Contributors: majidhussainqadri1-dot
 Requires at least: 6.0
 Requires PHP: 8.1
-Stable tag: 1.0.0-rc.7
+Stable tag: 1.0.0-rc.8
 License: Proprietary
 Text Domain: cf-02-support-appeals-case-management
 
@@ -38,9 +38,15 @@ No. Default uninstall is non-destructive and preserves CF-02 records and configu
 
 = Is this package production accepted? =
 
-No. Version 1.0.0-rc.7 is a ten-round reviewed coded/package candidate. Hostinger staging, real providers/companions, browser/accessibility, independent security, load, migration, restore, rollback, observation and Founder exact-artifact acceptance remain separate mandatory gates.
+No. Version 1.0.0-rc.8 is a V12.3-scoped coded/package candidate, not a complete V12.3 or externally accepted deployment. Hostinger staging, real providers/companions, browser/accessibility, independent security, load, migration, restore, rollback, observation and Founder exact-artifact acceptance remain separate mandatory gates.
 
 == Changelog ==
+
+= 1.0.0-rc.8 =
+* Added consent-confirmed guest continuation, stable replay receipt timing, accessible pre-ticket guidance and display controls, guest input/UI hardening and regression tests.
+* Reconciled release metadata and documentation with contract 1.3.0 and governing Master Plan V12.3 reference.
+* All 24 future features remain governed foundations rather than automatically enabled provider-connected services.
+* No Staging-Accepted, Live-Deployed or Operational claim is made; exact deployed artifact, providers and migration remain to be verified.
 
 = 1.0.0-rc.7 =
 * Completed ten sequential review/fix rounds against the CF-02 governing plan and exact GitHub repository state.
@@ -77,6 +83,9 @@ No. Version 1.0.0-rc.7 is a ten-round reviewed coded/package candidate. Hostinge
 * Completed the C2-A through C2-H repository coding candidate and two review/fix rounds per phase.
 
 == Upgrade Notice ==
+
+= 1.0.0-rc.8 =
+V12.3-scoped corrective candidate. Do not promote without exact package, staging, providers and independent security acceptance.
 
 = 1.0.0-rc.7 =
 Ten-round reviewed coded/package candidate. Exact-head automated QA and all external staging/live gates remain separate evidence.

@@ -15,6 +15,86 @@
         shield: '<path d="M12 3 5 6v5c0 4.8 3 8 7 10 4-2 7-5.2 7-10V6z"/><path d="m9 12 2 2 4-4"/>'
     };
 
+    const guestStorageKey = 'cf02_guest_stepup_v1';
+
+    function pendingGuest() {
+        try {
+            const saved = JSON.parse(window.sessionStorage.getItem(guestStorageKey) || 'null');
+            if (!saved || !saved.token || !Number.isFinite(saved.expires) || Date.now() >= saved.expires) {
+                window.sessionStorage.removeItem(guestStorageKey);
+                return null;
+            }
+            return saved;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function initAccessibility(group) {
+        const container = group.closest('.cf02-app, .cf02-public');
+        if (!container) return;
+        for (const pair of [
+            ['large-text', 'cf02-large-text'],
+            ['high-contrast', 'cf02-high-contrast']
+        ]) {
+            const control = group.querySelector('[data-action="' + pair[0] + '"]');
+            if (!control) continue;
+            control.addEventListener('click', () => {
+                const active = !container.classList.contains(pair[1]);
+                container.classList.toggle(pair[1], active);
+                control.setAttribute('aria-pressed', active ? 'true' : 'false');
+            });
+        }
+    }
+
+    function initGuest(root) {
+        let strings = {};
+        try { strings = JSON.parse(root.dataset.i18n || '{}'); } catch (error) { strings = {}; }
+        const guestText = (key, fallback) => typeof strings[key] === 'string' && strings[key] !== '' ? strings[key] : fallback;
+        const form = root.querySelector('[data-form="guest"]');
+        const status = root.querySelector('[role="status"]');
+        if (!form || !status) return;
+        form.addEventListener('submit', async event => {
+            event.preventDefault();
+            const submit = form.querySelector('button[type="submit"]');
+            if (submit) submit.disabled = true;
+            status.textContent = guestText('checking', 'Checking your safe support request…');
+            try {
+                const payload = Object.fromEntries(new FormData(form).entries());
+                payload.locale = document.documentElement.lang || 'ur-PK';
+                const response = await fetch(String(root.dataset.endpoint || '').replace(/[/]$/, '') + '/guest/intake', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    cache: 'no-store',
+                    redirect: 'error',
+                    referrerPolicy: 'no-referrer',
+                    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const body = await response.json();
+                if (body.status === 'diverted') {
+                    status.textContent = guestText('diverted', 'This request needs an urgent specialist or official safety channel; no ordinary support case was created. Follow the emergency guidance above.');
+                    status.dataset.state = 'error';
+                    return;
+                }
+                if (!response.ok || body.status !== 'step_up_required' || !body.continuation_token) {
+                    throw new Error(body.message || guestText('requestFailed', 'This pre-intake could not be accepted safely.'));
+                }
+                const expiry = Date.parse(body.expires_at || '');
+                if (!Number.isFinite(expiry) || expiry <= Date.now()) throw new Error(guestText('expired', 'The continuation has expired. Please try again.'));
+                window.sessionStorage.setItem(guestStorageKey, JSON.stringify({ token: body.continuation_token, expires: expiry }));
+                form.hidden = true;
+                status.textContent = guestText('accepted', 'Pre-intake accepted. No case has been created yet. Sign in using the link below in this browser tab within 10 minutes; you must explicitly confirm case creation after signing in.');
+                status.dataset.state = 'success';
+            } catch (error) {
+                status.textContent = error && error.message ? error.message : guestText('unexpected', 'Request failed.');
+                status.dataset.state = 'error';
+            } finally {
+                if (submit) submit.disabled = false;
+            }
+        });
+    }
+
     function init(root) {
         let strings = {};
         try {
@@ -98,6 +178,9 @@
             }
             const response = await fetch(base + path, {
                 credentials: 'same-origin',
+                cache: 'no-store',
+                redirect: 'error',
+                referrerPolicy: 'no-referrer',
                 ...options,
                 headers: {
                     'Accept': 'application/json',
@@ -274,6 +357,10 @@
                 withBusy(async () => {
                     const selected = file.files && file.files[0];
                     if (!selected) return;
+                    // Match the server-side 25 MiB quarantine metadata limit before hashing.
+                    if (selected.size < 1 || selected.size > 25 * 1024 * 1024) {
+                        throw new Error(text('attachmentSizeInvalid', 'Evidence must be between 1 byte and 25 MiB.'));
+                    }
                     if (!window.crypto || !window.crypto.subtle) {
                         throw new Error(text('secureBrowserRequired', 'A secure modern browser is required for this action.'));
                     }
@@ -443,6 +530,45 @@
             });
         }
 
+        // Never auto-submit another person's guest description after a login/account switch.
+        // A real case can only be created by an explicit click in the authenticated account.
+        const guest = pendingGuest();
+        const guestConfirm = root.querySelector('[data-cf02-guest-confirm]');
+        if (guest && guestConfirm) {
+            guestConfirm.hidden = false;
+            const confirm = guestConfirm.querySelector('[data-action="guest-convert"]');
+            const discard = guestConfirm.querySelector('[data-action="guest-discard"]');
+            if (discard) discard.addEventListener('click', () => {
+                window.sessionStorage.removeItem(guestStorageKey);
+                guestConfirm.hidden = true;
+                setStatus(text('guestDiscarded', 'Pending guest request discarded; no case was created.'), 'info');
+            });
+            if (confirm) confirm.addEventListener('click', () => {
+                const pending = pendingGuest();
+                if (!pending) {
+                    guestConfirm.hidden = true;
+                    setStatus(text('guestExpired', 'The pending request expired; please start again.'), 'error');
+                    return;
+                }
+                withBusy(async () => {
+                    const converted = await api('/guest/continue', {
+                        method: 'POST',
+                        headers: { 'Idempotency-Key': uniqueId('guest-stepup') },
+                        body: JSON.stringify({ continuation_token: pending.token })
+                    });
+                    window.sessionStorage.removeItem(guestStorageKey);
+                    guestConfirm.hidden = true;
+                    const convertedCase = converted.case || {};
+                    const caseId = String(convertedCase.case_uuid || '');
+                    setStatus(text('caseAccepted', 'Case accepted:') + ' ' + caseId, 'success');
+                    if (caseId) await showPanel('cases');
+                }).catch(() => {
+                    // Do not automatically repeat a possibly committed operation;
+                    // user may explicitly retry the same encrypted idempotent continuation.
+                });
+            });
+        }
+
         const caseForm = root.querySelector('[data-form="case"]');
         if (caseForm) {
             caseForm.addEventListener('submit', event => {
@@ -519,5 +645,7 @@
         }
     }
 
+    document.querySelectorAll('[data-cf02-accessibility]').forEach(initAccessibility);
+    document.querySelectorAll('[data-cf02-guest]').forEach(initGuest);
     document.querySelectorAll('[data-cf02-complete]').forEach(init);
 }());

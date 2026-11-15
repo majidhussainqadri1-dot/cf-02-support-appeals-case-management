@@ -14,6 +14,7 @@ final class CompleteFrontendSurfaces
 
     public static function register(): void
     {
+        add_filter('gettext', [UrduSupplementaryTranslations::class, 'translate'], 20, 3);
         add_shortcode('cf02_support', [self::class, 'support']);
         add_shortcode('cf02_case_portal', [self::class, 'portal']);
         add_shortcode('cf02_appeal_portal', [self::class, 'portal']);
@@ -67,15 +68,74 @@ final class CompleteFrontendSurfaces
             . '<details><summary>' . esc_html__('Privacy boundary', self::TEXT_DOMAIN) . '</summary>'
             . '<p>' . esc_html__('Never submit passwords, OTPs, private keys, full payment-card data or unrelated clinical records. Native identity, payment, moderation, privacy-rights, security-incident and clinical decisions remain with their canonical owners.', self::TEXT_DOMAIN) . '</p>'
             . '<p>' . esc_html__('Donations, sponsorships and payments never change support priority, SLA, appeal eligibility or outcome.', self::TEXT_DOMAIN) . '</p>'
-            . '</details></section>';
+            . '</details>'
+            . '<details class="cf02-self-help"><summary>' . esc_html__('Quick public troubleshooting', self::TEXT_DOMAIN) . '</summary>'
+            . '<p>' . esc_html__('Check your connection and note the page, time, and exact error. For publishing, confirm the intended draft or published state; for PDFs, check the file type and accessibility. Never share passwords or private medical records. You can always submit a support request.', self::TEXT_DOMAIN) . '</p>'
+            . '</details>'
+            . self::accessibilityControls()
+            . '</section>';
 
         if (!is_user_logged_in()) {
-            return $public . '<section class="cf02-public cf02-card"><h2>'
-                . esc_html__('Authentication required for private actions', self::TEXT_DOMAIN)
-                . '</h2></section>';
+            return $public . self::guestIntake();
         }
 
         return $public . self::app();
+    }
+
+    /** Local display adjustments only; canonical accessibility identity preferences remain with their owner. */
+    private static function accessibilityControls(): string
+    {
+        return '<div class="cf02-accessibility" data-cf02-accessibility role="group" aria-label="'
+            . esc_attr__('Display adjustments', self::TEXT_DOMAIN) . '">'
+            . '<button type="button" class="cf02-secondary" data-action="large-text" aria-pressed="false">'
+            . esc_html__('Larger text', self::TEXT_DOMAIN) . '</button>'
+            . '<button type="button" class="cf02-secondary" data-action="high-contrast" aria-pressed="false">'
+            . esc_html__('High contrast', self::TEXT_DOMAIN) . '</button>'
+            . '</div>';
+    }
+
+    /** Public low-sensitivity pre-intake; no private case is created until File 00 authentication. */
+    private static function guestIntake(): string
+    {
+        $labels = [
+            'publishing' => __('Publishing', self::TEXT_DOMAIN),
+            'learning_access' => __('Learning access', self::TEXT_DOMAIN),
+            'media_pdf' => __('Media and PDF', self::TEXT_DOMAIN),
+            'accessibility' => __('Accessibility', self::TEXT_DOMAIN),
+            'technical' => __('Technical support', self::TEXT_DOMAIN),
+        ];
+        $options = '<option value="">'.esc_html__('Choose category', self::TEXT_DOMAIN).'</option>';
+        foreach ($labels as $key => $label) {
+            $options .= '<option value="'.esc_attr($key).'">'.esc_html($label).'</option>';
+        }
+        $guestStrings = esc_attr((string) wp_json_encode([
+            'checking' => __('Checking your safe support request…', self::TEXT_DOMAIN),
+            'diverted' => __('This request needs an urgent specialist or official safety channel; no ordinary support case was created. Follow the emergency guidance above.', self::TEXT_DOMAIN),
+            'requestFailed' => __('This pre-intake could not be accepted safely.', self::TEXT_DOMAIN),
+            'expired' => __('The continuation has expired. Please try again.', self::TEXT_DOMAIN),
+            'accepted' => __('Pre-intake accepted. No case has been created yet. Sign in using the link below in this browser tab within 10 minutes; you must explicitly confirm case creation after signing in.', self::TEXT_DOMAIN),
+            'unexpected' => __('Request failed.', self::TEXT_DOMAIN),
+        ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT));
+        return '<section class="cf02-public cf02-card" data-cf02-guest'
+            . ' data-i18n="' . $guestStrings . '"'
+            . ' data-endpoint="'.esc_url(rest_url('api/support/v1')).'">'
+            . '<h2>'.esc_html__('Guest support pre-intake', self::TEXT_DOMAIN).'</h2>'
+            . '<p>'.esc_html__('Only low-sensitivity issues are accepted here. Sign in within 10 minutes, then confirm creation in the intended account. No case exists before that confirmation.', self::TEXT_DOMAIN).'</p>'
+            . '<form data-form="guest" class="cf02-form">'
+            . '<label>'.esc_html__('Category', self::TEXT_DOMAIN).'<select name="category" required>'.$options.'</select></label>'
+            . '<label>'.esc_html__('Subject', self::TEXT_DOMAIN).'<input name="subject" minlength="5" maxlength="191" required dir="auto"></label>'
+            . '<label>'.esc_html__('Safe description (no sensitive information)', self::TEXT_DOMAIN).'<textarea name="description" rows="4" maxlength="3000" dir="auto"></textarea></label>'
+            . '<div class="cf02-grid"><label>'.esc_html__('Impact', self::TEXT_DOMAIN).'<select name="impact">'
+            . '<option value="single_action">'.esc_html__('One action', self::TEXT_DOMAIN).'</option>'
+            . '<option value="many_users">'.esc_html__('Many users', self::TEXT_DOMAIN).'</option></select></label>'
+            . '<label>'.esc_html__('Urgency', self::TEXT_DOMAIN).'<select name="urgency">'
+            . '<option value="normal">'.esc_html__('Normal', self::TEXT_DOMAIN).'</option>'
+            . '<option value="time_sensitive">'.esc_html__('Time-sensitive', self::TEXT_DOMAIN).'</option></select></label></div>'
+            . '<button type="submit">'.esc_html__('Continue securely', self::TEXT_DOMAIN).'</button>'
+            . '</form><div class="cf02-status" role="status" aria-live="polite" aria-atomic="true"></div>'
+            . '<p><a href="'.esc_url(wp_login_url(get_permalink() ?: home_url('/support/'))).'">'
+            . esc_html__('Sign in to complete a support request', self::TEXT_DOMAIN).'</a></p>'
+            . '</section>';
     }
 
     public static function portal(): string
@@ -105,6 +165,14 @@ final class CompleteFrontendSurfaces
             . ' data-initial-case="' . esc_attr($initialCase) . '"'
             . ' data-initial-appeal="' . esc_attr($initialAppeal) . '"'
             . ' data-i18n="' . $strings . '" aria-busy="false">'
+            . self::accessibilityControls()
+            . '<section class="cf02-card" data-cf02-guest-confirm hidden aria-labelledby="cf02-guest-confirm-title">'
+            . '<h2 id="cf02-guest-confirm-title">' . esc_html__('Complete your pending guest request', self::TEXT_DOMAIN) . '</h2>'
+            . '<p>' . esc_html__('A private support case has not been created. Before continuing, confirm this is the account that should own the request. The saved pre-intake expires after 10 minutes.', self::TEXT_DOMAIN) . '</p>'
+            . '<div class="cf02-actions">'
+            . '<button type="button" data-action="guest-convert">' . esc_html__('Create case in this account', self::TEXT_DOMAIN) . '</button>'
+            . '<button type="button" class="cf02-secondary" data-action="guest-discard">' . esc_html__('Discard pending request', self::TEXT_DOMAIN) . '</button>'
+            . '</div></section>'
             . '<div class="cf02-tabs" role="tablist" aria-label="' . esc_attr__('Support actions', self::TEXT_DOMAIN) . '">'
             . self::tab('new', 'cf02-panel-new', __('New case', self::TEXT_DOMAIN), 'plus', true)
             . self::tab('cases', 'cf02-panel-cases', __('My cases', self::TEXT_DOMAIN), 'cases', false)
@@ -269,6 +337,9 @@ final class CompleteFrontendSurfaces
             'unexpectedError' => __('An unexpected error occurred.', self::TEXT_DOMAIN),
             'secureBrowserRequired' => __('A secure modern browser is required for this action.', self::TEXT_DOMAIN),
             'accepted' => __('accepted', self::TEXT_DOMAIN),
+            'guestDiscarded' => __('Pending guest request discarded; no case was created.', self::TEXT_DOMAIN),
+            'guestExpired' => __('The pending request expired; please start again.', self::TEXT_DOMAIN),
+            'attachmentSizeInvalid' => __('Evidence must be between 1 byte and 25 MiB.', self::TEXT_DOMAIN),
         ];
     }
 

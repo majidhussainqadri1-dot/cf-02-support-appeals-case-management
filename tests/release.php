@@ -26,6 +26,22 @@ $test('release identity is aligned across manifest plugin readme and schema', st
     assert(str_contains($contract, "public const CONTRACT_VERSION = '" . $manifest['contract_version'] . "';"));
 });
 
+$test('all release and WordPress smoke workflow versions are bound to exact manifest identity', static function () use ($root, $manifest): void {
+    $version = (string) $manifest['plugin_version'];
+    foreach ([
+        '.github/workflows/release-candidate.yml',
+        '.github/workflows/wordpress-smoke.yml',
+        '.github/workflows/wordpress-runtime-smoke.yml'
+    ] as $path) {
+        $workflow = (string) file_get_contents($root . '/' . $path);
+        assert(str_contains($workflow, 'PACKAGE_VERSION: ' . $version), $path . ' has a stale artifact version');
+    }
+    $runtime = (string) file_get_contents($root . '/.github/workflows/wordpress-runtime-smoke.yml');
+    assert(str_contains($runtime, '"runtime_version"=>"' . $version . '"'), 'Active runtime CI fixture version drifted');
+    assert(($manifest['governing_master_plan'] ?? '') === 'V12.3');
+    assert(($manifest['v12_3_traceability_status'] ?? '') === 'partial-candidate-not-accepted');
+});
+
 $test('release package is explicit allowlist and excludes development surfaces', static function () use ($manifest): void {
     $rootFiles = $manifest['package_root_files'] ?? null;
     $directories = $manifest['package_directories'] ?? null;

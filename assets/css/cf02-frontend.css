@@ -1,12 +1,14 @@
 .cf02-public,
 .cf02-app {
-    --cf02-primary: var(--sabri-color-primary, #198754);
-    --cf02-primary-strong: var(--sabri-color-primary-strong, #146c43);
+    --cf02-primary: var(--sabri-color-primary, #087A4E);
+    --cf02-primary-strong: var(--sabri-color-primary-strong, #065C3B);
+    --cf02-hover: var(--sabri-color-hover, #065F3D);
+    --cf02-control-border: var(--sabri-color-control-border, #6B8476);
     --cf02-surface: #ffffff;
-    --cf02-surface-muted: #f4f8f5;
+    --cf02-surface-muted: #E7F5EE;
     --cf02-text: #17201a;
     --cf02-muted: #536057;
-    --cf02-border: #c9d5cc;
+    --cf02-border: #D6E1DA;
     --cf02-danger: #9b2c2c;
     --cf02-warning-bg: #fff8e6;
     --cf02-radius: 0.875rem;
@@ -89,7 +91,7 @@
     max-inline-size: 100%;
     min-block-size: 44px;
     padding: 0.65rem 0.8rem;
-    border: 1px solid #4b5d50;
+    border: 1px solid var(--cf02-control-border);
     border-radius: 0.5rem;
     font: inherit;
 }
@@ -123,7 +125,7 @@
 .cf02-app button:hover,
 .cf02-public button:hover,
 .cf02-app button[aria-selected="true"] {
-    background: var(--cf02-primary-strong);
+    background: var(--cf02-hover);
 }
 
 .cf02-app button:disabled,
@@ -265,5 +267,170 @@
     .cf02-detail,
     .cf02-appeal {
         border: 1px solid CanvasText;
+    }
+}
+
+/* CF-02 scoped dark surface tokens; respect explicit site modes before system preference. */
+.cf02-public,
+.cf02-app {
+    color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+    .cf02-public:not([data-theme="light"]),
+    .cf02-app:not([data-theme="light"]) {
+        --cf02-surface: #14221c;
+        --cf02-surface-muted: #1d3026;
+        --cf02-text: #f1f7f2;
+        --cf02-muted: #c0d2c4;
+        --cf02-border: #587261;
+        --cf02-danger: #ffb0b0;
+        --cf02-warning-bg: #493715;
+        --cf02-primary: #087A4E;
+        --cf02-primary-strong: #0b8b59;
+        --cf02-hover: #0b8b59;
+        --cf02-control-border: #8eb39b;
+        color-scheme: dark;
+    }
+    .cf02-public:not([data-theme="light"]) input,
+    .cf02-app:not([data-theme="light"]) input,
+    .cf02-app:not([data-theme="light"]) select,
+    .cf02-app:not([data-theme="light"]) textarea {
+        background: var(--cf02-surface-muted);
+        color: var(--cf02-text);
+        border-color: var(--cf02-border);
+    }
+    .cf02-public:not([data-theme="light"]) button,
+    .cf02-app:not([data-theme="light"]) button {
+        color: #fff;
+    }
+}
+
+.cf02-public[data-theme="dark"],
+.cf02-app[data-theme="dark"],
+[data-theme="dark"] .cf02-public,
+[data-theme="dark"] .cf02-app {
+    --cf02-surface: #14221c;
+    --cf02-surface-muted: #1d3026;
+    --cf02-text: #f1f7f2;
+    --cf02-muted: #c0d2c4;
+    --cf02-border: #587261;
+    --cf02-danger: #ffb0b0;
+    --cf02-warning-bg: #493715;
+    --cf02-primary: #087A4E;
+    --cf02-primary-strong: #0b8b59;
+    --cf02-hover: #0b8b59;
+    --cf02-control-border: #8eb39b;
+    color-scheme: dark;
+}
+
+.cf02-public[data-theme="dark"] input,
+.cf02-app[data-theme="dark"] input,
+.cf02-app[data-theme="dark"] select,
+.cf02-app[data-theme="dark"] textarea,
+[data-theme="dark"] .cf02-app input,
+[data-theme="dark"] .cf02-app select,
+[data-theme="dark"] .cf02-app textarea {
+    background: var(--cf02-surface-muted);
+    color: var(--cf02-text);
+    border-color: var(--cf02-border);
+}
+
+/* The guest intake uses the same 44px controls and readable surface tokens. */
+.cf02-public input,
+.cf02-public select,
+.cf02-public textarea {
+    inline-size: 100%;
+    min-block-size: 44px;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid var(--cf02-control-border);
+    border-radius: 0.5rem;
+    background: var(--cf02-surface);
+    color: var(--cf02-text);
+    font: inherit;
+}
+
+.cf02-accessibility {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.625rem;
+    margin-block: 1rem;
+}
+
+.cf02-self-help {
+    margin-block: 0.85rem;
+}
+
+.cf02-self-help summary {
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.cf02-app .cf02-secondary,
+.cf02-public .cf02-secondary {
+    background: var(--cf02-surface-muted);
+    border-color: var(--cf02-border);
+    color: var(--cf02-text);
+}
+
+.cf02-app .cf02-secondary:hover,
+.cf02-public .cf02-secondary:hover {
+    background: var(--cf02-border);
+    color: var(--cf02-text);
+}
+
+.cf02-app .cf02-secondary[aria-pressed="true"],
+.cf02-public .cf02-secondary[aria-pressed="true"] {
+    outline: 2px solid var(--cf02-primary);
+    outline-offset: 2px;
+}
+
+.cf02-app.cf02-large-text,
+.cf02-public.cf02-large-text {
+    font-size: 1.18em;
+    line-height: 1.6;
+}
+
+/* Deliberate contrast override: applies independently of browser dark-mode. */
+.cf02-app.cf02-high-contrast,
+.cf02-public.cf02-high-contrast {
+    --cf02-surface: #000;
+    --cf02-surface-muted: #151515;
+    --cf02-text: #fff;
+    --cf02-muted: #ededed;
+    --cf02-border: #fff;
+    --cf02-primary: #087A4E;
+    --cf02-primary-strong: #0ca66a;
+    --cf02-hover: #0ca66a;
+    --cf02-control-border: #fff;
+    --cf02-warning-bg: #352400;
+    --cf02-danger: #ffc0c0;
+    color-scheme: dark;
+}
+
+.cf02-app.cf02-high-contrast input,
+.cf02-public.cf02-high-contrast input,
+.cf02-app.cf02-high-contrast select,
+.cf02-public.cf02-high-contrast select,
+.cf02-app.cf02-high-contrast textarea,
+.cf02-public.cf02-high-contrast textarea {
+    border-color: #fff;
+    background: #000;
+    color: #fff;
+}
+
+.cf02-app.cf02-high-contrast .cf02-card,
+.cf02-public.cf02-high-contrast .cf02-card {
+    box-shadow: none;
+}
+
+@media (prefers-color-scheme: dark) {
+    .cf02-public input,
+    .cf02-public select,
+    .cf02-public textarea {
+        background: var(--cf02-surface-muted);
+        border-color: var(--cf02-border);
+        color: var(--cf02-text);
     }
 }

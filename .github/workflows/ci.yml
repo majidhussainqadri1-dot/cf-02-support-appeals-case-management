@@ -33,6 +33,11 @@ jobs:
       - name: PHP syntax
         run: find . -path ./vendor -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
 
+      - name: Frontend JavaScript syntax
+        run: node --check assets/js/cf02-frontend.js
+      - name: V12.3 guest browser interaction tests
+        run: node tests/v12-3-guest-browser.mjs
+
       - name: C2-A activation and governance tests
         run: php -d zend.assertions=1 tests/run.php
       - name: C2-B intake, case, attachment and resolution tests
@@ -103,6 +108,10 @@ jobs:
         run: php -d zend.assertions=1 tests/c2m-review1.php
       - name: C2-M Future24 fresh adversarial review 2
         run: php -d zend.assertions=1 tests/c2m-review2.php
+      - name: V12.3 guest-stepup and design regression
+        run: php -d zend.assertions=1 tests/v12-3-surface-readiness.php
+      - name: V12.3 Urdu supplementary translation regressions
+        run: php -d zend.assertions=1 tests/v12-3-urdu-supplement.php
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
       - name: Public repository safety scan

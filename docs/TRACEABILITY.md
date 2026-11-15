@@ -96,7 +96,10 @@ The CF-02 plan imports 56 Central CV requirements as owner/consumer obligations.
 
 ## Truthful candidate status
 
-- Runtime candidate: `1.0.0-rc.7`.
+- Runtime candidate: `1.0.0-rc.8`.
 - Schema: `1.3.0`; contract: `1.3.0`; plan: `1.0`.
 - Automated status must be taken only from exact-head workflow evidence after the final corrective commit.
 - Hostinger staging, real companion/provider contracts, browser/device/accessibility, independent security, load/soak, migration rehearsal, restore/rollback, staffing, observation and Founder exact-artifact acceptance remain separate gates.
+## Master Plan V12.3 reconciliation boundary (15 November 2026)
+
+The 74 CF02 requirement identifiers from V12.3 (34 FR, 10 CEN, 24 FUT, 6 NJ) are the governing checklist. Existing C2-A through C2-M repository tests are evidence for their *prior-plan* implementation, not an independent full V12.3 sign-off. The rc.8 additions improve guest step-up, stable replay, public safe guidance, accessible display and client-side file size checks. Full external provider/device/security, deployed-package/DB parity and all Future24 live UI/product requirements remain unverified. Do not mark an untested requirement as passed.
