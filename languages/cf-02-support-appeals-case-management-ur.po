@@ -370,3 +370,57 @@ msgstr "مدد کا مقدمہ بن گیا۔"
 
 msgid "Unable to continue. Please retry or create a new case."
 msgstr "درخواست مکمل نہ ہوسکی۔ دوبارہ کوشش کریں یا نئی درخواست بنائیں۔"
+
+msgid "This request cannot use general support. For immediate danger contact local emergency services; for security or privacy incidents use the designated specialist channel."
+msgstr "یہ درخواست عمومی مدد کے لیے موزوں نہیں۔ فوری خطرے کی صورت میں مقامی ہنگامی خدمات، اور سلامتی یا رازداری کے معاملے میں متعلقہ ماہر شعبے سے رجوع کریں۔"
+
+msgid "Support Operations"
+msgstr "مدد کے انتظامی امور"
+
+msgid "Support"
+msgstr "مدد"
+
+msgid "Resource not found."
+msgstr "مطلوبہ وسیلہ دستیاب نہیں۔"
+
+msgid "Request failed."
+msgstr "درخواست ناکام ہوگئی۔"
+
+msgid "Ready"
+msgstr "تیار"
+
+msgid "Approved repair reference"
+msgstr "منظور شدہ اصلاح کا حوالہ"
+
+msgid "Run governed repair"
+msgstr "ضابطے کے مطابق اصلاح چلائیں"
+
+msgid "Run the approved non-destructive repair now?"
+msgstr "کیا منظور شدہ غیر تخریبی اصلاح ابھی چلائی جائے؟"
+
+msgid "Repair command returned. Verify server evidence."
+msgstr "اصلاحی کارروائی کا جواب موصول ہوا۔ سرور کے شواہد کی تصدیق کریں۔"
+
+msgid "Queue"
+msgstr "قطار"
+
+msgid "Cases"
+msgstr "مقدمات"
+
+msgid "SLA"
+msgstr "خدمت کے متعین اوقات"
+
+msgid "Quality"
+msgstr "معیار"
+
+msgid "Retention"
+msgstr "ڈیٹا کی مدتِ حفاظت"
+
+msgid "Repair"
+msgstr "اصلاح"
+
+msgid "This workspace displays minimum necessary case projections. Every operation is re-authorized through File 00; WordPress administrator status alone is insufficient."
+msgstr "اس انتظامی صفحے میں صرف ضروری مقدماتی معلومات دکھائی جاتی ہیں۔ ہر کارروائی کی فائل 00 کے ذریعے دوبارہ اجازت لی جاتی ہے؛ صرف ورڈپریس منتظم ہونا کافی نہیں۔"
+
+msgid "Support sections"
+msgstr "مدد کے انتظامی شعبے"
