@@ -49,6 +49,11 @@
         });
         const body = await result.json().catch(() => ({}));
         if (!result.ok) {
+            if (body && body.status === 'diverted' && body.requires_immediate_direction === true) {
+                const diversion = new Error('This request requires specialist direction.');
+                diversion.code = 'emergency_diversion';
+                throw diversion;
+            }
             throw new Error(typeof body.message === 'string' ? body.message : 'Request could not be completed.');
         }
         return body;
@@ -85,7 +90,9 @@
                 status.dataset.state = saved ? 'success' : 'error';
                 if (login) login.focus();
             } catch (error) {
-                status.textContent = error.message || form.dataset.errorText || 'Request could not be prepared.';
+                status.textContent = error.code === 'emergency_diversion'
+                    ? (form.dataset.emergencyText || 'This request needs a specialist or emergency channel.')
+                    : (error.message || form.dataset.errorText || 'Request could not be prepared.');
                 status.dataset.state = 'error';
             } finally {
                 submit.disabled = false;
