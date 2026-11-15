@@ -39,6 +39,8 @@ jobs:
         run: composer test
       - name: Validate packaged JavaScript source syntax
         run: node --check assets/js/cf02-frontend.js && node --check assets/js/cf02-guest.js && node --check assets/js/cf02-admin.js
+      - name: Guest pre-intake browser-flow behavior
+        run: node --test tests/c2n-guest-ui.test.cjs
       - name: Scan public repository safety
         run: python3 build/security_scan.py
       - name: Build first deterministic candidate
