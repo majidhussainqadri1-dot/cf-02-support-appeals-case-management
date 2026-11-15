@@ -1,17 +1,18 @@
 .cf02-public,
 .cf02-app {
-    --cf02-primary: var(--sabri-color-primary, #198754);
-    --cf02-primary-strong: var(--sabri-color-primary-strong, #146c43);
-    --cf02-surface: #ffffff;
-    --cf02-surface-muted: #f4f8f5;
-    --cf02-text: #17201a;
-    --cf02-muted: #536057;
-    --cf02-border: #c9d5cc;
+    --cf02-primary: var(--sabri-color-primary, #087A4E);
+    --cf02-primary-strong: var(--sabri-color-primary-strong, #065C3B);
+    --cf02-surface: var(--sabri-color-surface, #ffffff);
+    --cf02-surface-muted: var(--sabri-color-brand-surface, #E7F5EE);
+    --cf02-text: var(--sabri-color-text, #17201a);
+    --cf02-muted: var(--sabri-color-muted, #536057);
+    --cf02-border: var(--sabri-color-border, #D6E1DA);
     --cf02-danger: #9b2c2c;
-    --cf02-warning-bg: #fff8e6;
+    --cf02-warning-bg: var(--sabri-color-warning-surface, #fff8e6);
     --cf02-radius: 0.875rem;
     color: var(--cf02-text);
     font: inherit;
+    color-scheme: light;
     inline-size: min(100%, 64rem);
     margin-inline: auto;
     overflow-wrap: anywhere;
@@ -89,7 +90,7 @@
     max-inline-size: 100%;
     min-block-size: 44px;
     padding: 0.65rem 0.8rem;
-    border: 1px solid #4b5d50;
+    border: 1px solid var(--sabri-color-control-border, #6B8476);
     border-radius: 0.5rem;
     font: inherit;
 }
@@ -98,7 +99,7 @@
 .cf02-app select,
 .cf02-app textarea {
     inline-size: 100%;
-    background: #fff;
+    background: var(--cf02-surface);
     color: var(--cf02-text);
 }
 
@@ -211,7 +212,8 @@
     color: var(--cf02-danger);
 }
 
-.cf02-status[data-state="success"] {
+ .cf02-status[data-state="success"],
+.cf02-guest [data-cf02-guest-status][data-state="success"] {
     color: var(--cf02-primary-strong);
 }
 
@@ -266,4 +268,65 @@
     .cf02-appeal {
         border: 1px solid CanvasText;
     }
+}
+
+/* V12.3: respect the centralized shell palette and the browser preference.
+   An explicit light theme on the root wins over OS dark preference. */
+.cf02-guest [data-cf02-guest-status][data-state="error"] { color: var(--cf02-danger); }
+.cf02-guest-resume {
+    margin-block: 0 1rem;
+    border-inline-start: 4px solid var(--cf02-primary);
+}
+.cf02-privacy-note { color: var(--cf02-muted); }
+.cf02-app button.cf02-button-muted {
+    background: var(--cf02-surface);
+    border-color: var(--cf02-border);
+    color: var(--cf02-text);
+}
+.cf02-app button.cf02-button-muted:hover { background: var(--cf02-surface-muted); }
+.cf02-guest a { text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.cf02-guest a:focus-visible { outline: 3px solid var(--cf02-primary); outline-offset: 4px; }
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .cf02-public,
+    :root:not([data-theme="light"]) .cf02-app {
+        --cf02-surface: var(--sabri-color-surface-dark, #111B16);
+        --cf02-surface-muted: var(--sabri-color-surface-muted-dark, #1D3025);
+        --cf02-text: var(--sabri-color-text-dark, #F3F8F5);
+        --cf02-muted: var(--sabri-color-muted-dark, #BCD1C3);
+        --cf02-border: var(--sabri-color-border-dark, #6B8476);
+        --cf02-warning-bg: var(--sabri-color-warning-dark, #392A12);
+        --cf02-danger: #FFB6B6;
+        --cf02-primary-strong: var(--sabri-color-brand-accent-dark, #70DCAB);
+        color-scheme: dark;
+    }
+    :root:not([data-theme="light"]) .cf02-app button,
+    :root:not([data-theme="light"]) .cf02-public button {
+        border-color: #087A4E;
+        background: #087A4E;
+        color: #fff;
+    }
+    :root:not([data-theme="light"]) .cf02-app button:hover,
+    :root:not([data-theme="light"]) .cf02-public button:hover {
+        background: #065F3D;
+    }
+    :root:not([data-theme="light"]) .cf02-app button.cf02-button-muted {
+        background: var(--cf02-surface);
+        border-color: var(--cf02-border);
+        color: var(--cf02-text);
+    }
+}
+:root[data-theme="dark"] .cf02-public,
+:root[data-theme="dark"] .cf02-app,
+[data-theme="dark"] .cf02-public,
+[data-theme="dark"] .cf02-app {
+    --cf02-surface: var(--sabri-color-surface-dark, #111B16);
+    --cf02-surface-muted: var(--sabri-color-surface-muted-dark, #1D3025);
+    --cf02-text: var(--sabri-color-text-dark, #F3F8F5);
+    --cf02-muted: var(--sabri-color-muted-dark, #BCD1C3);
+    --cf02-border: var(--sabri-color-border-dark, #6B8476);
+    --cf02-warning-bg: var(--sabri-color-warning-dark, #392A12);
+    --cf02-danger: #FFB6B6;
+    --cf02-primary-strong: var(--sabri-color-brand-accent-dark, #70DCAB);
+    color-scheme: dark;
 }

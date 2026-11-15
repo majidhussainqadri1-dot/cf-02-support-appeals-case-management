@@ -2,7 +2,7 @@
 Contributors: majidhussainqadri1-dot
 Requires at least: 6.0
 Requires PHP: 8.1
-Stable tag: 1.0.0-rc.7
+Stable tag: 1.0.0-rc.8
 License: Proprietary
 Text Domain: cf-02-support-appeals-case-management
 
@@ -38,11 +38,11 @@ No. Default uninstall is non-destructive and preserves CF-02 records and configu
 
 = Is this package production accepted? =
 
-No. Version 1.0.0-rc.7 is a ten-round reviewed coded/package candidate. Hostinger staging, real providers/companions, browser/accessibility, independent security, load, migration, restore, rollback, observation and Founder exact-artifact acceptance remain separate mandatory gates.
+No. Version 1.0.0-rc.8 is a ten-round reviewed coded/package candidate. Hostinger staging, real providers/companions, browser/accessibility, independent security, load, migration, restore, rollback, observation and Founder exact-artifact acceptance remain separate mandatory gates.
 
 == Changelog ==
 
-= 1.0.0-rc.7 =
+= 1.0.0-rc.8 =
 * Completed ten sequential review/fix rounds against the CF-02 governing plan and exact GitHub repository state.
 * Corrected release identity tests, public provider error disclosure, taxonomy routing, case-state/reopen/SLA invariants, appeal reconciliation, queue-scoped staff access, sensitive evidence authorization, native-command atomicity, Future24 integrity, schema verification and lifecycle cleanup.
 * Added column-level schema health evidence, explicit File 00 queue scopes, checksum-gated Future24 evidence access, and permanent regressions for the new controls.
@@ -78,7 +78,7 @@ No. Version 1.0.0-rc.7 is a ten-round reviewed coded/package candidate. Hostinge
 
 == Upgrade Notice ==
 
-= 1.0.0-rc.7 =
+= 1.0.0-rc.8 =
 Ten-round reviewed coded/package candidate. Exact-head automated QA and all external staging/live gates remain separate evidence.
 
 = 1.0.0-rc.6 =
