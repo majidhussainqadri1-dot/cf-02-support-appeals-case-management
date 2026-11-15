@@ -35,6 +35,8 @@ jobs:
 
       - name: Frontend JavaScript syntax
         run: node --check assets/js/cf02-frontend.js
+      - name: V12.3 guest browser interaction tests
+        run: node tests/v12-3-guest-browser.mjs
 
       - name: C2-A activation and governance tests
         run: php -d zend.assertions=1 tests/run.php
