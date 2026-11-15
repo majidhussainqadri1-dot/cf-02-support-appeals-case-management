@@ -1,8 +1,8 @@
-# CF-02 Latest-Two-Plans Corrective Coding Candidate — 1.0.0-rc.6
+# CF-02 Latest-Two-Plans Corrective Coding Candidate — 1.0.0-rc.7
 
 ## Governing result
 
-The repository candidate implements the CF-02-owned coding requirements of the Definitive Master Plan v3.0 and the latest rewritten CF-02 plan v1.0 without claiming external staging/live/operational acceptance.
+The repository candidate implements the CF-02-owned coding requirements of the Definitive Master Plan v3.0 and the latest rewritten CF-02 plan v1.0 without claiming V12.3 reconciliation or external staging/live/operational acceptance.
 
 ## Implemented layers
 
@@ -21,10 +21,10 @@ The repository candidate implements the CF-02-owned coding requirements of the D
 
 ## Runtime identity
 
-- Plugin: `1.0.0-rc.6`
+- Plugin: `1.0.0-rc.7`
 - Schema: `1.3.0`
 - Plan: `1.0`
-- Contract: `1.1.0`
+- Contract: `1.3.0`
 
 ## Truthful acceptance boundary
 
