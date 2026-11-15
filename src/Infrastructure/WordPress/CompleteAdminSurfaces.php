@@ -67,7 +67,7 @@ final class CompleteAdminSurfaces
     {
         $context = self::context();
         if (!$context || !self::allowed($context)) {
-            wp_die(esc_html__('Resource not found.', self::DOMAIN), 404);
+            wp_die(esc_html__('Resource not found.', self::DOMAIN), '', ['response' => 404]);
         }
         $translations = [
             'loading' => __('Loading…', self::DOMAIN),
