@@ -42,7 +42,7 @@
             try {
                 const payload = Object.fromEntries(new FormData(form).entries());
                 payload.locale = document.documentElement.lang || 'ur-PK';
-                const response = await fetch(String(root.dataset.endpoint || '').replace(/\\/$/, '') + '/guest/intake', {
+                const response = await fetch(String(root.dataset.endpoint || '').replace(/[/]$/, '') + '/guest/intake', {
                     method: 'POST',
                     credentials: 'same-origin',
                     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
