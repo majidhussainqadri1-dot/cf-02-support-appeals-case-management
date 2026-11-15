@@ -103,6 +103,14 @@ jobs:
         run: php -d zend.assertions=1 tests/c2m-review1.php
       - name: C2-M Future24 fresh adversarial review 2
         run: php -d zend.assertions=1 tests/c2m-review2.php
+      - name: C2-N V12.3 alignment
+        run: php -d zend.assertions=1 tests/c2n-v12-3-alignment.php
+      - name: C2-N fresh security/privacy review
+        run: php -d zend.assertions=1 tests/c2n-review1.php
+      - name: C2-N independent UX/release review
+        run: php -d zend.assertions=1 tests/c2n-review2.php
+      - name: JavaScript syntax validation
+        run: node --check assets/js/cf02-frontend.js && node --check assets/js/cf02-guest.js
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
       - name: Public repository safety scan
