@@ -15,6 +15,63 @@
         shield: '<path d="M12 3 5 6v5c0 4.8 3 8 7 10 4-2 7-5.2 7-10V6z"/><path d="m9 12 2 2 4-4"/>'
     };
 
+    const guestStorageKey = 'cf02_guest_stepup_v1';
+
+    function pendingGuest() {
+        try {
+            const saved = JSON.parse(window.sessionStorage.getItem(guestStorageKey) || 'null');
+            if (!saved || !saved.token || !Number.isFinite(saved.expires) || Date.now() >= saved.expires) {
+                window.sessionStorage.removeItem(guestStorageKey);
+                return null;
+            }
+            return saved;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function initGuest(root) {
+        const form = root.querySelector('[data-form="guest"]');
+        const status = root.querySelector('[role="status"]');
+        if (!form || !status) return;
+        form.addEventListener('submit', async event => {
+            event.preventDefault();
+            const submit = form.querySelector('button[type="submit"]');
+            if (submit) submit.disabled = true;
+            status.textContent = 'Checking your safe support request…';
+            try {
+                const payload = Object.fromEntries(new FormData(form).entries());
+                payload.locale = document.documentElement.lang || 'ur-PK';
+                const response = await fetch(String(root.dataset.endpoint || '').replace(/\\/$/, '') + '/guest/intake', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const body = await response.json();
+                if (body.status === 'diverted') {
+                    status.textContent = 'This request needs an urgent specialist or official safety channel; no ordinary support case was created. Follow the emergency guidance above.';
+                    status.dataset.state = 'error';
+                    return;
+                }
+                if (!response.ok || body.status !== 'step_up_required' || !body.continuation_token) {
+                    throw new Error(body.message || 'This pre-intake could not be accepted safely.');
+                }
+                const expiry = Date.parse(body.expires_at || '');
+                if (!Number.isFinite(expiry) || expiry <= Date.now()) throw new Error('The continuation has expired. Please try again.');
+                window.sessionStorage.setItem(guestStorageKey, JSON.stringify({ token: body.continuation_token, expires: expiry }));
+                form.hidden = true;
+                status.textContent = 'Pre-intake accepted. No case has been created yet. Use the sign-in link below in this browser tab within 10 minutes; your case will then be submitted.';
+                status.dataset.state = 'success';
+            } catch (error) {
+                status.textContent = error && error.message ? error.message : 'Request failed.';
+                status.dataset.state = 'error';
+            } finally {
+                if (submit) submit.disabled = false;
+            }
+        });
+    }
+
     function init(root) {
         let strings = {};
         try {
@@ -443,6 +500,25 @@
             });
         }
 
+        // Authenticated File 00 session is mandatory for conversion into a real case.
+        const guest = pendingGuest();
+        if (guest) {
+            withBusy(async () => {
+                const converted = await api('/guest/continue', {
+                    method: 'POST',
+                    headers: { 'Idempotency-Key': uniqueId('guest-stepup') },
+                    body: JSON.stringify({ continuation_token: guest.token })
+                });
+                window.sessionStorage.removeItem(guestStorageKey);
+                const convertedCase = converted.case || {};
+                setStatus(text('caseAccepted', 'Case accepted:') + ' ' + String(convertedCase.case_uuid || ''), 'success');
+                await showPanel('cases');
+            }).catch(() => {
+                // An invalid, expired or rejected continuation must not be retried across accounts.
+                window.sessionStorage.removeItem(guestStorageKey);
+            });
+        }
+
         const caseForm = root.querySelector('[data-form="case"]');
         if (caseForm) {
             caseForm.addEventListener('submit', event => {
@@ -519,5 +595,6 @@
         }
     }
 
+    document.querySelectorAll('[data-cf02-guest]').forEach(initGuest);
     document.querySelectorAll('[data-cf02-complete]').forEach(init);
 }());
