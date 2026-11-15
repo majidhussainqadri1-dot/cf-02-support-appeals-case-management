@@ -1,0 +1,26 @@
+/* CF-02 capability-scoped WordPress dashboard. No inline style or script is required. */
+.cf02-admin { max-inline-size: 90rem; margin-inline-end: 1rem; }
+.cf02-admin .nav-tab-wrapper { display: flex; flex-wrap: wrap; gap: .25rem; }
+.cf02-admin .nav-tab { cursor: pointer; min-block-size: 44px; }
+.cf02-admin .nav-tab[aria-pressed="true"] { border-block-end: 3px solid var(--sabri-color-primary, #087A4E); font-weight: 700; }
+.cf02-admin .nav-tab:focus-visible,
+.cf02-admin input:focus-visible,
+.cf02-admin button:focus-visible { outline: 3px solid var(--sabri-color-primary, #087A4E); outline-offset: 2px; }
+.cf02-admin [data-output] { margin-block-start: 1rem; overflow-wrap: anywhere; }
+.cf02-admin [data-status] { margin-block: 1rem; font-weight: 600; min-block-size: 1.5rem; }
+.cf02-admin pre { background: var(--sabri-color-surface, #fff); border: 1px solid var(--sabri-color-border, #D6E1DA); color: var(--sabri-color-text, #17201a); padding: 1rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cf02-admin .cf02-admin-table-scroll { overflow-x: auto; max-inline-size: 100%; }
+.cf02-admin th, .cf02-admin td { max-inline-size: 20rem; overflow-wrap: anywhere; }
+.cf02-admin .cf02-repair-form { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem; margin-block: 1rem; }
+.cf02-admin .cf02-repair-form label { display: grid; gap: .4rem; font-weight: 600; }
+.cf02-admin .cf02-repair-form input { min-inline-size: min(100%, 23rem); min-block-size: 44px; }
+@media (max-width: 782px) {
+    .cf02-admin .nav-tab-wrapper { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); }
+    .cf02-admin .nav-tab { inline-size: 100%; }
+}
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .cf02-admin pre { background: #111B16; color: #F3F8F5; border-color: #6B8476; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .cf02-admin * { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
+}
