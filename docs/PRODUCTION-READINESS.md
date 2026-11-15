@@ -2,8 +2,9 @@
 
 ## Status boundary
 
-Runtime candidate: `1.0.0-rc.7`  
-Plan: `1.0`  
+Runtime candidate: `1.0.0-rc.8`  
+Module plan: `1.0`  
+Governing master plan: `V12.3` (delta trace and external acceptance still pending)  
 Schema: `1.3.0`  
 Contract: `1.3.0`
 
