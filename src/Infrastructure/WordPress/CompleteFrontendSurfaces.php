@@ -138,6 +138,13 @@ final class CompleteFrontendSurfaces
             . ' data-initial-case="' . esc_attr($initialCase) . '"'
             . ' data-initial-appeal="' . esc_attr($initialAppeal) . '"'
             . ' data-i18n="' . $strings . '" aria-busy="false">'
+            . '<section class="cf02-card" data-cf02-guest-confirm hidden aria-labelledby="cf02-guest-confirm-title">'
+            . '<h2 id="cf02-guest-confirm-title">' . esc_html__('Complete your pending guest request', self::TEXT_DOMAIN) . '</h2>'
+            . '<p>' . esc_html__('A private support case has not been created. Before continuing, confirm this is the account that should own the request. The saved pre-intake expires after 10 minutes.', self::TEXT_DOMAIN) . '</p>'
+            . '<div class="cf02-actions">'
+            . '<button type="button" data-action="guest-convert">' . esc_html__('Create case in this account', self::TEXT_DOMAIN) . '</button>'
+            . '<button type="button" class="cf02-secondary" data-action="guest-discard">' . esc_html__('Discard pending request', self::TEXT_DOMAIN) . '</button>'
+            . '</div></section>'
             . '<div class="cf02-tabs" role="tablist" aria-label="' . esc_attr__('Support actions', self::TEXT_DOMAIN) . '">'
             . self::tab('new', 'cf02-panel-new', __('New case', self::TEXT_DOMAIN), 'plus', true)
             . self::tab('cases', 'cf02-panel-cases', __('My cases', self::TEXT_DOMAIN), 'cases', false)
