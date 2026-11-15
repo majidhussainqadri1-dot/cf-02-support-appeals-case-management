@@ -110,6 +110,8 @@ jobs:
         run: php -d zend.assertions=1 tests/c2m-review2.php
       - name: V12.3 guest-stepup and design regression
         run: php -d zend.assertions=1 tests/v12-3-surface-readiness.php
+      - name: V12.3 Urdu supplementary translation regressions
+        run: php -d zend.assertions=1 tests/v12-3-urdu-supplement.php
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
       - name: Public repository safety scan
