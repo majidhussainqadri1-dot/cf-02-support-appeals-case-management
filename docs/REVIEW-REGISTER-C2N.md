@@ -39,3 +39,8 @@
 **Source corrective findings:** 7 change areas recorded in `CHANGE-CONTROL-C2N.md`.  
 **Live-proven defects fixed:** 0 claimed.  
 **External gates:** minimum 9, as declared by `release/manifest.json`; no fabricated pass statuses.
+
+
+## Executed JavaScript behavior tests (source-level)
+
+The additional permanent Node test files are `tests/c2n-guest-ui.test.cjs` and `tests/c2n-admin-ui.test.cjs`, both executed by exact-head CI **and** the deterministic release workflow. They simulate (not replace real-browser testing): safe guest receipt, emergency diversion, false-receipt rejection, authenticated token clearance, expiry, provider retry, denied admin surface, text-node-only queue display, repair cancellation and explicitly confirmed repair. The **10 simulation scenarios** are distinct from actual WordPress integration and external security acceptance.
