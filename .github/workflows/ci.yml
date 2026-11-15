@@ -111,6 +111,8 @@ jobs:
         run: php -d zend.assertions=1 tests/c2n-review2.php
       - name: JavaScript syntax validation
         run: node --check assets/js/cf02-frontend.js && node --check assets/js/cf02-guest.js && node --check assets/js/cf02-admin.js
+      - name: Guest pre-intake browser-flow behavior
+        run: node --test tests/c2n-guest-ui.test.cjs
       - name: Release engineering regressions
         run: php -d zend.assertions=1 tests/release.php
       - name: Public repository safety scan
