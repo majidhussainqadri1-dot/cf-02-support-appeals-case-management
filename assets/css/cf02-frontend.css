@@ -329,3 +329,100 @@
     color: var(--cf02-text);
     border-color: var(--cf02-border);
 }
+
+/* The guest intake uses the same 44px controls and readable surface tokens. */
+.cf02-public input,
+.cf02-public select,
+.cf02-public textarea {
+    inline-size: 100%;
+    min-block-size: 44px;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid var(--cf02-border);
+    border-radius: 0.5rem;
+    background: var(--cf02-surface);
+    color: var(--cf02-text);
+    font: inherit;
+}
+
+.cf02-accessibility {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.625rem;
+    margin-block: 1rem;
+}
+
+.cf02-self-help {
+    margin-block: 0.85rem;
+}
+
+.cf02-self-help summary {
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.cf02-app .cf02-secondary,
+.cf02-public .cf02-secondary {
+    background: var(--cf02-surface-muted);
+    border-color: var(--cf02-border);
+    color: var(--cf02-text);
+}
+
+.cf02-app .cf02-secondary:hover,
+.cf02-public .cf02-secondary:hover {
+    background: var(--cf02-border);
+    color: var(--cf02-text);
+}
+
+.cf02-app .cf02-secondary[aria-pressed="true"],
+.cf02-public .cf02-secondary[aria-pressed="true"] {
+    outline: 2px solid var(--cf02-primary);
+    outline-offset: 2px;
+}
+
+.cf02-app.cf02-large-text,
+.cf02-public.cf02-large-text {
+    font-size: 1.18em;
+    line-height: 1.6;
+}
+
+/* Deliberate contrast override: applies independently of browser dark-mode. */
+.cf02-app.cf02-high-contrast,
+.cf02-public.cf02-high-contrast {
+    --cf02-surface: #000;
+    --cf02-surface-muted: #151515;
+    --cf02-text: #fff;
+    --cf02-muted: #ededed;
+    --cf02-border: #fff;
+    --cf02-primary: #087A4E;
+    --cf02-primary-strong: #0ca66a;
+    --cf02-warning-bg: #352400;
+    --cf02-danger: #ffc0c0;
+    color-scheme: dark;
+}
+
+.cf02-app.cf02-high-contrast input,
+.cf02-public.cf02-high-contrast input,
+.cf02-app.cf02-high-contrast select,
+.cf02-public.cf02-high-contrast select,
+.cf02-app.cf02-high-contrast textarea,
+.cf02-public.cf02-high-contrast textarea {
+    border-color: #fff;
+    background: #000;
+    color: #fff;
+}
+
+.cf02-app.cf02-high-contrast .cf02-card,
+.cf02-public.cf02-high-contrast .cf02-card {
+    box-shadow: none;
+}
+
+@media (prefers-color-scheme: dark) {
+    .cf02-public input,
+    .cf02-public select,
+    .cf02-public textarea {
+        background: var(--cf02-surface-muted);
+        border-color: var(--cf02-border);
+        color: var(--cf02-text);
+    }
+}
