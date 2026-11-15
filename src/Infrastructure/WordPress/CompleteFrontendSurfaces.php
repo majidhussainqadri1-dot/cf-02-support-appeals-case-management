@@ -70,12 +70,45 @@ final class CompleteFrontendSurfaces
             . '</details></section>';
 
         if (!is_user_logged_in()) {
-            return $public . '<section class="cf02-public cf02-card"><h2>'
-                . esc_html__('Authentication required for private actions', self::TEXT_DOMAIN)
-                . '</h2></section>';
+            return $public . self::guestIntake();
         }
 
         return $public . self::app();
+    }
+
+    /** Public low-sensitivity pre-intake; no private case is created until File 00 authentication. */
+    private static function guestIntake(): string
+    {
+        $labels = [
+            'publishing' => __('Publishing', self::TEXT_DOMAIN),
+            'learning_access' => __('Learning access', self::TEXT_DOMAIN),
+            'media_pdf' => __('Media and PDF', self::TEXT_DOMAIN),
+            'accessibility' => __('Accessibility', self::TEXT_DOMAIN),
+            'technical' => __('Technical support', self::TEXT_DOMAIN),
+        ];
+        $options = '<option value="">'.esc_html__('Choose category', self::TEXT_DOMAIN).'</option>';
+        foreach ($labels as $key => $label) {
+            $options .= '<option value="'.esc_attr($key).'">'.esc_html($label).'</option>';
+        }
+        return '<section class="cf02-public cf02-card" data-cf02-guest'
+            . ' data-endpoint="'.esc_url(rest_url('api/support/v1')).'">'
+            . '<h2>'.esc_html__('Guest support pre-intake', self::TEXT_DOMAIN).'</h2>'
+            . '<p>'.esc_html__('Only low-sensitivity issues are accepted here. Sign in within 10 minutes to create a private case. No case exists before sign-in.', self::TEXT_DOMAIN).'</p>'
+            . '<form data-form="guest" class="cf02-form">'
+            . '<label>'.esc_html__('Category', self::TEXT_DOMAIN).'<select name="category" required>'.$options.'</select></label>'
+            . '<label>'.esc_html__('Subject', self::TEXT_DOMAIN).'<input name="subject" minlength="5" maxlength="191" required dir="auto"></label>'
+            . '<label>'.esc_html__('Safe description (no sensitive information)', self::TEXT_DOMAIN).'<textarea name="description" rows="4" maxlength="3000" dir="auto"></textarea></label>'
+            . '<div class="cf02-grid"><label>'.esc_html__('Impact', self::TEXT_DOMAIN).'<select name="impact">'
+            . '<option value="single_action">'.esc_html__('One action', self::TEXT_DOMAIN).'</option>'
+            . '<option value="many_users">'.esc_html__('Many users', self::TEXT_DOMAIN).'</option></select></label>'
+            . '<label>'.esc_html__('Urgency', self::TEXT_DOMAIN).'<select name="urgency">'
+            . '<option value="normal">'.esc_html__('Normal', self::TEXT_DOMAIN).'</option>'
+            . '<option value="time_sensitive">'.esc_html__('Time-sensitive', self::TEXT_DOMAIN).'</option></select></label></div>'
+            . '<button type="submit">'.esc_html__('Continue securely', self::TEXT_DOMAIN).'</button>'
+            . '</form><div class="cf02-status" role="status" aria-live="polite" aria-atomic="true"></div>'
+            . '<p><a href="'.esc_url(wp_login_url(get_permalink() ?: home_url('/support/'))).'">'
+            . esc_html__('Sign in to complete a support request', self::TEXT_DOMAIN).'</a></p>'
+            . '</section>';
     }
 
     public static function portal(): string
