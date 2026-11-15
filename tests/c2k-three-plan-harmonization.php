@@ -106,7 +106,7 @@ $test('frontend is externalized localized green icon-led and resilient',static f
     assert(str_contains($surface,'data-i18n'));
     assert(!str_contains($surface,'CompleteFrontendScript::render'));
     assert(str_contains($css,'--sabri-color-primary'));
-    assert(str_contains($css,'#198754'));
+    assert(str_contains($css,'#087A4E'));
     assert(str_contains($css,'min-block-size: 44px'));
     assert(str_contains($css,'border-inline-start'));
     assert(str_contains($js,"window.addEventListener('offline'"));
