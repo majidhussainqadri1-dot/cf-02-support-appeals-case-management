@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: CF-02 Support, Appeals and Case Management 1.0.0-rc.5\n"
+"Project-Id-Version: CF-02 Support, Appeals and Case Management 1.0.0-rc.8\n"
 "Report-Msgid-Bugs-To: https://github.com/majidhussainqadri1-dot/cf-02-support-appeals-case-management/issues\n"
 "POT-Creation-Date: 2026-08-05 20:20+0500\n"
 "MIME-Version: 1.0\n"
@@ -317,4 +317,52 @@ msgid "[Unavailable]"
 msgstr ""
 
 msgid "accepted"
+msgstr ""
+
+msgid "Prepare a support request"
+msgstr ""
+
+msgid "Use this form for non-sensitive issues only. A case is created only after you sign in and explicitly confirm."
+msgstr ""
+
+msgid "Preparing a safe request…"
+msgstr ""
+
+msgid "Request prepared. Sign in in this tab within 10 minutes to complete it. No case has been created yet."
+msgstr ""
+
+msgid "Secure browser continuation is unavailable. Sign in and submit a new case."
+msgstr ""
+
+msgid "This issue needs a different support route."
+msgstr ""
+
+msgid "Do not include passwords, verification codes, financial information, medical records, or sensitive identity details."
+msgstr ""
+
+msgid "Prepare request"
+msgstr ""
+
+msgid "Sign in to complete the request"
+msgstr ""
+
+msgid "Continue previous support request"
+msgstr ""
+
+msgid "A low-sensitivity request was prepared before sign-in. No case exists until you confirm."
+msgstr ""
+
+msgid "Create this support case"
+msgstr ""
+
+msgid "Discard"
+msgstr ""
+
+msgid "Submitting…"
+msgstr ""
+
+msgid "Support case created."
+msgstr ""
+
+msgid "Unable to continue. Please retry or create a new case."
 msgstr ""
