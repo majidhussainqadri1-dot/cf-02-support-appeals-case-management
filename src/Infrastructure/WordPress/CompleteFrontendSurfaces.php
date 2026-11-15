@@ -6,6 +6,7 @@ namespace Sabri\CF02\Infrastructure\WordPress;
 
 use Sabri\CF02\Configuration\SupportTaxonomy;
 use Sabri\CF02\Contracts\SupportContractCatalog;
+use Sabri\CF02\Intake\GuestIntakePolicy;
 
 /** Accessible requester/representative support, case and appeal journeys. */
 final class CompleteFrontendSurfaces
@@ -35,6 +36,13 @@ final class CompleteFrontendSurfaces
             'cf02-complete-surfaces',
             plugins_url('assets/js/cf02-frontend.js', CF02_PLUGIN_FILE),
             [],
+            CF02_VERSION,
+            true
+        );
+        wp_enqueue_script(
+            'cf02-guest-continuation',
+            plugins_url('assets/js/cf02-guest.js', CF02_PLUGIN_FILE),
+            ['cf02-complete-surfaces'],
             CF02_VERSION,
             true
         );
@@ -70,12 +78,61 @@ final class CompleteFrontendSurfaces
             . '</details></section>';
 
         if (!is_user_logged_in()) {
-            return $public . '<section class="cf02-public cf02-card"><h2>'
-                . esc_html__('Authentication required for private actions', self::TEXT_DOMAIN)
-                . '</h2></section>';
+            return $public . self::guestPreIntake();
         }
 
         return $public . self::app();
+    }
+
+    /**
+     * A safe, low-sensitivity public pre-intake only. The signed token is
+     * carried across login in same-tab sessionStorage, never URL parameters.
+     * Native case creation still requires File 00 authority and fresh consent.
+     */
+    private static function guestPreIntake(): string
+    {
+        $options = '<option value="">' . esc_html__('Choose category', self::TEXT_DOMAIN) . '</option>';
+        $categories = SupportTaxonomy::defaults();
+        foreach (GuestIntakePolicy::categories() as $key) {
+            if (!isset($categories[$key])) {
+                continue;
+            }
+            $options .= '<option value="' . esc_attr($key) . '">'
+                . esc_html(translate($categories[$key]->label(), self::TEXT_DOMAIN))
+                . '</option>';
+        }
+        $locale = str_replace('_', '-', get_locale());
+        $locale = preg_match('/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/', $locale) === 1 ? $locale : 'ur-PK';
+
+        return '<section class="cf02-public cf02-card cf02-guest">'
+            . '<h2>' . esc_html__('Prepare a support request', self::TEXT_DOMAIN) . '</h2>'
+            . '<p>' . esc_html__('Use this form for non-sensitive issues only. A case is created only after you sign in and explicitly confirm.', self::TEXT_DOMAIN) . '</p>'
+            . '<form class="cf02-form" data-cf02-guest data-endpoint="' . esc_url(rest_url('api/support/v1/guest/intake')) . '"'
+            . ' data-pending-text="' . esc_attr__('Preparing a safe request…', self::TEXT_DOMAIN) . '"'
+            . ' data-ready-text="' . esc_attr__('Request prepared. Sign in in this tab within 10 minutes to complete it. No case has been created yet.', self::TEXT_DOMAIN) . '"'
+            . ' data-storage-text="' . esc_attr__('Secure browser continuation is unavailable. Sign in and submit a new case.', self::TEXT_DOMAIN) . '"'
+            . ' data-offline-text="' . esc_attr__('You are offline. Reconnect and retry.', self::TEXT_DOMAIN) . '"'
+            . ' data-unavailable-text="' . esc_attr__('This issue needs a different support route.', self::TEXT_DOMAIN) . '">'
+            . '<label>' . esc_html__('Category', self::TEXT_DOMAIN) . '<select name="category" required>' . $options . '</select></label>'
+            . '<label>' . esc_html__('Subject', self::TEXT_DOMAIN) . '<input name="subject" minlength="5" maxlength="191" required dir="auto" autocomplete="off"></label>'
+            . '<label>' . esc_html__('Description', self::TEXT_DOMAIN) . '<textarea name="description" rows="4" maxlength="3000" dir="auto"></textarea></label>'
+            . '<div class="cf02-grid">'
+            . '<label>' . esc_html__('Impact', self::TEXT_DOMAIN) . '<select name="impact">'
+            . '<option value="single_action">' . esc_html__('One action', self::TEXT_DOMAIN) . '</option>'
+            . '<option value="many_users">' . esc_html__('Many users', self::TEXT_DOMAIN) . '</option>'
+            . '</select></label>'
+            . '<label>' . esc_html__('Urgency', self::TEXT_DOMAIN) . '<select name="urgency">'
+            . '<option value="normal">' . esc_html__('Normal', self::TEXT_DOMAIN) . '</option>'
+            . '<option value="time_sensitive">' . esc_html__('Time-sensitive', self::TEXT_DOMAIN) . '</option>'
+            . '</select></label></div>'
+            . '<input type="hidden" name="locale" value="' . esc_attr($locale) . '">'
+            . '<p class="cf02-privacy-note">' . esc_html__('Do not include passwords, verification codes, financial information, medical records, or sensitive identity details.', self::TEXT_DOMAIN) . '</p>'
+            . '<button type="submit">' . esc_html__('Prepare request', self::TEXT_DOMAIN) . '</button>'
+            . '</form>'
+            . '<p data-cf02-guest-status role="status" aria-live="polite" aria-atomic="true"></p>'
+            . '<p><a data-cf02-guest-login href="' . esc_url(wp_login_url(home_url('/support'))) . '">'
+            . esc_html__('Sign in to complete the request', self::TEXT_DOMAIN) . '</a></p>'
+            . '</section>';
     }
 
     public static function portal(): string
@@ -104,7 +161,15 @@ final class CompleteFrontendSurfaces
             . ' data-nonce="' . esc_attr(wp_create_nonce('wp_rest')) . '"'
             . ' data-initial-case="' . esc_attr($initialCase) . '"'
             . ' data-initial-appeal="' . esc_attr($initialAppeal) . '"'
-            . ' data-i18n="' . $strings . '" aria-busy="false">'
+            . ' data-i18n="' . $strings . '"'
+            . ' data-guest-resume-title="' . esc_attr__('Continue previous support request', self::TEXT_DOMAIN) . '"'
+            . ' data-guest-resume-description="' . esc_attr__('A low-sensitivity request was prepared before sign-in. No case exists until you confirm.', self::TEXT_DOMAIN) . '"'
+            . ' data-guest-resume-action="' . esc_attr__('Create this support case', self::TEXT_DOMAIN) . '"'
+            . ' data-guest-resume-dismiss="' . esc_attr__('Discard', self::TEXT_DOMAIN) . '"'
+            . ' data-guest-resume-working="' . esc_attr__('Submitting…', self::TEXT_DOMAIN) . '"'
+            . ' data-guest-resume-success="' . esc_attr__('Support case created.', self::TEXT_DOMAIN) . '"'
+            . ' data-guest-resume-failed="' . esc_attr__('Unable to continue. Please retry or create a new case.', self::TEXT_DOMAIN) . '"'
+            . ' aria-busy="false">'
             . '<div class="cf02-tabs" role="tablist" aria-label="' . esc_attr__('Support actions', self::TEXT_DOMAIN) . '">'
             . self::tab('new', 'cf02-panel-new', __('New case', self::TEXT_DOMAIN), 'plus', true)
             . self::tab('cases', 'cf02-panel-cases', __('My cases', self::TEXT_DOMAIN), 'cases', false)
