@@ -14,6 +14,9 @@ $contract = (string) file_get_contents($root . '/src/Contracts/SupportContractCa
 $manifest = json_decode((string) file_get_contents($root . '/release/manifest.json'), true, 512, JSON_THROW_ON_ERROR);
 
 assert($manifest['contract_version'] === '1.3.0');
+assert($manifest['plugin_version'] === '1.0.0-rc.8');
+assert(($manifest['governing_master_plan'] ?? '') === 'V12.3');
+assert(($manifest['v12_3_traceability_status'] ?? '') === 'partial-candidate-not-accepted');
 assert(str_contains($contract, "CONTRACT_VERSION = '1.3.0'"));
 assert(str_contains($php, 'private static function guestIntake(): string'));
 assert(str_contains($php, 'data-cf02-guest'));
@@ -36,6 +39,14 @@ assert(str_contains($guestController, "\$receivedAt = new DateTimeImmutable((str
 assert(str_contains($guestController, "'received_at' => \$receivedAt->format(DATE_ATOM)"));
 assert(str_contains($css, 'var(--sabri-color-primary, #087A4E)'));
 assert(str_contains($css, 'var(--sabri-color-primary-strong, #065C3B)'));
+assert(str_contains($css, 'var(--sabri-color-hover, #065F3D)'));
+assert(str_contains($css, 'var(--sabri-color-control-border, #6B8476)'));
+assert(str_contains($css, 'cf02-high-contrast'));
+assert(str_contains($php, 'Quick public troubleshooting'));
+assert(str_contains($php, 'data-cf02-accessibility'));
+assert(str_contains($js, 'initAccessibility(group)'));
+assert(str_contains($js, 'selected.size > 25 * 1024 * 1024'));
+assert(str_contains($js, "cache: 'no-store'"));
 assert(str_contains($css, '@media (prefers-color-scheme: dark)'));
 foreach ([
     'docs/PRODUCTION-READINESS.md',
