@@ -113,7 +113,7 @@ final class CompleteFrontendSurfaces
             . ' data-storage-text="' . esc_attr__('Secure browser continuation is unavailable. Sign in and submit a new case.', self::TEXT_DOMAIN) . '"'
             . ' data-offline-text="' . esc_attr__('You are offline. Reconnect and retry.', self::TEXT_DOMAIN) . '"'
             . ' data-unavailable-text="' . esc_attr__('This issue needs a different support route.', self::TEXT_DOMAIN) . '"'
-            . ' data-emergency-text="' . esc_attr__('This request cannot use general support. For immediate danger contact local emergency services; for security or privacy incidents use the designated specialist channel.', self::TEXT_DOMAIN) . '">';
+            . ' data-emergency-text="' . esc_attr__('This request cannot use general support. For immediate danger contact local emergency services; for security or privacy incidents use the designated specialist channel.', self::TEXT_DOMAIN) . '">'
             . '<label>' . esc_html__('Category', self::TEXT_DOMAIN) . '<select name="category" required>' . $options . '</select></label>'
             . '<label>' . esc_html__('Subject', self::TEXT_DOMAIN) . '<input name="subject" minlength="5" maxlength="191" required dir="auto" autocomplete="off"></label>'
             . '<label>' . esc_html__('Description', self::TEXT_DOMAIN) . '<textarea name="description" rows="4" maxlength="3000" dir="auto"></textarea></label>'
